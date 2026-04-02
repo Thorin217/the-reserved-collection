@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug');
             $table->string('description')->nullable();
-            $table->enum('status', ['active','inactive'])->default('active');
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

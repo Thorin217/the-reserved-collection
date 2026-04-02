@@ -21,7 +21,7 @@ return new class extends Migration
             $table->boolean('is_filterable')->default(false);
             $table->boolean('is_required')->default(false);
             $table->integer('sort_order')->default(0);
-            $table->enum('status', ['active','inactive'])->default('active');
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

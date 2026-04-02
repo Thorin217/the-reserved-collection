@@ -15,10 +15,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('branch_id')->constrained()->onDelete('cascade');
             $table->string('name');
-            $table->enum('status', ['main', 'display', 'returns', 'transit', 'reserved', 'damaged'])->default('main');
+            $table->enum('type', ['main', 'display', 'returns', 'transit', 'reserved', 'damaged'])->default('main');
             $table->boolean('allows_sales')->default(true);
             $table->text('description')->nullable();
-            $table->enum('is_active', ['active', 'inactive'])->default('active');
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

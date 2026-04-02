@@ -21,7 +21,7 @@ return new class extends Migration
             $table->decimal('price', 16,8)->nullable();
             $table->decimal('compare_price', 16,8)->nullable();
             $table->decimal('weight', 10,3)->nullable();
-            $table->enum('status', ['active','inactive'])->default('active');
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }
