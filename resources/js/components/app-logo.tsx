@@ -1,14 +1,18 @@
-import AppLogoIcon from '@/components/app-logo-icon';
-
 export default function AppLogo() {
     return (
         <>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                <AppLogoIcon className="size-5 fill-current text-white dark:text-black" />
+            {/* Monograma TRC */}
+            <div className="flex aspect-square size-8 items-center justify-center rounded-sm border border-sidebar-primary/40 bg-sidebar-primary/10 shrink-0">
+                <span className="text-xs font-semibold tracking-widest text-sidebar-primary" style={{ fontFamily: 'var(--font-serif)' }}>
+                    TRC
+                </span>
             </div>
-            <div className="ml-1 grid flex-1 text-left text-sm">
-                <span className="mb-0.5 truncate leading-tight font-semibold">
-                    Laravel Starter Kit
+            <div className="ml-2 grid flex-1 text-left leading-tight">
+                <span className="truncate text-xs font-medium tracking-widest uppercase text-sidebar-primary/80">
+                    The Reserved
+                </span>
+                <span className="truncate text-[10px] tracking-widest uppercase text-sidebar-foreground/50">
+                    Collection
                 </span>
             </div>
         </>

@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -7,6 +7,7 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
+import { useAppearance } from '@/hooks/use-appearance';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
@@ -16,13 +17,36 @@ type Props = {
     user: User;
 };
 
+const APPEARANCE_CYCLE = ['light', 'dark', 'system'] as const;
+
+const APPEARANCE_ICONS = {
+    light: Sun,
+    dark: Moon,
+    system: Monitor,
+} as const;
+
+const APPEARANCE_LABELS = {
+    light: 'Claro',
+    dark: 'Oscuro',
+    system: 'Sistema',
+} as const;
+
 export function UserMenuContent({ user }: Props) {
     const cleanup = useMobileNavigation();
+    const { appearance, updateAppearance } = useAppearance();
 
     const handleLogout = () => {
         cleanup();
         router.flushAll();
     };
+
+    const cycleAppearance = () => {
+        const current = APPEARANCE_CYCLE.indexOf(appearance as (typeof APPEARANCE_CYCLE)[number]);
+        const next = APPEARANCE_CYCLE[(current + 1) % APPEARANCE_CYCLE.length];
+        updateAppearance(next);
+    };
+
+    const AppearanceIcon = APPEARANCE_ICONS[appearance as keyof typeof APPEARANCE_ICONS] ?? Monitor;
 
     return (
         <>
@@ -43,6 +67,10 @@ export function UserMenuContent({ user }: Props) {
                         <Settings className="mr-2" />
                         Settings
                     </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={cycleAppearance} className="cursor-pointer">
+                    <AppearanceIcon className="mr-2" />
+                    <span>Tema: {APPEARANCE_LABELS[appearance as keyof typeof APPEARANCE_LABELS] ?? 'Sistema'}</span>
                 </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
