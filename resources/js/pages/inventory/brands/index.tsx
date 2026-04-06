@@ -52,24 +52,24 @@ export default function BrandsIndex({ brands }: Props) {
     }
 
     function deleteBrand(brand: Brand) {
-        if (!confirm(`¿Eliminar marca "${brand.name}"? Esta acción no se puede deshacer.`)) { return; }
+        if (!confirm(`Delete brand "${brand.name}"? This action cannot be undone.`)) { return; }
         router.delete(BrandController.destroy.url(brand));
     }
 
     return (
         <>
-            <Head title="Marcas" />
+            <Head title="Brands" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <FlashMessage />
 
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold">Marcas</h1>
-                        <p className="text-sm text-muted-foreground">{brands.meta.total} marcas registradas</p>
+                        <h1 className="text-2xl font-bold">Brands</h1>
+                        <p className="text-sm text-muted-foreground">{brands.meta.total} brands registered</p>
                     </div>
                     <Button onClick={openCreate} size="sm">
                         <Plus className="mr-2 h-4 w-4" />
-                        Nueva marca
+                        New brand
                     </Button>
                 </div>
 
@@ -78,11 +78,11 @@ export default function BrandsIndex({ brands }: Props) {
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                    <TableHead>Marca</TableHead>
-                                    <TableHead>Descripción</TableHead>
-                                    <TableHead className="text-center">Productos</TableHead>
-                                    <TableHead className="text-center">Estado</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
+                                    <TableHead>Brand</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-center">Products</TableHead>
+                                    <TableHead className="text-center">Status</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -93,7 +93,7 @@ export default function BrandsIndex({ brands }: Props) {
                                         <TableCell className="text-center">{brand.products_count ?? 0}</TableCell>
                                         <TableCell className="text-center">
                                             <Badge variant={brand.is_active ? 'default' : 'secondary'}>
-                                                {brand.is_active ? 'Activa' : 'Inactiva'}
+                                                {brand.is_active ? 'Active' : 'Inactive'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -111,8 +111,8 @@ export default function BrandsIndex({ brands }: Props) {
                                 {brands.data.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                                            No hay marcas registradas.{' '}
-                                            <button className="text-primary underline" onClick={openCreate}>Crear primera marca</button>
+                                            No brands registered.{' '}
+                                            <button className="text-primary underline" onClick={openCreate}>Create first brand</button>
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -121,62 +121,59 @@ export default function BrandsIndex({ brands }: Props) {
                     </CardContent>
                 </Card>
 
-                {/* Paginación */}
                 {brands.meta.last_page > 1 && (
                     <div className="flex justify-center gap-2">
-                        {brands.links.prev && <Link href={brands.links.prev} className="text-sm text-primary underline">← Anterior</Link>}
-                        <span className="text-sm text-muted-foreground">Página {brands.meta.current_page} de {brands.meta.last_page}</span>
-                        {brands.links.next && <Link href={brands.links.next} className="text-sm text-primary underline">Siguiente →</Link>}
+                        {brands.links.prev && <Link href={brands.links.prev} className="text-sm text-primary underline">← Previous</Link>}
+                        <span className="text-sm text-muted-foreground">Page {brands.meta.current_page} of {brands.meta.last_page}</span>
+                        {brands.links.next && <Link href={brands.links.next} className="text-sm text-primary underline">Next →</Link>}
                     </div>
                 )}
             </div>
 
-            {/* Modal: Crear */}
             <Dialog open={creating} onOpenChange={setCreating}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Nueva marca</DialogTitle>
+                        <DialogTitle>New brand</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={submitCreate} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="create-name">Nombre *</Label>
+                            <Label htmlFor="create-name">Name *</Label>
                             <Input id="create-name" value={storeForm.data.name} onChange={e => storeForm.setData('name', e.target.value)} placeholder="Rolex, Cartier..." />
                             <InputError message={storeForm.errors.name} />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="create-desc">Descripción</Label>
-                            <Input id="create-desc" value={storeForm.data.description} onChange={e => storeForm.setData('description', e.target.value)} placeholder="Descripción opcional" />
+                            <Label htmlFor="create-desc">Description</Label>
+                            <Input id="create-desc" value={storeForm.data.description} onChange={e => storeForm.setData('description', e.target.value)} placeholder="Optional description" />
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setCreating(false)}>Cancelar</Button>
+                            <Button type="button" variant="outline" onClick={() => setCreating(false)}>Cancel</Button>
                             <Button type="submit" disabled={storeForm.processing}>
-                                {storeForm.processing ? 'Guardando...' : 'Crear marca'}
+                                {storeForm.processing ? 'Saving...' : 'Create brand'}
                             </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
 
-            {/* Modal: Editar */}
             <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Editar marca</DialogTitle>
+                        <DialogTitle>Edit brand</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={submitEdit} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="edit-name">Nombre *</Label>
+                            <Label htmlFor="edit-name">Name *</Label>
                             <Input id="edit-name" value={editForm.data.name} onChange={e => editForm.setData('name', e.target.value)} />
                             <InputError message={editForm.errors.name} />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="edit-desc">Descripción</Label>
+                            <Label htmlFor="edit-desc">Description</Label>
                             <Input id="edit-desc" value={editForm.data.description} onChange={e => editForm.setData('description', e.target.value)} />
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+                            <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
                             <Button type="submit" disabled={editForm.processing}>
-                                {editForm.processing ? 'Guardando...' : 'Guardar cambios'}
+                                {editForm.processing ? 'Saving...' : 'Save changes'}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -187,7 +184,7 @@ export default function BrandsIndex({ brands }: Props) {
 }
 
 BrandsIndex.layout = (page: React.ReactNode) => (
-    <AppLayout breadcrumbs={[{ title: 'Inventario', href: '#' }, { title: 'Marcas', href: brandsIndex() }]}>
+    <AppLayout breadcrumbs={[{ title: 'Inventory', href: '#' }, { title: 'Brands', href: brandsIndex() }]}>
         {page}
     </AppLayout>
 );

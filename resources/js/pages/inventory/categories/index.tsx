@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import * as CategoryController from '@/actions/App/Http/Controllers/Admin/CategoryController';
@@ -63,24 +63,24 @@ export default function CategoriesIndex({ categories, parents }: Props) {
     }
 
     function deleteCategory(category: Category) {
-        if (!confirm(`¿Eliminar categoría "${category.name}"?`)) { return; }
+        if (!confirm(`Delete category "${category.name}"?`)) { return; }
         router.delete(CategoryController.destroy.url(category));
     }
 
     return (
         <>
-            <Head title="Categorías" />
+            <Head title="Categories" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <FlashMessage />
 
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold">Categorías</h1>
-                        <p className="text-sm text-muted-foreground">{categories.meta.total} categorías registradas</p>
+                        <h1 className="text-2xl font-bold">Categories</h1>
+                        <p className="text-sm text-muted-foreground">{categories.meta.total} categories registered</p>
                     </div>
                     <Button onClick={openCreate} size="sm">
                         <Plus className="mr-2 h-4 w-4" />
-                        Nueva categoría
+                        New category
                     </Button>
                 </div>
 
@@ -89,11 +89,11 @@ export default function CategoriesIndex({ categories, parents }: Props) {
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                    <TableHead>Nombre</TableHead>
-                                    <TableHead>Categoría padre</TableHead>
-                                    <TableHead className="text-center">Productos</TableHead>
-                                    <TableHead className="text-center">Estado</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Parent category</TableHead>
+                                    <TableHead className="text-center">Products</TableHead>
+                                    <TableHead className="text-center">Status</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -104,7 +104,7 @@ export default function CategoriesIndex({ categories, parents }: Props) {
                                         <TableCell className="text-center">{category.products_count ?? 0}</TableCell>
                                         <TableCell className="text-center">
                                             <Badge variant={category.is_active ? 'default' : 'secondary'}>
-                                                {category.is_active ? 'Activa' : 'Inactiva'}
+                                                {category.is_active ? 'Active' : 'Inactive'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -122,8 +122,8 @@ export default function CategoriesIndex({ categories, parents }: Props) {
                                 {categories.data.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                                            No hay categorías.{' '}
-                                            <button className="text-primary underline" onClick={openCreate}>Crear primera categoría</button>
+                                            No categories.{' '}
+                                            <button className="text-primary underline" onClick={openCreate}>Create first category</button>
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -133,65 +133,63 @@ export default function CategoriesIndex({ categories, parents }: Props) {
                 </Card>
             </div>
 
-            {/* Modal: Crear */}
             <Dialog open={creating} onOpenChange={setCreating}>
                 <DialogContent>
-                    <DialogHeader><DialogTitle>Nueva categoría</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>New category</DialogTitle></DialogHeader>
                     <form onSubmit={submitCreate} className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Nombre *</Label>
-                            <Input value={storeForm.data.name} onChange={e => storeForm.setData('name', e.target.value)} placeholder="Relojes, Joyería..." />
+                            <Label>Name *</Label>
+                            <Input value={storeForm.data.name} onChange={e => storeForm.setData('name', e.target.value)} placeholder="Watches, Jewelry..." />
                             <InputError message={storeForm.errors.name} />
                         </div>
                         <div className="space-y-2">
-                            <Label>Categoría padre</Label>
+                            <Label>Parent category</Label>
                             <Select value={storeForm.data.parent_id} onValueChange={v => storeForm.setData('parent_id', v)}>
-                                <SelectTrigger><SelectValue placeholder="Ninguna (raíz)" /></SelectTrigger>
-                                                                <SelectContent>
-                                    <SelectItem value={NO_PARENT}>Ninguna (raíz)</SelectItem>
+                                <SelectTrigger><SelectValue placeholder="None (root)" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={NO_PARENT}>None (root)</SelectItem>
                                     {parents.data.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <Label>Descripción</Label>
+                            <Label>Description</Label>
                             <Input value={storeForm.data.description} onChange={e => storeForm.setData('description', e.target.value)} />
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setCreating(false)}>Cancelar</Button>
-                            <Button type="submit" disabled={storeForm.processing}>{storeForm.processing ? 'Guardando...' : 'Crear'}</Button>
+                            <Button type="button" variant="outline" onClick={() => setCreating(false)}>Cancel</Button>
+                            <Button type="submit" disabled={storeForm.processing}>{storeForm.processing ? 'Saving...' : 'Create'}</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
 
-            {/* Modal: Editar */}
             <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
                 <DialogContent>
-                    <DialogHeader><DialogTitle>Editar categoría</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>Edit category</DialogTitle></DialogHeader>
                     <form onSubmit={submitEdit} className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Nombre *</Label>
+                            <Label>Name *</Label>
                             <Input value={editForm.data.name} onChange={e => editForm.setData('name', e.target.value)} />
                             <InputError message={editForm.errors.name} />
                         </div>
                         <div className="space-y-2">
-                            <Label>Categoría padre</Label>
+                            <Label>Parent category</Label>
                             <Select value={editForm.data.parent_id} onValueChange={v => editForm.setData('parent_id', v)}>
-                                <SelectTrigger><SelectValue placeholder="Ninguna (raíz)" /></SelectTrigger>
+                                <SelectTrigger><SelectValue placeholder="None (root)" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value={NO_PARENT}>Ninguna (raíz)</SelectItem>
+                                    <SelectItem value={NO_PARENT}>None (root)</SelectItem>
                                     {parents.data.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <Label>Descripción</Label>
+                            <Label>Description</Label>
                             <Input value={editForm.data.description} onChange={e => editForm.setData('description', e.target.value)} />
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
-                            <Button type="submit" disabled={editForm.processing}>{editForm.processing ? 'Guardando...' : 'Guardar'}</Button>
+                            <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+                            <Button type="submit" disabled={editForm.processing}>{editForm.processing ? 'Saving...' : 'Save'}</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
@@ -201,7 +199,7 @@ export default function CategoriesIndex({ categories, parents }: Props) {
 }
 
 CategoriesIndex.layout = (page: React.ReactNode) => (
-    <AppLayout breadcrumbs={[{ title: 'Inventario', href: '#' }, { title: 'Categorías', href: categoriesIndex() }]}>
+    <AppLayout breadcrumbs={[{ title: 'Inventory', href: '#' }, { title: 'Categories', href: categoriesIndex() }]}>
         {page}
     </AppLayout>
 );

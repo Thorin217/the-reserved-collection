@@ -55,30 +55,29 @@ export default function ProductCreate({ brands, categories }: Props) {
 
     return (
         <>
-            <Head title="Nuevo producto" />
+            <Head title="New product" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div>
-                    <h1 className="text-2xl font-bold">Nuevo producto</h1>
-                    <p className="text-sm text-muted-foreground">Completa los datos del producto y su variante principal</p>
+                    <h1 className="text-2xl font-bold">New product</h1>
+                    <p className="text-sm text-muted-foreground">Fill in the product details and its main variant</p>
                 </div>
 
                 <form onSubmit={submit} className="grid gap-6 lg:grid-cols-3">
-                    {/* Información general */}
                     <div className="lg:col-span-2 space-y-4">
                         <Card>
-                            <CardHeader><CardTitle>Información general</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>General information</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="name">Nombre *</Label>
-                                    <Input id="name" value={data.name} onChange={e => setData('name', e.target.value)} placeholder="Nombre del producto" />
+                                    <Label htmlFor="name">Name *</Label>
+                                    <Input id="name" value={data.name} onChange={e => setData('name', e.target.value)} placeholder="Product name" />
                                     <InputError message={errors.name} />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="brand">Marca *</Label>
+                                        <Label htmlFor="brand">Brand *</Label>
                                         <Select value={data.brand_id} onValueChange={v => setData('brand_id', v)}>
-                                            <SelectTrigger id="brand"><SelectValue placeholder="Seleccionar marca" /></SelectTrigger>
+                                            <SelectTrigger id="brand"><SelectValue placeholder="Select brand" /></SelectTrigger>
                                             <SelectContent>
                                                 {brands.data.map(b => <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>)}
                                             </SelectContent>
@@ -86,9 +85,9 @@ export default function ProductCreate({ brands, categories }: Props) {
                                         <InputError message={errors.brand_id} />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="category">Categoría *</Label>
+                                        <Label htmlFor="category">Category *</Label>
                                         <Select value={data.category_id} onValueChange={v => setData('category_id', v)}>
-                                            <SelectTrigger id="category"><SelectValue placeholder="Seleccionar categoría" /></SelectTrigger>
+                                            <SelectTrigger id="category"><SelectValue placeholder="Select category" /></SelectTrigger>
                                             <SelectContent>
                                                 {categories.data.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
                                             </SelectContent>
@@ -104,38 +103,37 @@ export default function ProductCreate({ brands, categories }: Props) {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="description">Descripción</Label>
+                                    <Label htmlFor="description">Description</Label>
                                     <textarea
                                         id="description"
                                         value={data.description}
                                         onChange={e => setData('description', e.target.value)}
                                         className="w-full min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                        placeholder="Descripción del producto..."
+                                        placeholder="Product description..."
                                     />
                                 </div>
                             </CardContent>
                         </Card>
 
-                        {/* Variante principal */}
                         <Card>
-                            <CardHeader><CardTitle>Variante principal</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>Main variant</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="variant-sku">SKU variante *</Label>
+                                    <Label htmlFor="variant-sku">Variant SKU *</Label>
                                     <Input id="variant-sku" value={data['variant[sku]']} onChange={e => setData('variant[sku]', e.target.value)} placeholder="ROL-001-VAR" className="font-mono" />
                                     <InputError message={errors['variant[sku]']} />
                                 </div>
                                 <div className="grid grid-cols-3 gap-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="cost">Costo (USD)</Label>
+                                        <Label htmlFor="cost">Cost (USD)</Label>
                                         <Input id="cost" type="number" step="0.01" min="0" value={data['variant[cost]']} onChange={e => setData('variant[cost]', e.target.value)} placeholder="0.00" />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="price">Precio venta (USD) *</Label>
+                                        <Label htmlFor="price">Sale price (USD) *</Label>
                                         <Input id="price" type="number" step="0.01" min="0" value={data['variant[price]']} onChange={e => setData('variant[price]', e.target.value)} placeholder="0.00" />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="compare-price">Precio comparación</Label>
+                                        <Label htmlFor="compare-price">Compare price</Label>
                                         <Input id="compare-price" type="number" step="0.01" min="0" value={data['variant[compare_price]']} onChange={e => setData('variant[compare_price]', e.target.value)} placeholder="0.00" />
                                     </div>
                                 </div>
@@ -143,24 +141,23 @@ export default function ProductCreate({ brands, categories }: Props) {
                         </Card>
                     </div>
 
-                    {/* Panel derecho */}
                     <div className="space-y-4">
                         <Card>
-                            <CardHeader><CardTitle>Estado y tipo</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>Status & type</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label>Estado</Label>
+                                    <Label>Status</Label>
                                     <Select value={data.status} onValueChange={v => setData('status', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="draft">Borrador</SelectItem>
-                                            <SelectItem value="active">Activo</SelectItem>
-                                            <SelectItem value="inactive">Inactivo</SelectItem>
+                                            <SelectItem value="draft">Draft</SelectItem>
+                                            <SelectItem value="active">Active</SelectItem>
+                                            <SelectItem value="inactive">Inactive</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Tipo de producto</Label>
+                                    <Label>Product type</Label>
                                     <Select value={data.product_type} onValueChange={v => {
                                         setData('product_type', v);
                                         setData('has_serial_numbers', v === 'serializable');
@@ -168,15 +165,15 @@ export default function ProductCreate({ brands, categories }: Props) {
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="simple">Simple</SelectItem>
-                                            <SelectItem value="variant">Con variantes</SelectItem>
-                                            <SelectItem value="serializable">Con seriales (relojes/joyas)</SelectItem>
+                                            <SelectItem value="variant">With variants</SelectItem>
+                                            <SelectItem value="serializable">With serials (watches/jewelry)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <InputError message={errors.product_type} />
                                 </div>
                                 {data.product_type === 'serializable' && (
                                     <p className="text-xs text-muted-foreground">
-                                        Cada unidad tendrá un número de serie único para trazabilidad completa.
+                                        Each unit will have a unique serial number for full traceability.
                                     </p>
                                 )}
                             </CardContent>
@@ -184,10 +181,10 @@ export default function ProductCreate({ brands, categories }: Props) {
 
                         <div className="flex gap-2">
                             <Button type="button" variant="outline" className="flex-1" onClick={() => history.back()}>
-                                Cancelar
+                                Cancel
                             </Button>
                             <Button type="submit" className="flex-1" disabled={processing}>
-                                {processing ? 'Guardando...' : 'Crear producto'}
+                                {processing ? 'Saving...' : 'Create product'}
                             </Button>
                         </div>
                     </div>
@@ -199,9 +196,9 @@ export default function ProductCreate({ brands, categories }: Props) {
 
 ProductCreate.layout = (page: React.ReactNode) => (
     <AppLayout breadcrumbs={[
-        { title: 'Inventario', href: '#' },
-        { title: 'Productos', href: productsIndex() },
-        { title: 'Nuevo', href: createRoute() },
+        { title: 'Inventory', href: '#' },
+        { title: 'Products', href: productsIndex() },
+        { title: 'New', href: createRoute() },
     ]}>
         {page}
     </AppLayout>

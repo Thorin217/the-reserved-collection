@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
-import { FolderOpen, LayoutGrid, Package, Tag } from 'lucide-react';
+import { FolderOpen, LayoutGrid, Package, Tag, TrendingUp, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
+import { NavCollapsible } from '@/components/nav-collapsible';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -17,6 +18,8 @@ import {
 import { dashboard } from '@/routes';
 import { index as brandsIndex } from '@/routes/admin/brands';
 import { index as categoriesIndex } from '@/routes/admin/categories';
+import { index as clientsIndex } from '@/routes/admin/clients';
+import { index as leadsIndex } from '@/routes/admin/leads';
 import { index as productsIndex } from '@/routes/admin/products';
 import type { NavItem } from '@/types';
 
@@ -30,19 +33,32 @@ const mainNavItems: NavItem[] = [
 
 const inventoryNavItems: NavItem[] = [
     {
-        title: 'Productos',
+        title: 'Products',
         href: productsIndex(),
         icon: Package,
     },
     {
-        title: 'Marcas',
+        title: 'Brands',
         href: brandsIndex(),
         icon: Tag,
     },
     {
-        title: 'Categorías',
+        title: 'Categories',
         href: categoriesIndex(),
         icon: FolderOpen,
+    },
+];
+
+const crmNavItems: NavItem[] = [
+    {
+        title: 'Clients',
+        href: clientsIndex(),
+        icon: Users,
+    },
+    {
+        title: 'Leads',
+        href: leadsIndex(),
+        icon: TrendingUp,
     },
 ];
 
@@ -66,7 +82,9 @@ export function AppSidebar() {
             <SidebarContent>
                 <NavMain items={mainNavItems} label="General" />
                 <SidebarSeparator />
-                <NavMain items={inventoryNavItems} label="Inventario" />
+                <NavMain items={inventoryNavItems} label="Inventory" />
+                <SidebarSeparator />
+                <NavCollapsible label="CRM" title="CRM" items={crmNavItems} />
             </SidebarContent>
 
             <SidebarFooter>

@@ -36,27 +36,27 @@ export default function ProductEdit({ product: { data: product }, brands, catego
 
     return (
         <>
-            <Head title={`Editar: ${product.name}`} />
+            <Head title={`Edit: ${product.name}`} />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div>
-                    <h1 className="text-2xl font-bold">Editar producto</h1>
+                    <h1 className="text-2xl font-bold">Edit product</h1>
                     <p className="text-sm text-muted-foreground font-mono">{product.sku}</p>
                 </div>
 
                 <form onSubmit={submit} className="grid gap-6 lg:grid-cols-3">
                     <div className="lg:col-span-2 space-y-4">
                         <Card>
-                            <CardHeader><CardTitle>Información general</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>General information</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="name">Nombre *</Label>
+                                    <Label htmlFor="name">Name *</Label>
                                     <Input id="name" value={data.name} onChange={e => setData('name', e.target.value)} />
                                     <InputError message={errors.name} />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label>Marca *</Label>
+                                        <Label>Brand *</Label>
                                         <Select value={data.brand_id} onValueChange={v => setData('brand_id', v)}>
                                             <SelectTrigger><SelectValue /></SelectTrigger>
                                             <SelectContent>
@@ -66,7 +66,7 @@ export default function ProductEdit({ product: { data: product }, brands, catego
                                         <InputError message={errors.brand_id} />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Categoría *</Label>
+                                        <Label>Category *</Label>
                                         <Select value={data.category_id} onValueChange={v => setData('category_id', v)}>
                                             <SelectTrigger><SelectValue /></SelectTrigger>
                                             <SelectContent>
@@ -84,7 +84,7 @@ export default function ProductEdit({ product: { data: product }, brands, catego
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="description">Descripción</Label>
+                                    <Label htmlFor="description">Description</Label>
                                     <textarea
                                         id="description"
                                         value={data.description}
@@ -95,17 +95,16 @@ export default function ProductEdit({ product: { data: product }, brands, catego
                             </CardContent>
                         </Card>
 
-                        {/* Variantes existentes (solo lectura) */}
                         {product.variants && product.variants.length > 0 && (
                             <Card>
-                                <CardHeader><CardTitle>Variantes ({product.variants.length})</CardTitle></CardHeader>
+                                <CardHeader><CardTitle>Variants ({product.variants.length})</CardTitle></CardHeader>
                                 <CardContent className="p-0">
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="border-b bg-muted/50">
                                                 <th className="px-4 py-2 text-left font-medium">SKU</th>
-                                                <th className="px-4 py-2 text-right font-medium">Costo</th>
-                                                <th className="px-4 py-2 text-right font-medium">Precio</th>
+                                                <th className="px-4 py-2 text-right font-medium">Cost</th>
+                                                <th className="px-4 py-2 text-right font-medium">Price</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
@@ -125,27 +124,27 @@ export default function ProductEdit({ product: { data: product }, brands, catego
 
                     <div className="space-y-4">
                         <Card>
-                            <CardHeader><CardTitle>Estado y tipo</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>Status & type</CardTitle></CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label>Estado</Label>
+                                    <Label>Status</Label>
                                     <Select value={data.status} onValueChange={v => setData('status', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="draft">Borrador</SelectItem>
-                                            <SelectItem value="active">Activo</SelectItem>
-                                            <SelectItem value="inactive">Inactivo</SelectItem>
+                                            <SelectItem value="draft">Draft</SelectItem>
+                                            <SelectItem value="active">Active</SelectItem>
+                                            <SelectItem value="inactive">Inactive</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Tipo de producto</Label>
+                                    <Label>Product type</Label>
                                     <Select value={data.product_type} onValueChange={v => setData('product_type', v)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="simple">Simple</SelectItem>
-                                            <SelectItem value="variant">Con variantes</SelectItem>
-                                            <SelectItem value="serializable">Con seriales</SelectItem>
+                                            <SelectItem value="variant">With variants</SelectItem>
+                                            <SelectItem value="serializable">With serials</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -154,10 +153,10 @@ export default function ProductEdit({ product: { data: product }, brands, catego
 
                         <div className="flex gap-2">
                             <Button type="button" variant="outline" className="flex-1" onClick={() => history.back()}>
-                                Cancelar
+                                Cancel
                             </Button>
                             <Button type="submit" className="flex-1" disabled={processing}>
-                                {processing ? 'Guardando...' : 'Guardar cambios'}
+                                {processing ? 'Saving...' : 'Save changes'}
                             </Button>
                         </div>
                     </div>
@@ -169,9 +168,9 @@ export default function ProductEdit({ product: { data: product }, brands, catego
 
 ProductEdit.layout = (page: React.ReactNode) => (
     <AppLayout breadcrumbs={[
-        { title: 'Inventario', href: '#' },
-        { title: 'Productos', href: productsIndex() },
-        { title: 'Editar', href: '#' },
+        { title: 'Inventory', href: '#' },
+        { title: 'Products', href: productsIndex() },
+        { title: 'Edit', href: '#' },
     ]}>
         {page}
     </AppLayout>

@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Models;
+
+use Database\Factories\ClientFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Client extends Model
+{
+    /** @use HasFactory<ClientFactory> */
+    use HasFactory;
+
+    protected $fillable = [
+        'name',
+        'email',
+        'phone',
+        'document_type',
+        'document_number',
+        'address',
+        'notes',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
+    public function leads(): HasMany
+    {
+        return $this->hasMany(Lead::class);
+    }
+}
