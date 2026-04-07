@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ProductSerialStatus;
+use App\Enums\ProductStatus;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
@@ -16,10 +18,10 @@ class DashboardController extends Controller
         return Inertia::render('dashboard', [
             'stats' => [
                 'products' => Product::count(),
-                'active_products' => Product::where('status', 'active')->count(),
+                'active_products' => Product::where('status', ProductStatus::Active->value)->count(),
                 'brands' => Brand::count(),
                 'categories' => Category::count(),
-                'serials_available' => ProductSerial::where('status', 'available')->count(),
+                'serials_available' => ProductSerial::where('status', ProductSerialStatus::Available->value)->count(),
                 'serials_total' => ProductSerial::count(),
             ],
             'recent_products' => Product::with('brand')

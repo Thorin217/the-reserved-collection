@@ -1,5 +1,16 @@
 <?php
 
+use App\Enums\AttributeDataType;
+use App\Enums\AttributeEntityLevel;
+use App\Enums\InventoryAdjustmentStatus;
+use App\Enums\InventoryAdjustmentType;
+use App\Enums\InventoryMovementType;
+use App\Enums\InventoryReservationStatus;
+use App\Enums\InventoryTransferStatus;
+use App\Enums\ProductSerialStatus;
+use App\Enums\ProductStatus;
+use App\Enums\ProductType;
+use App\Enums\WarehouseType;
 use App\Models\Attribute as CatalogAttribute;
 use App\Models\AttributeOption;
 use App\Models\Branch;
@@ -40,6 +51,8 @@ it('configures attribute model from migration', function () {
         'is_active',
     ])
         ->and($model->getCasts())->toMatchArray([
+            'entity_level' => AttributeEntityLevel::class,
+            'data_type' => AttributeDataType::class,
             'is_filterable' => 'boolean',
             'is_required' => 'boolean',
             'sort_order' => 'integer',
@@ -146,6 +159,8 @@ it('configures inventory adjustment model from migration', function () {
     ])
         ->and($model->getCasts())->toMatchArray([
             'warehouse_id' => 'integer',
+            'adjustment_type' => InventoryAdjustmentType::class,
+            'status' => InventoryAdjustmentStatus::class,
             'created_by' => 'integer',
             'confirmed_by' => 'integer',
             'confirmed_at' => 'datetime',
@@ -199,6 +214,7 @@ it('configures inventory movement model from migration', function () {
         'user_id',
     ])
         ->and($model->getCasts())->toMatchArray([
+            'movement_type' => InventoryMovementType::class,
             'reference_id' => 'integer',
             'branch_id' => 'integer',
             'warehouse_id' => 'integer',
@@ -239,6 +255,7 @@ it('configures inventory reservation model from migration', function () {
             'product_variant_id' => 'integer',
             'reference_id' => 'integer',
             'quantity' => 'decimal:3',
+            'status' => InventoryReservationStatus::class,
             'expires_at' => 'datetime',
         ])
         ->and($model->warehouse())->toBeInstanceOf(BelongsTo::class)
@@ -291,6 +308,7 @@ it('configures inventory transfer model from migration', function () {
         ->and($model->getCasts())->toMatchArray([
             'from_warehouse_id' => 'integer',
             'to_warehouse_id' => 'integer',
+            'status' => InventoryTransferStatus::class,
             'requested_by' => 'integer',
             'approved_by' => 'integer',
             'received_by' => 'integer',
@@ -350,8 +368,10 @@ it('configures product model from migration', function () {
         ->and($model->getCasts())->toMatchArray([
             'category_id' => 'integer',
             'brand_id' => 'integer',
+            'product_type' => ProductType::class,
             'track_stock' => 'boolean',
             'has_serial_numbers' => 'boolean',
+            'status' => ProductStatus::class,
         ])
         ->and($model->category())->toBeInstanceOf(BelongsTo::class)
         ->and($model->category()->getRelated())->toBeInstanceOf(Category::class)
@@ -415,6 +435,7 @@ it('configures product serial model from migration', function () {
         ->and($model->getCasts())->toMatchArray([
             'product_variant_id' => 'integer',
             'warehouse_id' => 'integer',
+            'status' => ProductSerialStatus::class,
         ])
         ->and($model->productVariant())->toBeInstanceOf(BelongsTo::class)
         ->and($model->productVariant()->getRelated())->toBeInstanceOf(ProductVariant::class)
@@ -479,6 +500,7 @@ it('configures warehouse model from migration', function () {
     ])
         ->and($model->getCasts())->toMatchArray([
             'branch_id' => 'integer',
+            'type' => WarehouseType::class,
             'allows_sales' => 'boolean',
             'is_active' => 'boolean',
         ])

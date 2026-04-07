@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\InventoryAdjustmentStatus;
+use App\Enums\InventoryAdjustmentType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +29,8 @@ class InventoryAdjustment extends Model implements HasMedia
 
     protected $casts = [
         'warehouse_id' => 'integer',
+        'adjustment_type' => InventoryAdjustmentType::class,
+        'status' => InventoryAdjustmentStatus::class,
         'created_by' => 'integer',
         'confirmed_by' => 'integer',
         'confirmed_at' => 'datetime',

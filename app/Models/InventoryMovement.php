@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\InventoryMovementType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,6 +30,7 @@ class InventoryMovement extends Model implements HasMedia
     ];
 
     protected $casts = [
+        'movement_type' => InventoryMovementType::class,
         'reference_id' => 'integer',
         'branch_id' => 'integer',
         'warehouse_id' => 'integer',

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\InventoryReservationStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +29,7 @@ class InventoryReservation extends Model implements HasMedia
         'product_variant_id' => 'integer',
         'reference_id' => 'integer',
         'quantity' => 'decimal:3',
+        'status' => InventoryReservationStatus::class,
         'expires_at' => 'datetime',
     ];
 

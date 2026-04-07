@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ProductSerialStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,7 @@ class ProductSerial extends Model implements HasMedia
     protected $casts = [
         'product_variant_id' => 'integer',
         'warehouse_id' => 'integer',
+        'status' => ProductSerialStatus::class,
     ];
 
     // Relacion "ProductVariant"

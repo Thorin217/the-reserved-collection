@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\AttributeDataType;
+use App\Enums\AttributeEntityLevel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -25,6 +27,8 @@ class Attribute extends Model implements HasMedia
     ];
 
     protected $casts = [
+        'entity_level' => AttributeEntityLevel::class,
+        'data_type' => AttributeDataType::class,
         'is_filterable' => 'boolean',
         'is_required' => 'boolean',
         'sort_order' => 'integer',

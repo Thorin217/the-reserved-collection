@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\WarehouseType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,7 @@ class Warehouse extends Model implements HasMedia
 
     protected $casts = [
         'branch_id' => 'integer',
+        'type' => WarehouseType::class,
         'allows_sales' => 'boolean',
         'is_active' => 'boolean',
     ];

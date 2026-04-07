@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { FolderOpen, LayoutGrid, Package, Tag, TrendingUp, Users } from 'lucide-react';
+import { ArrowRightLeft, FolderOpen, LayoutGrid, Package, ShieldCheck, Tag, TrendingUp, Users, Warehouse } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavCollapsible } from '@/components/nav-collapsible';
 import { NavFooter } from '@/components/nav-footer';
@@ -36,6 +36,31 @@ const inventoryNavItems: NavItem[] = [
         title: 'Products',
         href: productsIndex(),
         icon: Package,
+    },
+    {
+        title: 'Stocks',
+        href: '/admin/inventory/stocks',
+        icon: Warehouse,
+    },
+    {
+        title: 'Movements',
+        href: '/admin/inventory/movements',
+        icon: TrendingUp,
+    },
+    {
+        title: 'Transfers',
+        href: '/admin/inventory/transfers',
+        icon: ArrowRightLeft,
+    },
+    {
+        title: 'Adjustments',
+        href: '/admin/inventory/adjustments',
+        icon: ShieldCheck,
+    },
+    {
+        title: 'Reservations',
+        href: '/admin/inventory/reservations',
+        icon: Tag,
     },
     {
         title: 'Brands',

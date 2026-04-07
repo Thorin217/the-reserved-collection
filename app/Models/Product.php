@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\ProductStatus;
+use App\Enums\ProductType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,8 +31,10 @@ class Product extends Model implements HasMedia
     protected $casts = [
         'category_id' => 'integer',
         'brand_id' => 'integer',
+        'product_type' => ProductType::class,
         'track_stock' => 'boolean',
         'has_serial_numbers' => 'boolean',
+        'status' => ProductStatus::class,
     ];
 
     // Relaciones

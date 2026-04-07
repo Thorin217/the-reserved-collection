@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\ProductStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreProductRequest;
 use App\Http\Requests\Admin\UpdateProductRequest;
@@ -22,10 +23,12 @@ class ProductController extends Controller
 {
     public function index(Request $request): Response
     {
+        $status = ProductStatus::tryFrom((string) $request->status);
+
         $products = Product::with(['category', 'brand'])
             ->withCount('variants')
             ->when($request->search, fn ($q, $search) => $q->where('name', 'like', "%{$search}%")->orWhere('sku', 'like', "%{$search}%"))
-            ->when($request->status, fn ($q, $status) => $q->where('status', $status))
+            ->when($status, fn ($q) => $q->where('status', $status->value))
             ->when($request->brand_id, fn ($q, $brandId) => $q->where('brand_id', $brandId))
             ->when($request->category_id, fn ($q, $categoryId) => $q->where('category_id', $categoryId))
             ->latest()
