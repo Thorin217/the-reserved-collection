@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class InventoryReservation extends Model
+class InventoryReservation extends Model implements HasMedia
 {
-    use HasFactory;
+    use HasFactory, InteractsWithMedia;
 
     protected $fillable = [
         'warehouse_id',
@@ -45,5 +47,10 @@ class InventoryReservation extends Model
     public function reference(): MorphTo
     {
         return $this->morphTo(__FUNCTION__, 'reference_type', 'reference_id');
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('inventory-reservation');
     }
 }

@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Warehouse extends Model
+class Warehouse extends Model implements HasMedia
 {
-    use HasFactory;
+    use HasFactory, InteractsWithMedia;
 
     protected $fillable = [
         'branch_id',
@@ -72,5 +74,10 @@ class Warehouse extends Model
     public function incomingTransfers(): HasMany
     {
         return $this->hasMany(InventoryTransfer::class, 'to_warehouse_id');
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('warehouse');
     }
 }

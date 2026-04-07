@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class InventoryAdjustment extends Model
+class InventoryAdjustment extends Model implements HasMedia
 {
-    use HasFactory;
+    use HasFactory, InteractsWithMedia;
 
     protected $fillable = [
         'code',
@@ -52,5 +54,10 @@ class InventoryAdjustment extends Model
     public function items(): HasMany
     {
         return $this->hasMany(InventoryAdjustmentItem::class, 'adjustment_id');
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('inventory-adjustment');
     }
 }
