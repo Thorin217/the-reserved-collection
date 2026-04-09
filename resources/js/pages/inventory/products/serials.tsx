@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { index as productsIndex } from '@/routes/admin/products';
 import type { InventoryMovement, PaginatedData, Product, ProductSerial, Warehouse } from '@/types';
@@ -167,12 +168,22 @@ export default function ProductSerials({ product: { data: product }, serials, mo
                                                     </td>
                                                     <td className="px-4 py-2">
                                                         <div className="flex items-center justify-end gap-1">
-                                                            <Button variant="ghost" size="sm" onClick={() => openEdit(serial)}>
-                                                                Edit
-                                                            </Button>
-                                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteSerial(serial)}>
-                                                                <Trash2 className="h-3 w-3" />
-                                                            </Button>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="sm" onClick={() => openEdit(serial)}>
+                                                                        Edit
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>Edit serial</TooltipContent>
+                                                            </Tooltip>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteSerial(serial)}>
+                                                                        <Trash2 className="h-3 w-3" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>Delete serial</TooltipContent>
+                                                            </Tooltip>
                                                         </div>
                                                     </td>
                                                 </tr>

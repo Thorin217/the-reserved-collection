@@ -34,12 +34,12 @@ type FormData = {
     track_stock: boolean;
     has_serial_numbers: boolean;
     status: string;
-    variant: {
+    variants: Array<{
         sku: string;
         cost: string;
         price: string;
         compare_price: string;
-    };
+    }>;
 };
 
 export default function ProductCreate({ brands, categories }: Props) {
@@ -53,13 +53,47 @@ export default function ProductCreate({ brands, categories }: Props) {
         track_stock: true,
         has_serial_numbers: true,
         status: 'draft',
-        variant: {
-            sku: '',
-            cost: '',
-            price: '',
-            compare_price: '',
-        },
+        variants: [
+            {
+                sku: '',
+                cost: '',
+                price: '',
+                compare_price: '',
+            },
+        ],
     });
+
+    const formErrors = errors as Record<string, string | undefined>;
+
+    function addVariant(): void {
+        setData('variants', [
+            ...data.variants,
+            {
+                sku: '',
+                cost: '',
+                price: '',
+                compare_price: '',
+            },
+        ]);
+    }
+
+    function removeVariant(index: number): void {
+        const updatedVariants = data.variants.filter((_, idx) => idx !== index);
+
+        setData(
+            'variants',
+            updatedVariants.length > 0
+                ? updatedVariants
+                : [
+                      {
+                          sku: '',
+                          cost: '',
+                          price: '',
+                          compare_price: '',
+                      },
+                  ],
+        );
+    }
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
@@ -73,7 +107,7 @@ export default function ProductCreate({ brands, categories }: Props) {
                 <div>
                     <h1 className="text-2xl font-bold">New product</h1>
                     <p className="text-sm text-muted-foreground">
-                        Fill in the product details and its main variant
+                        Fill in product details and register one or more variants
                     </p>
                 </div>
 
@@ -188,101 +222,157 @@ export default function ProductCreate({ brands, categories }: Props) {
 
                         <Card>
                             <CardHeader>
-                                <CardTitle>Main variant</CardTitle>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle>Variants</CardTitle>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={addVariant}
+                                    >
+                                        Add variant
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="variant-sku">
-                                        Variant SKU *
-                                    </Label>
-                                    <Input
-                                        id="variant-sku"
-                                        value={data.variant.sku}
-                                        onChange={(e) =>
-                                            setData('variant', {
-                                                ...data.variant,
-                                                sku: e.target.value,
-                                            })
-                                        }
-                                        placeholder="ROL-001-VAR"
-                                        className="font-mono"
-                                    />
-                                    <InputError
-                                        message={
-                                            errors['variant.sku'] ??
-                                            errors.variant
-                                        }
-                                    />
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="cost">Cost (USD)</Label>
-                                        <Input
-                                            id="cost"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={data.variant.cost}
-                                            onChange={(e) =>
-                                                setData('variant', {
-                                                    ...data.variant,
-                                                    cost: e.target.value,
-                                                })
-                                            }
-                                            placeholder="0.00"
-                                        />
-                                        <InputError
-                                            message={errors['variant.cost']}
-                                        />
+                                {data.variants.map((variant, index) => (
+                                    <div
+                                        key={`variant-${index}`}
+                                        className="space-y-4 rounded-md border p-4"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-sm font-medium">
+                                                Variant {index + 1}
+                                            </p>
+                                            <Button
+                                                type="button"
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => removeVariant(index)}
+                                                disabled={data.variants.length === 1}
+                                            >
+                                                Remove
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor={`variant-sku-${index}`}>
+                                                Variant SKU *
+                                            </Label>
+                                            <Input
+                                                id={`variant-sku-${index}`}
+                                                value={variant.sku}
+                                                onChange={(e) => {
+                                                    const nextVariants = [...data.variants];
+                                                    nextVariants[index] = {
+                                                        ...nextVariants[index],
+                                                        sku: e.target.value,
+                                                    };
+                                                    setData('variants', nextVariants);
+                                                }}
+                                                placeholder="ROL-001-VAR"
+                                                className="font-mono"
+                                            />
+                                            <InputError
+                                                message={
+                                                    formErrors[`variants.${index}.sku`]
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`cost-${index}`}>
+                                                    Cost (USD)
+                                                </Label>
+                                                <Input
+                                                    id={`cost-${index}`}
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={variant.cost}
+                                                    onChange={(e) => {
+                                                        const nextVariants = [
+                                                            ...data.variants,
+                                                        ];
+                                                        nextVariants[index] = {
+                                                            ...nextVariants[index],
+                                                            cost: e.target.value,
+                                                        };
+                                                        setData('variants', nextVariants);
+                                                    }}
+                                                    placeholder="0.00"
+                                                />
+                                                <InputError
+                                                    message={
+                                                        formErrors[`variants.${index}.cost`]
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`price-${index}`}>
+                                                    Sale price (USD) *
+                                                </Label>
+                                                <Input
+                                                    id={`price-${index}`}
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={variant.price}
+                                                    onChange={(e) => {
+                                                        const nextVariants = [
+                                                            ...data.variants,
+                                                        ];
+                                                        nextVariants[index] = {
+                                                            ...nextVariants[index],
+                                                            price: e.target.value,
+                                                        };
+                                                        setData('variants', nextVariants);
+                                                    }}
+                                                    placeholder="0.00"
+                                                />
+                                                <InputError
+                                                    message={
+                                                        formErrors[`variants.${index}.price`]
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`compare-price-${index}`}>
+                                                    Compare price
+                                                </Label>
+                                                <Input
+                                                    id={`compare-price-${index}`}
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={variant.compare_price}
+                                                    onChange={(e) => {
+                                                        const nextVariants = [
+                                                            ...data.variants,
+                                                        ];
+                                                        nextVariants[index] = {
+                                                            ...nextVariants[index],
+                                                            compare_price:
+                                                                e.target.value,
+                                                        };
+                                                        setData('variants', nextVariants);
+                                                    }}
+                                                    placeholder="0.00"
+                                                />
+                                                <InputError
+                                                    message={
+                                                        formErrors[
+                                                            `variants.${index}.compare_price`
+                                                        ]
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="price">
-                                            Sale price (USD) *
-                                        </Label>
-                                        <Input
-                                            id="price"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={data.variant.price}
-                                            onChange={(e) =>
-                                                setData('variant', {
-                                                    ...data.variant,
-                                                    price: e.target.value,
-                                                })
-                                            }
-                                            placeholder="0.00"
-                                        />
-                                        <InputError
-                                            message={errors['variant.price']}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="compare-price">
-                                            Compare price
-                                        </Label>
-                                        <Input
-                                            id="compare-price"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={data.variant.compare_price}
-                                            onChange={(e) =>
-                                                setData('variant', {
-                                                    ...data.variant,
-                                                    compare_price:
-                                                        e.target.value,
-                                                })
-                                            }
-                                            placeholder="0.00"
-                                        />
-                                        <InputError
-                                            message={
-                                                errors['variant.compare_price']
-                                            }
-                                        />
-                                    </div>
-                                </div>
+                                ))}
+
+                                <InputError message={formErrors.variants} />
                             </CardContent>
                         </Card>
                     </div>

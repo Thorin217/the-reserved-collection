@@ -31,6 +31,11 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import {
     cancel,
@@ -464,73 +469,98 @@ export default function InventoryAdjustmentsIndex({
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center justify-end gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    asChild
-                                                >
-                                                    <Link
-                                                        href={movementsIndex.url(
-                                                            {
-                                                                query: {
-                                                                    reference_type:
-                                                                        'App\\Models\\InventoryAdjustment',
-                                                                    reference_id:
-                                                                        adjustment.id,
-                                                                },
-                                                            },
-                                                        )}
-                                                    >
-                                                        Trace
-                                                    </Link>
-                                                </Button>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            asChild
+                                                        >
+                                                            <Link
+                                                                href={movementsIndex.url(
+                                                                    {
+                                                                        query: {
+                                                                            reference_type:
+                                                                                'App\\Models\\InventoryAdjustment',
+                                                                            reference_id:
+                                                                                adjustment.id,
+                                                                        },
+                                                                    },
+                                                                )}
+                                                            >
+                                                                Trace
+                                                            </Link>
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>View movement trace</TooltipContent>
+                                                </Tooltip>
 
                                                 {adjustment.status ===
                                                     'draft' && (
                                                     <>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                openEdit(
-                                                                    adjustment,
-                                                                )
-                                                            }
-                                                        >
-                                                            Edit
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            onClick={() =>
-                                                                executeConfirm(
-                                                                    adjustment,
-                                                                )
-                                                            }
-                                                        >
-                                                            Confirm
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="secondary"
-                                                            onClick={() =>
-                                                                executeCancel(
-                                                                    adjustment,
-                                                                )
-                                                            }
-                                                        >
-                                                            Cancel
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="destructive"
-                                                            onClick={() =>
-                                                                executeDelete(
-                                                                    adjustment,
-                                                                )
-                                                            }
-                                                        >
-                                                            Delete
-                                                        </Button>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    onClick={() =>
+                                                                        openEdit(
+                                                                            adjustment,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Edit
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Edit adjustment</TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        executeConfirm(
+                                                                            adjustment,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Confirm
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Confirm adjustment</TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="secondary"
+                                                                    onClick={() =>
+                                                                        executeCancel(
+                                                                            adjustment,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Cancel
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Cancel adjustment</TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="destructive"
+                                                                    onClick={() =>
+                                                                        executeDelete(
+                                                                            adjustment,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Delete
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Delete draft adjustment</TooltipContent>
+                                                        </Tooltip>
                                                     </>
                                                 )}
                                                 {adjustment.status !==

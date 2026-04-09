@@ -2,11 +2,23 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Product;
+use App\Models\ProductVariant;
+use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateProductRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('variants') && $this->has('variant')) {
+            $this->merge([
+                'variants' => [$this->input('variant')],
+            ]);
+        }
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -20,7 +32,12 @@ class UpdateProductRequest extends FormRequest
      */
     public function rules(): array
     {
-        $productId = $this->route('product')->id;
+        $productRouteParam = $this->route('product');
+        $product = $productRouteParam instanceof Product
+            ? $productRouteParam
+            : Product::query()->findOrFail((int) $productRouteParam);
+
+        $productId = $product->id;
 
         return [
             'category_id' => ['required', 'integer', 'exists:categories,id'],
@@ -32,6 +49,49 @@ class UpdateProductRequest extends FormRequest
             'track_stock' => ['boolean'],
             'has_serial_numbers' => ['boolean'],
             'status' => ['required', 'in:draft,active,inactive'],
+
+            'variants' => ['sometimes', 'array', 'min:1'],
+            'variants.*.id' => [
+                'nullable',
+                'integer',
+                'exists:product_variants,id',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! $value) {
+                        return;
+                    }
+
+                    $productRouteParam = $this->route('product');
+                    $product = $productRouteParam instanceof Product
+                        ? $productRouteParam
+                        : Product::query()->find((int) $productRouteParam);
+
+                    if (! $product || ! $product->variants()->whereKey((int) $value)->exists()) {
+                        $fail('La variante seleccionada no pertenece a este producto.');
+                    }
+                },
+            ],
+            'variants.*.sku' => [
+                'required_with:variants',
+                'string',
+                'max:100',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    $index = (int) explode('.', $attribute)[1];
+                    $variantId = (int) data_get($this->input('variants'), "{$index}.id", 0);
+
+                    $query = ProductVariant::query()->where('sku', $value);
+
+                    if ($variantId > 0) {
+                        $query->where('id', '!=', $variantId);
+                    }
+
+                    if ($query->exists()) {
+                        $fail('El SKU de la variante ya está en uso.');
+                    }
+                },
+            ],
+            'variants.*.cost' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.price' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.compare_price' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

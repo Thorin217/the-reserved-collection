@@ -28,6 +28,7 @@ class ProductResource extends JsonResource
             'status' => $this->status,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            'variants_count' => $this->whenCounted('variants'),
 
             'category' => CategoryResource::make($this->whenLoaded('category')),
             'brand' => BrandResource::make($this->whenLoaded('brand')),

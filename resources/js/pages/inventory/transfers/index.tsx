@@ -19,6 +19,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { index as movementsIndex } from '@/routes/admin/inventory/movements';
 import {
@@ -428,34 +429,59 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center justify-end gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    asChild
-                                                >
-                                                    <Link
-                                                        href={movementsIndex.url({
-                                                            query: {
-                                                                reference_type:
-                                                                    'App\\Models\\InventoryTransfer',
-                                                                reference_id:
-                                                                    transfer.id,
-                                                            },
-                                                        })}
-                                                    >
-                                                        Trace
-                                                    </Link>
-                                                </Button>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            asChild
+                                                        >
+                                                            <Link
+                                                                href={movementsIndex.url({
+                                                                    query: {
+                                                                        reference_type:
+                                                                            'App\\Models\\InventoryTransfer',
+                                                                        reference_id:
+                                                                            transfer.id,
+                                                                    },
+                                                                })}
+                                                            >
+                                                                Trace
+                                                            </Link>
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>View movement trace</TooltipContent>
+                                                </Tooltip>
 
                                                 {transfer.status === 'draft' && (
                                                     <>
-                                                        <Button size="sm" variant="outline" onClick={() => openEdit(transfer)}>Edit</Button>
-                                                        <Button size="sm" onClick={() => executeSend(transfer)}>Send</Button>
-                                                        <Button size="sm" variant="destructive" onClick={() => executeDelete(transfer)}>Delete</Button>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button size="sm" variant="outline" onClick={() => openEdit(transfer)}>Edit</Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Edit transfer</TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button size="sm" onClick={() => executeSend(transfer)}>Send</Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Mark transfer as sent</TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button size="sm" variant="destructive" onClick={() => executeDelete(transfer)}>Delete</Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Delete draft transfer</TooltipContent>
+                                                        </Tooltip>
                                                     </>
                                                 )}
                                                 {transfer.status === 'sent' && (
-                                                    <Button size="sm" onClick={() => executeReceive(transfer)}>Receive</Button>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button size="sm" onClick={() => executeReceive(transfer)}>Receive</Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Mark transfer as received</TooltipContent>
+                                                    </Tooltip>
                                                 )}
                                                 {transfer.status === 'received' && (
                                                     <span className="text-xs text-muted-foreground">Completed</span>

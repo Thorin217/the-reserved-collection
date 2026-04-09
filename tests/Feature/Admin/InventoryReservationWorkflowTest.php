@@ -223,4 +223,20 @@ class InventoryReservationWorkflowTest extends TestCase
                 ->count(),
         );
     }
+
+    public function test_it_renders_reservations_index_even_with_invalid_reference_type_values(): void
+    {
+        InventoryReservation::create([
+            'warehouse_id' => $this->warehouse->id,
+            'product_variant_id' => $this->variant->id,
+            'reference_type' => 'seed_phase_one',
+            'reference_id' => 1001,
+            'quantity' => 1,
+            'status' => InventoryReservationStatus::Active,
+            'expires_at' => now()->addDay(),
+        ]);
+
+        $this->get(route('admin.inventory.reservations.index'))
+            ->assertSuccessful();
+    }
 }

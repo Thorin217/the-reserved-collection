@@ -19,6 +19,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { index as movementsIndex } from '@/routes/admin/inventory/movements';
 import {
@@ -309,75 +310,95 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center justify-end gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    asChild
-                                                >
-                                                    <Link
-                                                        href={movementsIndex.url({
-                                                            query: {
-                                                                reference_type:
-                                                                    'App\\Models\\InventoryReservation',
-                                                                reference_id:
-                                                                    reservation.id,
-                                                            },
-                                                        })}
-                                                    >
-                                                        Trace
-                                                    </Link>
-                                                </Button>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            asChild
+                                                        >
+                                                            <Link
+                                                                href={movementsIndex.url({
+                                                                    query: {
+                                                                        reference_type:
+                                                                            'App\\Models\\InventoryReservation',
+                                                                        reference_id:
+                                                                            reservation.id,
+                                                                    },
+                                                                })}
+                                                            >
+                                                                Trace
+                                                            </Link>
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>View movement trace</TooltipContent>
+                                                </Tooltip>
 
                                                 {reservation.status ===
                                                 'active' ? (
                                                     <>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            disabled={
-                                                                processingReservationId ===
-                                                                reservation.id
-                                                            }
-                                                            onClick={() =>
-                                                                executeAction(
-                                                                    'release',
-                                                                    reservation.id,
-                                                                )
-                                                            }
-                                                        >
-                                                            Release
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            disabled={
-                                                                processingReservationId ===
-                                                                reservation.id
-                                                            }
-                                                            onClick={() =>
-                                                                executeAction(
-                                                                    'consume',
-                                                                    reservation.id,
-                                                                )
-                                                            }
-                                                        >
-                                                            Consume
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="destructive"
-                                                            disabled={
-                                                                processingReservationId ===
-                                                                reservation.id
-                                                            }
-                                                            onClick={() =>
-                                                                executeAction(
-                                                                    'cancel',
-                                                                    reservation.id,
-                                                                )
-                                                            }
-                                                        >
-                                                            Cancel
-                                                        </Button>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    disabled={
+                                                                        processingReservationId ===
+                                                                        reservation.id
+                                                                    }
+                                                                    onClick={() =>
+                                                                        executeAction(
+                                                                            'release',
+                                                                            reservation.id,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Release
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Release reserved stock</TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    size="sm"
+                                                                    disabled={
+                                                                        processingReservationId ===
+                                                                        reservation.id
+                                                                    }
+                                                                    onClick={() =>
+                                                                        executeAction(
+                                                                            'consume',
+                                                                            reservation.id,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Consume
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Consume reserved stock</TooltipContent>
+                                                        </Tooltip>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="destructive"
+                                                                    disabled={
+                                                                        processingReservationId ===
+                                                                        reservation.id
+                                                                    }
+                                                                    onClick={() =>
+                                                                        executeAction(
+                                                                            'cancel',
+                                                                            reservation.id,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Cancel
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>Cancel reservation</TooltipContent>
+                                                        </Tooltip>
                                                     </>
                                                 ) : (
                                                     <span className="text-xs text-muted-foreground">

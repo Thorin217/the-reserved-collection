@@ -30,7 +30,7 @@ class InventoryReservationController extends Controller
         $status = InventoryReservationStatus::tryFrom((string) $request->status);
 
         $reservations = InventoryReservation::query()
-            ->with(['warehouse', 'productVariant.product', 'reference'])
+            ->with(['warehouse', 'productVariant.product'])
             ->when($status, fn ($query) => $query->where('status', $status->value))
             ->when($request->warehouse_id, fn ($query, $warehouseId) => $query->where('warehouse_id', $warehouseId))
             ->when($request->search, function ($query, $search) {
