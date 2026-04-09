@@ -1,5 +1,16 @@
 import { Link } from '@inertiajs/react';
-import { ArrowRightLeft, FolderOpen, LayoutGrid, Package, ShieldCheck, Tag, TrendingUp, Users, Warehouse } from 'lucide-react';
+import {
+    ArrowRightLeft,
+    Building2,
+    FolderOpen,
+    LayoutGrid,
+    Package,
+    ShieldCheck,
+    Tag,
+    TrendingUp,
+    Users,
+    Warehouse,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavCollapsible } from '@/components/nav-collapsible';
 import { NavFooter } from '@/components/nav-footer';
@@ -87,6 +98,19 @@ const crmNavItems: NavItem[] = [
     },
 ];
 
+const configurationNavItems: NavItem[] = [
+    {
+        title: 'Branches',
+        href: '/admin/branches',
+        icon: Building2,
+    },
+    {
+        title: 'Warehouses',
+        href: '/admin/warehouses',
+        icon: Warehouse,
+    },
+];
+
 const footerNavItems: NavItem[] = [];
 
 export function AppSidebar() {
@@ -108,6 +132,8 @@ export function AppSidebar() {
                 <NavMain items={mainNavItems} label="General" />
                 <SidebarSeparator />
                 <NavMain items={inventoryNavItems} label="Inventory" />
+                <SidebarSeparator />
+                <NavCollapsible label="Configuration" title="Configuration" items={configurationNavItems} />
                 <SidebarSeparator />
                 <NavCollapsible label="CRM" title="CRM" items={crmNavItems} />
             </SidebarContent>

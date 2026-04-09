@@ -7,6 +7,8 @@ use App\Models\Branch;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\InventoryTransfer;
+use App\Models\Product;
+use App\Models\ProductSerial;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -55,7 +57,9 @@ class InventoryTransferWorkflowTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->variant = ProductVariant::factory()->create();
+        $this->variant = ProductVariant::factory()
+            ->for(Product::factory()->simple())
+            ->create();
 
         InventoryStock::create([
             'warehouse_id' => $this->fromWarehouse->id,
@@ -157,5 +161,94 @@ class InventoryTransferWorkflowTest extends TestCase
         $this->assertSame(5.0, (float) $destinationStock->quantity);
         $this->assertSame(5.0, (float) $destinationStock->available_quantity);
         $this->assertSame(1, InventoryMovement::query()->where('movement_type', 'transfer_in')->where('reference_id', $transfer->id)->count());
+    }
+
+    public function test_it_tracks_serial_status_and_movements_for_serialized_transfer(): void
+    {
+        $serializedVariant = ProductVariant::factory()->create();
+
+        InventoryStock::create([
+            'warehouse_id' => $this->fromWarehouse->id,
+            'product_variant_id' => $serializedVariant->id,
+            'quantity' => 3,
+            'reserved_quantity' => 0,
+            'available_quantity' => 3,
+            'average_cost' => 0,
+        ]);
+
+        $serials = ProductSerial::factory()
+            ->count(3)
+            ->available()
+            ->state([
+                'product_variant_id' => $serializedVariant->id,
+                'warehouse_id' => $this->fromWarehouse->id,
+            ])
+            ->create();
+
+        $this->post(route('admin.inventory.transfers.store'), [
+            'from_warehouse_id' => $this->fromWarehouse->id,
+            'to_warehouse_id' => $this->toWarehouse->id,
+            'items' => [
+                ['product_variant_id' => $serializedVariant->id, 'quantity' => 2],
+            ],
+        ]);
+
+        $transfer = InventoryTransfer::query()->latest('id')->firstOrFail();
+        $item = $transfer->items()->firstOrFail();
+        $selectedSerialIds = $serials->take(2)->pluck('id')->all();
+
+        $this->post(route('admin.inventory.transfers.send', $transfer), [
+            'items' => [
+                [
+                    'id' => $item->id,
+                    'serial_ids' => $selectedSerialIds,
+                ],
+            ],
+        ])
+            ->assertRedirect(route('admin.inventory.transfers.index'));
+
+        $serials->each->refresh();
+
+        $inTransitSerials = $serials->filter(fn (ProductSerial $serial) => $serial->status->value === 'in_transit');
+        $availableSerials = $serials->filter(fn (ProductSerial $serial) => $serial->status->value === 'available');
+
+        $this->assertCount(2, $inTransitSerials);
+        $this->assertCount(1, $availableSerials);
+
+        $transfer->refresh();
+
+        $this->post(route('admin.inventory.transfers.receive', $transfer), [
+            'items' => [
+                [
+                    'id' => $item->id,
+                    'received_quantity' => 2,
+                    'serial_ids' => $selectedSerialIds,
+                ],
+            ],
+        ])->assertRedirect(route('admin.inventory.transfers.index'));
+
+        $serials->each->refresh();
+
+        $receivedSerials = $serials->filter(
+            fn (ProductSerial $serial) => $serial->status->value === 'available' && $serial->warehouse_id === $this->toWarehouse->id
+        );
+
+        $this->assertCount(2, $receivedSerials);
+        $this->assertSame(
+            2,
+            InventoryMovement::query()
+                ->where('movement_type', 'transfer_out')
+                ->where('reference_id', $transfer->id)
+                ->whereNotNull('serial_id')
+                ->count(),
+        );
+        $this->assertSame(
+            2,
+            InventoryMovement::query()
+                ->where('movement_type', 'transfer_in')
+                ->where('reference_id', $transfer->id)
+                ->whereNotNull('serial_id')
+                ->count(),
+        );
     }
 }

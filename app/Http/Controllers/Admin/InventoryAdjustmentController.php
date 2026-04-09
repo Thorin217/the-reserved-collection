@@ -5,15 +5,19 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\InventoryAdjustmentStatus;
 use App\Enums\InventoryAdjustmentType;
 use App\Enums\InventoryMovementType;
+use App\Enums\ProductSerialStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreInventoryAdjustmentRequest;
 use App\Http\Requests\Admin\UpdateInventoryAdjustmentRequest;
 use App\Http\Resources\InventoryAdjustmentResource;
+use App\Http\Resources\ProductVariantResource;
 use App\Http\Resources\WarehouseResource;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryAdjustmentItem;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\ProductSerial;
+use App\Models\ProductVariant;
 use App\Models\Warehouse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,19 +35,53 @@ class InventoryAdjustmentController extends Controller
         $adjustmentType = InventoryAdjustmentType::tryFrom((string) $request->adjustment_type);
 
         $adjustments = InventoryAdjustment::query()
-            ->with(['warehouse', 'creator', 'confirmer'])
+            ->with(['warehouse', 'creator', 'confirmer', 'items.productVariant.product'])
             ->withCount('items')
-            ->when($status, fn($query) => $query->where('status', $status->value))
-            ->when($adjustmentType, fn($query) => $query->where('adjustment_type', $adjustmentType->value))
-            ->when($request->warehouse_id, fn($query, $warehouseId) => $query->where('warehouse_id', $warehouseId))
-            ->when($request->search, fn($query, $search) => $query->where('code', 'like', "%{$search}%"))
+            ->when($status, fn ($query) => $query->where('status', $status->value))
+            ->when($adjustmentType, fn ($query) => $query->where('adjustment_type', $adjustmentType->value))
+            ->when($request->warehouse_id, fn ($query, $warehouseId) => $query->where('warehouse_id', $warehouseId))
+            ->when($request->search, fn ($query, $search) => $query->where('code', 'like', "%{$search}%"))
             ->latest()
             ->paginate(20)
             ->withQueryString();
 
+        $serialCandidates = [];
+
+        foreach ($adjustments->getCollection() as $adjustment) {
+            if (
+                $adjustment->status !== InventoryAdjustmentStatus::Draft
+                || $adjustment->adjustment_type !== InventoryAdjustmentType::Decrease
+            ) {
+                continue;
+            }
+
+            foreach ($adjustment->items as $item) {
+                if (! $item->productVariant?->product?->has_serial_numbers) {
+                    continue;
+                }
+
+                $serialCandidates[$item->id] = ProductSerial::query()
+                    ->where('product_variant_id', $item->product_variant_id)
+                    ->where('warehouse_id', $adjustment->warehouse_id)
+                    ->where('status', ProductSerialStatus::Available)
+                    ->orderBy('serial_number')
+                    ->get(['id', 'serial_number'])
+                    ->map(fn (ProductSerial $serial) => [
+                        'id' => $serial->id,
+                        'serial_number' => $serial->serial_number,
+                    ])
+                    ->values()
+                    ->all();
+            }
+        }
+
         return Inertia::render('inventory/adjustments/index', [
             'adjustments' => InventoryAdjustmentResource::collection($adjustments),
             'warehouses' => WarehouseResource::collection(Warehouse::query()->orderBy('name')->get()),
+            'variants' => ProductVariantResource::collection(
+                ProductVariant::query()->with('product')->where('is_active', true)->orderBy('sku')->get()
+            ),
+            'serial_candidates' => $serialCandidates,
             'filters' => $request->only(['status', 'adjustment_type', 'warehouse_id', 'search']),
         ]);
     }
@@ -54,7 +92,7 @@ class InventoryAdjustmentController extends Controller
 
         DB::transaction(function () use ($data, $request) {
             $adjustment = InventoryAdjustment::create([
-                'code' => 'ADJ-' . strtoupper(Str::random(8)),
+                'code' => 'ADJ-'.strtoupper(Str::random(8)),
                 'warehouse_id' => $data['warehouse_id'],
                 'adjustment_type' => InventoryAdjustmentType::from($data['adjustment_type']),
                 'reason' => $data['reason'] ?? null,
@@ -122,6 +160,22 @@ class InventoryAdjustmentController extends Controller
         DB::transaction(function () use ($inventoryAdjustment, $request) {
             $inventoryAdjustment->load('items');
 
+            $selectedSerialsByItem = collect($request->input('items', []))
+                ->keyBy(fn (array $item) => (int) ($item['id'] ?? 0))
+                ->map(
+                    fn (array $item) => collect($item['serial_ids'] ?? [])
+                        ->map(fn ($id) => (int) $id)
+                        ->filter()
+                        ->unique()
+                        ->values()
+                );
+
+            $variantsById = ProductVariant::query()
+                ->with('product')
+                ->whereIn('id', $inventoryAdjustment->items->pluck('product_variant_id')->all())
+                ->get()
+                ->keyBy('id');
+
             $warehouse = Warehouse::query()
                 ->lockForUpdate()
                 ->findOrFail($inventoryAdjustment->warehouse_id);
@@ -147,10 +201,25 @@ class InventoryAdjustmentController extends Controller
                 $currentQuantity = (float) $stock->quantity;
                 $currentAvailable = (float) $stock->available_quantity;
                 $itemQuantity = (float) $item->quantity;
+                $variant = $variantsById->get($item->product_variant_id);
+                $isSerialized = (bool) $variant?->product?->has_serial_numbers;
+                $serials = collect();
+
+                if ($isSerialized && $itemQuantity !== (float) (int) $itemQuantity) {
+                    throw ValidationException::withMessages([
+                        'items' => "La cantidad para la variante serializada {$item->product_variant_id} debe ser entera.",
+                    ]);
+                }
 
                 if ($inventoryAdjustment->adjustment_type === InventoryAdjustmentType::Decrease && $currentAvailable < $itemQuantity) {
                     throw ValidationException::withMessages([
                         'items' => "Stock insuficiente para la variante {$item->product_variant_id}.",
+                    ]);
+                }
+
+                if ($inventoryAdjustment->adjustment_type === InventoryAdjustmentType::Increase && $isSerialized) {
+                    throw ValidationException::withMessages([
+                        'items' => "Para incrementar inventario serializado primero debes registrar los seriales de la variante {$item->product_variant_id}.",
                     ]);
                 }
 
@@ -159,12 +228,63 @@ class InventoryAdjustmentController extends Controller
                     $stock->available_quantity = $currentAvailable + $itemQuantity;
                     $movementType = InventoryMovementType::AdjustmentIn;
                 } else {
+                    if ($isSerialized) {
+                        $selectedSerialIds = $selectedSerialsByItem->get($item->id, collect());
+
+                        if ($selectedSerialIds->count() !== (int) $itemQuantity) {
+                            throw ValidationException::withMessages([
+                                'items' => "Debes seleccionar exactamente {$itemQuantity} serial(es) para la variante {$item->product_variant_id}.",
+                            ]);
+                        }
+
+                        $serials = ProductSerial::query()
+                            ->whereIn('id', $selectedSerialIds->all())
+                            ->where('product_variant_id', $item->product_variant_id)
+                            ->where('warehouse_id', $warehouse->id)
+                            ->where('status', ProductSerialStatus::Available)
+                            ->lockForUpdate()
+                            ->get();
+
+                        if ($serials->count() !== (int) $itemQuantity) {
+                            throw ValidationException::withMessages([
+                                'items' => "Los seriales seleccionados no son válidos para la variante {$item->product_variant_id}.",
+                            ]);
+                        }
+                    }
+
                     $stock->quantity = $currentQuantity - $itemQuantity;
                     $stock->available_quantity = $currentAvailable - $itemQuantity;
                     $movementType = InventoryMovementType::AdjustmentOut;
                 }
 
                 $stock->save();
+
+                if ($isSerialized && $inventoryAdjustment->adjustment_type === InventoryAdjustmentType::Decrease) {
+                    ProductSerial::query()
+                        ->whereIn('id', $serials->pluck('id')->all())
+                        ->update([
+                            'status' => ProductSerialStatus::Damaged,
+                        ]);
+
+                    foreach ($serials as $serial) {
+                        InventoryMovement::create([
+                            'movement_type' => $movementType,
+                            'reference_type' => InventoryAdjustment::class,
+                            'reference_id' => $inventoryAdjustment->id,
+                            'branch_id' => $warehouse->branch_id,
+                            'warehouse_id' => $warehouse->id,
+                            'product_variant_id' => $item->product_variant_id,
+                            'serial_id' => $serial->id,
+                            'quantity' => 1,
+                            'unit_cost' => $item->unit_cost,
+                            'balance_after_movement' => $stock->quantity,
+                            'notes' => 'Movimiento por ajuste '.$inventoryAdjustment->code.' · Serial '.$serial->serial_number,
+                            'user_id' => $request->user()?->id,
+                        ]);
+                    }
+
+                    continue;
+                }
 
                 InventoryMovement::create([
                     'movement_type' => $movementType,
@@ -176,7 +296,7 @@ class InventoryAdjustmentController extends Controller
                     'quantity' => $item->quantity,
                     'unit_cost' => $item->unit_cost,
                     'balance_after_movement' => $stock->quantity,
-                    'notes' => 'Movimiento por ajuste ' . $inventoryAdjustment->code,
+                    'notes' => 'Movimiento por ajuste '.$inventoryAdjustment->code,
                     'user_id' => $request->user()?->id,
                 ]);
             }

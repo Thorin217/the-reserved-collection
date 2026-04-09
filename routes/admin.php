@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ClientController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Admin\LeadController;
 use App\Http\Controllers\Admin\LeadInteractionController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProductSerialController;
+use App\Http\Controllers\Admin\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
@@ -56,7 +58,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             Route::post('{inventoryAdjustment}/cancel', [InventoryAdjustmentController::class, 'cancel'])->name('cancel');
         });
 
-        Route::get('reservations', [InventoryReservationController::class, 'index'])->name('reservations.index');
+        Route::prefix('reservations')->name('reservations.')->group(function () {
+            Route::get('/', [InventoryReservationController::class, 'index'])->name('index');
+            Route::post('/', [InventoryReservationController::class, 'store'])->name('store');
+            Route::post('{inventoryReservation}/release', [InventoryReservationController::class, 'release'])->name('release');
+            Route::post('{inventoryReservation}/consume', [InventoryReservationController::class, 'consume'])->name('consume');
+            Route::post('{inventoryReservation}/cancel', [InventoryReservationController::class, 'cancel'])->name('cancel');
+        });
     });
 
     Route::prefix('brands')->name('brands.')->group(function () {
@@ -71,6 +79,24 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('/', [CategoryController::class, 'store'])->name('store');
         Route::put('{category}', [CategoryController::class, 'update'])->name('update');
         Route::delete('{category}', [CategoryController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('branches')->name('branches.')->group(function () {
+        Route::get('/', [BranchController::class, 'index'])->name('index');
+        Route::get('create', [BranchController::class, 'create'])->name('create');
+        Route::post('/', [BranchController::class, 'store'])->name('store');
+        Route::get('{branch}/edit', [BranchController::class, 'edit'])->name('edit');
+        Route::put('{branch}', [BranchController::class, 'update'])->name('update');
+        Route::delete('{branch}', [BranchController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('warehouses')->name('warehouses.')->group(function () {
+        Route::get('/', [WarehouseController::class, 'index'])->name('index');
+        Route::get('create', [WarehouseController::class, 'create'])->name('create');
+        Route::post('/', [WarehouseController::class, 'store'])->name('store');
+        Route::get('{warehouse}/edit', [WarehouseController::class, 'edit'])->name('edit');
+        Route::put('{warehouse}', [WarehouseController::class, 'update'])->name('update');
+        Route::delete('{warehouse}', [WarehouseController::class, 'destroy'])->name('destroy');
     });
 
     // CRM

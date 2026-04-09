@@ -7,6 +7,8 @@ use App\Models\Branch;
 use App\Models\InventoryAdjustment;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\Product;
+use App\Models\ProductSerial;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -45,7 +47,9 @@ class InventoryAdjustmentWorkflowTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->variant = ProductVariant::factory()->create();
+        $this->variant = ProductVariant::factory()
+            ->for(Product::factory()->simple())
+            ->create();
     }
 
     public function test_it_creates_adjustment_as_draft_with_items(): void
@@ -143,5 +147,76 @@ class InventoryAdjustmentWorkflowTest extends TestCase
         $this->assertSame(InventoryAdjustmentStatus::Draft, $adjustment->status);
         $this->assertSame(2.0, (float) $stock->quantity);
         $this->assertSame(0, InventoryMovement::query()->where('reference_id', $adjustment->id)->count());
+    }
+
+    public function test_it_marks_serials_as_damaged_on_serialized_decrease_adjustment(): void
+    {
+        $serializedVariant = ProductVariant::factory()->create();
+
+        InventoryStock::create([
+            'warehouse_id' => $this->warehouse->id,
+            'product_variant_id' => $serializedVariant->id,
+            'quantity' => 3,
+            'reserved_quantity' => 0,
+            'available_quantity' => 3,
+            'average_cost' => 0,
+        ]);
+
+        $serials = ProductSerial::factory()
+            ->count(3)
+            ->available()
+            ->state([
+                'product_variant_id' => $serializedVariant->id,
+                'warehouse_id' => $this->warehouse->id,
+            ])
+            ->create();
+
+        $this->post(route('admin.inventory.adjustments.store'), [
+            'warehouse_id' => $this->warehouse->id,
+            'adjustment_type' => 'decrease',
+            'items' => [
+                [
+                    'product_variant_id' => $serializedVariant->id,
+                    'quantity' => 2,
+                    'unit_cost' => 10,
+                ],
+            ],
+        ]);
+
+        $adjustment = InventoryAdjustment::query()->latest('id')->firstOrFail();
+        $adjustmentItem = $adjustment->items()->firstOrFail();
+
+        $serialIds = ProductSerial::query()
+            ->where('product_variant_id', $serializedVariant->id)
+            ->where('warehouse_id', $this->warehouse->id)
+            ->where('status', 'available')
+            ->pluck('id')
+            ->take(2)
+            ->values()
+            ->all();
+
+        $this->post(route('admin.inventory.adjustments.confirm', $adjustment), [
+            'items' => [
+                [
+                    'id' => $adjustmentItem->id,
+                    'serial_ids' => $serialIds,
+                ],
+            ],
+        ])
+            ->assertRedirect(route('admin.inventory.adjustments.index'));
+
+        $serials->each->refresh();
+
+        $damagedSerials = $serials->filter(fn (ProductSerial $serial) => $serial->status->value === 'damaged');
+
+        $this->assertCount(2, $damagedSerials);
+        $this->assertSame(
+            2,
+            InventoryMovement::query()
+                ->where('movement_type', 'adjustment_out')
+                ->where('reference_id', $adjustment->id)
+                ->whereNotNull('serial_id')
+                ->count(),
+        );
     }
 }

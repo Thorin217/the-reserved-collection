@@ -25,6 +25,8 @@ class InventoryMovementController extends Controller
             ->when($movementType, fn ($query) => $query->where('movement_type', $movementType->value))
             ->when($request->warehouse_id, fn ($query, $warehouseId) => $query->where('warehouse_id', $warehouseId))
             ->when($request->branch_id, fn ($query, $branchId) => $query->where('branch_id', $branchId))
+            ->when($request->reference_type, fn ($query, $referenceType) => $query->where('reference_type', $referenceType))
+            ->when($request->reference_id, fn ($query, $referenceId) => $query->where('reference_id', $referenceId))
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery->whereHas('productVariant', fn ($variantQuery) => $variantQuery->where('sku', 'like', "%{$search}%"))
@@ -40,7 +42,7 @@ class InventoryMovementController extends Controller
             'movements' => InventoryMovementResource::collection($movements),
             'branches' => BranchResource::collection(Branch::query()->orderBy('name')->get()),
             'warehouses' => WarehouseResource::collection(Warehouse::query()->orderBy('name')->get()),
-            'filters' => $request->only(['movement_type', 'warehouse_id', 'branch_id', 'search']),
+            'filters' => $request->only(['movement_type', 'warehouse_id', 'branch_id', 'reference_type', 'reference_id', 'search']),
         ]);
     }
 }
