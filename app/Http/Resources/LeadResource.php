@@ -28,6 +28,8 @@ class LeadResource extends JsonResource
             'assigned_user' => UserResource::make($this->whenLoaded('assignedUser')),
             'interactions' => LeadInteractionResource::collection($this->whenLoaded('interactions')),
             'interactions_count' => $this->whenCounted('interactions'),
+            'proposals' => LeadProposalResource::collection($this->whenLoaded('proposals')),
+            'negotiations' => NegotiationResource::collection($this->whenLoaded('negotiations')),
         ];
     }
 }

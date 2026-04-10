@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\LeadSource;
+use App\Enums\LeadStatus;
 use Database\Factories\LeadFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +30,8 @@ class Lead extends Model
     protected $casts = [
         'client_id' => 'integer',
         'assigned_to' => 'integer',
+        'status' => LeadStatus::class,
+        'source' => LeadSource::class,
         'expected_value' => 'decimal:2',
         'closed_at' => 'datetime',
     ];
@@ -45,5 +49,15 @@ class Lead extends Model
     public function interactions(): HasMany
     {
         return $this->hasMany(LeadInteraction::class);
+    }
+
+    public function proposals(): HasMany
+    {
+        return $this->hasMany(LeadProposal::class);
+    }
+
+    public function negotiations(): HasMany
+    {
+        return $this->hasMany(Negotiation::class);
     }
 }

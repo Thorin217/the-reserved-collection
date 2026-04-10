@@ -29,15 +29,15 @@ const ALL = '_all';
 export const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
     new: { label: 'New', variant: 'secondary' },
     contacted: { label: 'Contacted', variant: 'outline' },
-    interested: { label: 'Interested', variant: 'default' },
     negotiating: { label: 'Negotiating', variant: 'default' },
     won: { label: 'Won', variant: 'default' },
     lost: { label: 'Lost', variant: 'destructive' },
 };
 
 export const SOURCE_LABELS: Record<string, string> = {
-    referral: 'Referral',
+    whatsapp: 'WhatsApp',
     web: 'Web',
+    referral: 'Referral',
     social: 'Social media',
     walk_in: 'Walk-in',
     other: 'Other',

@@ -10,6 +10,8 @@ use App\Http\Controllers\Admin\InventoryStockController;
 use App\Http\Controllers\Admin\InventoryTransferController;
 use App\Http\Controllers\Admin\LeadController;
 use App\Http\Controllers\Admin\LeadInteractionController;
+use App\Http\Controllers\Admin\LeadProposalController;
+use App\Http\Controllers\Admin\NegotiationController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProductSerialController;
 use Illuminate\Support\Facades\Route;
@@ -92,6 +94,22 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::prefix('{lead}/interactions')->name('interactions.')->group(function () {
             Route::post('/', [LeadInteractionController::class, 'store'])->name('store');
             Route::delete('{interaction}', [LeadInteractionController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('{lead}/proposals')->name('proposals.')->group(function () {
+            Route::get('create', [LeadProposalController::class, 'create'])->name('create');
+            Route::post('/', [LeadProposalController::class, 'store'])->name('store');
+            Route::post('{proposal}/send', [LeadProposalController::class, 'send'])->name('send');
+            Route::delete('{proposal}', [LeadProposalController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('{lead}/negotiations')->name('negotiations.')->group(function () {
+            Route::post('/', [NegotiationController::class, 'store'])->name('store');
+            Route::get('{negotiation}', [NegotiationController::class, 'show'])->name('show');
+            Route::put('{negotiation}', [NegotiationController::class, 'update'])->name('update');
+            Route::delete('{negotiation}', [NegotiationController::class, 'destroy'])->name('destroy');
+            Route::post('{negotiation}/offers', [NegotiationController::class, 'storeOffer'])->name('offers.store');
+            Route::delete('{negotiation}/offers/{offer}', [NegotiationController::class, 'destroyOffer'])->name('offers.destroy');
         });
     });
 });

@@ -13,8 +13,8 @@ return new class extends Migration
             $table->foreignId('client_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('assigned_to')->nullable()->constrained('users')->nullOnDelete();
             $table->string('title');
-            $table->string('status', 30)->default('new')->comment('new, contacted, interested, negotiating, won, lost');
-            $table->string('source', 30)->default('other')->comment('referral, web, social, walk_in, other');
+            $table->string('status', 30)->default('new')->comment('new, contacted, negotiating, won, lost');
+            $table->string('source', 30)->default('other')->comment('whatsapp, web, referral, social, walk_in, other');
             $table->string('product_interest')->nullable();
             $table->decimal('expected_value', 12, 2)->nullable();
             $table->text('notes')->nullable();

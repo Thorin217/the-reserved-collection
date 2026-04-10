@@ -1,11 +1,20 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, Calendar, Clock, Edit, Mail, MessageSquare, Phone, Save, Trash2, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, Calendar, CheckCircle, Clock, DollarSign, Edit, FileText, Mail, MessageSquare, Phone, Plus, Save, Send, Trash2, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import * as LeadController from '@/actions/App/Http/Controllers/Admin/LeadController';
 import { FlashMessage } from '@/components/flash-message';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,20 +22,22 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { index as leadsIndex, show as leadShow } from '@/routes/admin/leads';
-import type { Client, Lead, LeadInteraction, User } from '@/types';
+import { create as proposalCreate, destroy as proposalDestroy, send as proposalSend } from '@/routes/admin/leads/proposals';
+import { show as negotiationShow, store as negotiationStore, destroy as negotiationDestroy } from '@/routes/admin/leads/negotiations';
+import type { Client, Lead, LeadInteraction, LeadProposal, Negotiation, User } from '@/types';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
     new: { label: 'New', variant: 'secondary' },
     contacted: { label: 'Contacted', variant: 'outline' },
-    interested: { label: 'Interested', variant: 'default' },
     negotiating: { label: 'Negotiating', variant: 'default' },
     won: { label: 'Won', variant: 'default' },
     lost: { label: 'Lost', variant: 'destructive' },
 };
 
 const SOURCE_LABELS: Record<string, string> = {
-    referral: 'Referral',
+    whatsapp: 'WhatsApp',
     web: 'Web',
+    referral: 'Referral',
     social: 'Social media',
     walk_in: 'Walk-in',
     other: 'Other',
@@ -52,10 +63,131 @@ type LeadFormData = {
 };
 
 type Props = {
-    lead: { data: Lead & { interactions: LeadInteraction[] } };
+    lead: { data: Lead & { interactions: LeadInteraction[]; proposals: LeadProposal[]; negotiations: Negotiation[] } };
     clients: { data: Client[] };
     users: { data: User[] };
 };
+
+function SendProposalDialog({ lead, proposal }: { lead: Lead; proposal: LeadProposal }) {
+    const [open, setOpen] = useState(false);
+    const form = useForm({ sent_via: 'whatsapp' as 'whatsapp' | 'email' });
+
+    function submit(e: React.FormEvent) {
+        e.preventDefault();
+        form.post(proposalSend.url({ lead, proposal }), {
+            onSuccess: () => setOpen(false),
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                    <Send className="h-3.5 w-3.5" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xs">
+                <DialogHeader>
+                    <DialogTitle>Send proposal</DialogTitle>
+                    <DialogDescription>How will you send this proposal?</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={submit} className="space-y-4">
+                    <div className="space-y-1">
+                        <Label>Send via *</Label>
+                        <Select value={form.data.sent_via} onValueChange={(v) => form.setData('sent_via', v as 'whatsapp' | 'email')}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                                <SelectItem value="email">Email</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={form.processing}>
+                            <Send className="mr-2 h-3.5 w-3.5" />
+                            Mark as sent
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function StartNegotiationDialog({ lead, proposals }: { lead: Lead; proposals: LeadProposal[] }) {
+    const [open, setOpen] = useState(false);
+    const ALL = '_all';
+    const form = useForm({
+        lead_proposal_id: '',
+        initial_price: '',
+        notes: '',
+    });
+
+    function submit(e: React.FormEvent) {
+        e.preventDefault();
+        form.post(negotiationStore.url(lead), {
+            onSuccess: () => { setOpen(false); form.reset(); },
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Start
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Start negotiation</DialogTitle>
+                    <DialogDescription>Set the opening price for this negotiation.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={submit} className="space-y-4">
+                    {proposals.length > 0 && (
+                        <div className="space-y-1">
+                            <Label>Based on proposal</Label>
+                            <Select value={form.data.lead_proposal_id || ALL} onValueChange={(v) => form.setData('lead_proposal_id', v === ALL ? '' : v)}>
+                                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={ALL}>None</SelectItem>
+                                    {proposals.map((p) => (
+                                        <SelectItem key={p.id} value={p.id.toString()}>{p.title}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                    <div className="space-y-1">
+                        <Label>Initial price *</Label>
+                        <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={form.data.initial_price}
+                            onChange={(e) => form.setData('initial_price', e.target.value)}
+                            placeholder="0.00"
+                            required
+                        />
+                        {form.errors.initial_price && <p className="text-xs text-destructive">{form.errors.initial_price}</p>}
+                    </div>
+                    <div className="space-y-1">
+                        <Label>Notes</Label>
+                        <Textarea value={form.data.notes} onChange={(e) => form.setData('notes', e.target.value)} rows={2} />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={form.processing}>
+                            <CheckCircle className="mr-2 h-3.5 w-3.5" />
+                            Start negotiation
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export default function LeadShow({ lead: { data: lead }, clients, users }: Props) {
     const [editing, setEditing] = useState(false);
@@ -307,6 +439,129 @@ export default function LeadShow({ lead: { data: lead }, clients, users }: Props
                                         </Button>
                                     </div>
                                 </form>
+                            </CardContent>
+                        </Card>
+
+                        {/* Proposals */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                                <CardTitle className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4" />
+                                    Proposals ({lead.proposals?.length ?? 0})
+                                </CardTitle>
+                                <Link href={proposalCreate.url(lead)}>
+                                    <Button size="sm" variant="outline">
+                                        <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                        New proposal
+                                    </Button>
+                                </Link>
+                            </CardHeader>
+                            <CardContent>
+                                {(!lead.proposals || lead.proposals.length === 0) && (
+                                    <p className="py-6 text-center text-sm text-muted-foreground">No proposals yet.</p>
+                                )}
+                                <div className="space-y-3">
+                                    {lead.proposals?.map((proposal, index) => (
+                                        <div key={proposal.id}>
+                                            {index > 0 && <Separator className="mb-3" />}
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate font-medium text-sm">{proposal.title}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {proposal.items_count ?? 0} items ·{' '}
+                                                        {new Date(proposal.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                                                        {proposal.sent_via && <> · via {proposal.sent_via}</>}
+                                                    </p>
+                                                </div>
+                                                <div className="flex shrink-0 items-center gap-1">
+                                                    <Badge variant={
+                                                        proposal.status === 'accepted' ? 'default' :
+                                                        proposal.status === 'sent' || proposal.status === 'viewed' ? 'outline' :
+                                                        proposal.status === 'rejected' ? 'destructive' : 'secondary'
+                                                    } className="text-xs">
+                                                        {proposal.status}
+                                                    </Badge>
+                                                    {proposal.status === 'draft' && (
+                                                        <SendProposalDialog lead={lead} proposal={proposal} />
+                                                    )}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                                        onClick={() => {
+                                                            if (!confirm('Delete this proposal?')) return;
+                                                            router.delete(proposalDestroy.url({ lead, proposal }));
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Negotiations */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                                <CardTitle className="flex items-center gap-2">
+                                    <DollarSign className="h-4 w-4" />
+                                    Negotiations ({lead.negotiations?.length ?? 0})
+                                </CardTitle>
+                                <StartNegotiationDialog lead={lead} proposals={lead.proposals ?? []} />
+                            </CardHeader>
+                            <CardContent>
+                                {(!lead.negotiations || lead.negotiations.length === 0) && (
+                                    <p className="py-6 text-center text-sm text-muted-foreground">No negotiations yet.</p>
+                                )}
+                                <div className="space-y-3">
+                                    {lead.negotiations?.map((negotiation, index) => (
+                                        <div key={negotiation.id}>
+                                            {index > 0 && <Separator className="mb-3" />}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div>
+                                                    <p className="font-medium text-sm font-mono">
+                                                        ${Number(negotiation.initial_price).toLocaleString('en-US')}
+                                                        {negotiation.final_price && (
+                                                            <span className="ml-2 text-green-600">
+                                                                → ${Number(negotiation.final_price).toLocaleString('en-US')}
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {new Date(negotiation.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                                                        {negotiation.user && <> · {negotiation.user.name}</>}
+                                                    </p>
+                                                </div>
+                                                <div className="flex shrink-0 items-center gap-1">
+                                                    <Badge variant={
+                                                        negotiation.status === 'agreed' ? 'default' :
+                                                        negotiation.status === 'rejected' ? 'destructive' : 'outline'
+                                                    } className="text-xs">
+                                                        {negotiation.status === 'agreed' ? 'Agreed' :
+                                                         negotiation.status === 'rejected' ? 'Rejected' : 'Negotiating'}
+                                                    </Badge>
+                                                    <Link href={negotiationShow.url({ lead, negotiation })}>
+                                                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">View</Button>
+                                                    </Link>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                                        onClick={() => {
+                                                            if (!confirm('Delete this negotiation?')) return;
+                                                            router.delete(negotiationDestroy.url({ lead, negotiation }));
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </CardContent>
                         </Card>
                     </div>

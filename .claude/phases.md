@@ -75,14 +75,61 @@
 **Estado: NO INICIADA**
 **Depende de: Fase 1 (producto debe existir para asociar a lead)**
 
-- [ ] Migración: `clients`
-- [ ] Migración: `leads`
-- [ ] Migración: `lead_interactions` (historial)
-- [ ] Modelos: `Client`, `Lead`, `LeadInteraction`
-- [ ] `ClientController` + `LeadController`
-- [ ] Páginas React: listado clientes, detalle, leads por estado
-- [ ] Flujo: lead ingresa → se asigna a asesor → avanza por pipeline
-- [ ] Tests feature
+### Flujo general
+`Lead Entrante → Ver perfil → Crear Propuesta de Catálogo → Iniciar Negociación → Cerrar Venta`
+
+### 2.1 Leads Entrantes
+- [ ] Registro de leads desde WhatsApp y formulario del sitio
+- [ ] Campos: Nombre, Teléfono/WhatsApp, Email, Fuente, Fecha de ingreso
+- [ ] Fuentes: `whatsapp`, `web`, `referral`, `social`, `walk_in`, `other`
+- [ ] Estados: `new` (Nuevo), `contacted` (Contactado), `negotiating` (En Negociación), `won` (Ganado), `lost` (Perdido)
+
+### 2.2 Propuestas de Catálogo
+- [ ] Crear propuesta personalizada seleccionando productos del inventario
+- [ ] Items de propuesta: fotos del artículo, modelo, precio sugerido, descripción, notas
+- [ ] Enviar propuesta por WhatsApp o email desde el sistema
+- [ ] Historial de propuestas enviadas al cliente
+- [ ] Estados de propuesta: `draft`, `sent`, `viewed`, `accepted`, `rejected`
+
+### 2.3 Negociación
+- [ ] Historial de ofertas: precio inicial, contraofertas del cliente, contraofertas nuestras, precio final
+- [ ] Tipos de oferta: `our_offer`, `client_counteroffer`
+- [ ] Estados negociación: `negotiating`, `agreed`, `rejected`
+- [ ] Vincular negociación a propuesta y a lead
+
+### 2.4 Cierre y conexión con Ventas (preparar para Fase 3)
+- [ ] Negociación ganada → marcar lead como `won`
+- [ ] Dejar FK `negotiation_id` lista para vincular con `sales` en Fase 3
+- [ ] Actualización de inventario se dispara en Fase 3 al crear la venta
+
+### Base de datos (completado ✅)
+- [x] Migración: `clients`
+- [x] Migración: `leads`
+- [x] Migración: `lead_interactions` (historial de contactos)
+- [x] Migración: `lead_proposals` (propuestas de catálogo)
+- [x] Migración: `lead_proposal_items` (items de cada propuesta)
+- [x] Migración: `negotiations` (negociaciones)
+- [x] Migración: `negotiation_offers` (historial de ofertas)
+- [x] Enums: `LeadStatus`, `LeadSource`, `ProposalStatus`, `NegotiationStatus`, `NegotiationOfferType`
+
+### Modelos (completado ✅)
+- [x] `Client` con relación a leads
+- [x] `Lead` con Enums y relaciones a interactions, proposals, negotiations
+- [x] `LeadInteraction`
+- [x] `LeadProposal` + `LeadProposalItem`
+- [x] `Negotiation` + `NegotiationOffer`
+- [x] Factories para todos los modelos CRM
+
+### Pendiente
+- [ ] `ClientController` — CRUD de clientes
+- [ ] `LeadController` — pipeline de leads, cambio de estado
+- [ ] `LeadProposalController` — crear/enviar propuestas
+- [ ] `NegotiationController` — gestión de negociaciones + ofertas
+- [ ] Rutas en `routes/admin.php` o `routes/crm.php`
+- [ ] Páginas React: listado clientes, detalle cliente, pipeline de leads
+- [ ] Páginas React: creador de propuesta (con selector de inventario)
+- [ ] Páginas React: vista negociación (historial de ofertas)
+- [ ] Tests feature: CRUD leads, propuestas, negociaciones
 
 ---
 

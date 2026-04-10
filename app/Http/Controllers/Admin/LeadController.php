@@ -40,7 +40,13 @@ class LeadController extends Controller
 
     public function show(Lead $lead): Response
     {
-        $lead->load(['client', 'assignedUser', 'interactions' => fn ($q) => $q->with('user')->latest('interacted_at')]);
+        $lead->load([
+            'client',
+            'assignedUser',
+            'interactions' => fn ($q) => $q->with('user')->latest('interacted_at'),
+            'proposals' => fn ($q) => $q->with('user')->withCount('items')->latest(),
+            'negotiations' => fn ($q) => $q->with('user')->latest(),
+        ]);
 
         return Inertia::render('crm/leads/show', [
             'lead' => LeadResource::make($lead),
