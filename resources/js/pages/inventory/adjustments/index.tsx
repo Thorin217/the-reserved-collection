@@ -39,6 +39,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
+import { notifyInventoryStockChanged } from '@/lib/inventory-stock-sync';
 import {
     cancel,
     confirm as confirmAdjustment,
@@ -106,6 +107,7 @@ type Props = {
     warehouses: { data: Warehouse[] };
     variants: { data: Variant[] };
     serial_candidates: Record<string, Array<{ id: number; serial_number: string }>>;
+    adjustment_serials: Record<string, Record<string, Array<{ id: number; serial_number: string | null; status: string | null }>>>;
     filters: Filters;
 };
 
@@ -114,6 +116,7 @@ export default function InventoryAdjustmentsIndex({
     warehouses,
     variants,
     serial_candidates: serialCandidates,
+    adjustment_serials: adjustmentSerials,
     filters,
 }: Props) {
     const [creating, setCreating] = useState(false);
@@ -289,7 +292,12 @@ export default function InventoryAdjustmentsIndex({
             router.post(
                 confirmAdjustment.url(adjustment),
                 {},
-                { preserveScroll: true },
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        notifyInventoryStockChanged();
+                    },
+                },
             );
 
             return;
@@ -332,6 +340,7 @@ export default function InventoryAdjustmentsIndex({
                 onSuccess: () => {
                     setConfirming(null);
                     setSelectedSerialsByItem({});
+                    notifyInventoryStockChanged();
                 },
             },
         );
@@ -658,9 +667,22 @@ export default function InventoryAdjustmentsIndex({
                                                 )}
                                                 {adjustment.status !==
                                                     'draft' && (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        No actions
-                                                    </span>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() =>
+                                                                    setViewingItems(
+                                                                        adjustment,
+                                                                    )
+                                                                }
+                                                            >
+                                                                View
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>View adjustment details</TooltipContent>
+                                                    </Tooltip>
                                                 )}
                                             </div>
                                         </TableCell>
@@ -1265,7 +1287,28 @@ export default function InventoryAdjustmentsIndex({
                                 {(viewingItems?.items ?? []).map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell className="text-center">
-                                            {variantLabelById[item.product_variant_id] ?? `Variant #${item.product_variant_id}`}
+                                            <div className="space-y-2">
+                                                <p>
+                                                    {variantLabelById[item.product_variant_id] ?? `Variant #${item.product_variant_id}`}
+                                                </p>
+
+                                                <div className="flex flex-wrap justify-center gap-1">
+                                                    {(adjustmentSerials[viewingItems?.id?.toString() ?? '']?.[item.product_variant_id.toString()] ?? []).map((serial) => (
+                                                        <Badge
+                                                            key={`adj-serial-${item.id}-${serial.id}`}
+                                                            variant="outline"
+                                                            className={serial.status === 'damaged'
+                                                                ? 'border-rose-300 bg-rose-50 text-rose-700'
+                                                                : 'border-amber-300 bg-amber-50 text-amber-700'}
+                                                        >
+                                                            {serial.serial_number ?? `Serial #${serial.id}`}
+                                                            <span className="ml-1 text-[10px] uppercase tracking-wide">
+                                                                {serial.status ?? 'tracked'}
+                                                            </span>
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </TableCell>
                                         <TableCell className="text-center">{item.quantity}</TableCell>
                                         <TableCell className="text-center">{item.unit_cost ?? '—'}</TableCell>

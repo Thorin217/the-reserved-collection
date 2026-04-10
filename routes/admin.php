@@ -39,6 +39,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('stocks', [InventoryStockController::class, 'index'])->name('stocks.index');
         Route::get('movements', [InventoryMovementController::class, 'index'])->name('movements.index');
+        Route::post('movements/opening', [InventoryMovementController::class, 'opening'])->name('movements.opening');
 
         Route::prefix('transfers')->name('transfers.')->group(function () {
             Route::get('/', [InventoryTransferController::class, 'index'])->name('index');

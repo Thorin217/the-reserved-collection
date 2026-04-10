@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
+import { notifyInventoryStockChanged } from '@/lib/inventory-stock-sync';
 import { index as movementsIndex } from '@/routes/admin/inventory/movements';
 import {
     cancel as cancelReservation,
@@ -156,6 +157,7 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
             onSuccess: () => {
                 form.reset();
                 setCreating(false);
+                notifyInventoryStockChanged();
             },
         });
     }
@@ -192,6 +194,9 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
             {},
             {
                 preserveScroll: true,
+                onSuccess: () => {
+                    notifyInventoryStockChanged();
+                },
                 onFinish: () => setProcessingReservationId(null),
             },
         );
@@ -224,6 +229,7 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                 onSuccess: () => {
                     setPendingAction(null);
                     setSelectedSerialIds([]);
+                    notifyInventoryStockChanged();
                 },
             },
         );

@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
+import { notifyInventoryStockChanged } from '@/lib/inventory-stock-sync';
 import { index as movementsIndex } from '@/routes/admin/inventory/movements';
 import {
     destroy,
@@ -248,7 +249,12 @@ export default function InventoryTransfersIndex({
         );
 
         if (serializedItems.length === 0) {
-            router.post(send.url(transfer), {}, { preserveScroll: true });
+            router.post(send.url(transfer), {}, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    notifyInventoryStockChanged();
+                },
+            });
 
             return;
         }
@@ -279,7 +285,12 @@ export default function InventoryTransfersIndex({
                 received_quantity: item.quantity,
             }));
 
-            router.post(receive.url(transfer), { items }, { preserveScroll: true });
+            router.post(receive.url(transfer), { items }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    notifyInventoryStockChanged();
+                },
+            });
 
             return;
         }
@@ -322,6 +333,7 @@ export default function InventoryTransfersIndex({
                 onSuccess: () => {
                     setSendingTransfer(null);
                     setSelectedSendSerialsByItem({});
+                    notifyInventoryStockChanged();
                 },
             },
         );
@@ -359,6 +371,7 @@ export default function InventoryTransfersIndex({
                 onSuccess: () => {
                     setReceivingTransfer(null);
                     setSelectedReceiveSerialsByItem({});
+                    notifyInventoryStockChanged();
                 },
             },
         );

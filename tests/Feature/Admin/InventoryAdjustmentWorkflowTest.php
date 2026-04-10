@@ -219,4 +219,63 @@ class InventoryAdjustmentWorkflowTest extends TestCase
                 ->count(),
         );
     }
+
+    public function test_it_includes_adjustment_serials_payload_for_view_modal(): void
+    {
+        $serializedVariant = ProductVariant::factory()->create();
+
+        $serial = ProductSerial::factory()
+            ->state([
+                'product_variant_id' => $serializedVariant->id,
+                'warehouse_id' => $this->warehouse->id,
+                'status' => 'damaged',
+            ])
+            ->create();
+
+        $adjustment = InventoryAdjustment::create([
+            'code' => 'ADJ-VIEW-001',
+            'warehouse_id' => $this->warehouse->id,
+            'adjustment_type' => 'decrease',
+            'status' => InventoryAdjustmentStatus::Confirmed,
+            'created_by' => $this->user->id,
+            'confirmed_by' => $this->user->id,
+            'confirmed_at' => now(),
+        ]);
+
+        $adjustment->items()->create([
+            'product_variant_id' => $serializedVariant->id,
+            'quantity' => 1,
+            'unit_cost' => 10,
+        ]);
+
+        InventoryMovement::create([
+            'movement_type' => 'adjustment_out',
+            'reference_type' => InventoryAdjustment::class,
+            'reference_id' => $adjustment->id,
+            'branch_id' => $this->branch->id,
+            'warehouse_id' => $this->warehouse->id,
+            'product_variant_id' => $serializedVariant->id,
+            'serial_id' => $serial->id,
+            'quantity' => 1,
+            'unit_cost' => 10,
+            'balance_after_movement' => 0,
+            'notes' => 'Serialized adjustment out',
+            'user_id' => $this->user->id,
+        ]);
+
+        $response = $this->get(route('admin.inventory.adjustments.index'));
+
+        $response->assertSuccessful();
+
+        /** @var array<string, mixed> $page */
+        $page = $response->viewData('page');
+
+        $serialPayload = data_get(
+            $page,
+            "props.adjustment_serials.{$adjustment->id}.{$serializedVariant->id}",
+            [],
+        );
+
+        $this->assertCount(1, $serialPayload);
+    }
 }

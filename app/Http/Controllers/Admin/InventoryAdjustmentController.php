@@ -52,6 +52,53 @@ class InventoryAdjustmentController extends Controller
             ->withQueryString();
 
         $serialCandidates = [];
+        $adjustmentSerials = [];
+
+        $adjustmentIds = $adjustments->getCollection()->pluck('id')->all();
+
+        if (! empty($adjustmentIds)) {
+            $serialMovements = InventoryMovement::query()
+                ->with('serial:id,serial_number,status')
+                ->where('reference_type', InventoryAdjustment::class)
+                ->whereIn('reference_id', $adjustmentIds)
+                ->whereIn('movement_type', [
+                    InventoryMovementType::AdjustmentIn->value,
+                    InventoryMovementType::AdjustmentOut->value,
+                ])
+                ->whereNotNull('serial_id')
+                ->get([
+                    'reference_id',
+                    'product_variant_id',
+                    'serial_id',
+                ]);
+
+            foreach ($serialMovements as $movement) {
+                $adjustmentId = (string) $movement->reference_id;
+                $variantId = (string) $movement->product_variant_id;
+
+                if (! isset($adjustmentSerials[$adjustmentId])) {
+                    $adjustmentSerials[$adjustmentId] = [];
+                }
+
+                if (! isset($adjustmentSerials[$adjustmentId][$variantId])) {
+                    $adjustmentSerials[$adjustmentId][$variantId] = [];
+                }
+
+                $serialId = (int) $movement->serial_id;
+
+                $adjustmentSerials[$adjustmentId][$variantId][$serialId] = [
+                    'id' => $serialId,
+                    'serial_number' => $movement->serial?->serial_number,
+                    'status' => $movement->serial?->status?->value ?? (string) $movement->serial?->status,
+                ];
+            }
+
+            foreach ($adjustmentSerials as $adjustmentId => $serialStateByVariant) {
+                foreach ($serialStateByVariant as $variantId => $serials) {
+                    $adjustmentSerials[$adjustmentId][$variantId] = array_values($serials);
+                }
+            }
+        }
 
         foreach ($adjustments->getCollection() as $adjustment) {
             if (
@@ -88,6 +135,7 @@ class InventoryAdjustmentController extends Controller
                 ProductVariant::query()->with('product')->where('is_active', true)->orderBy('sku')->get()
             ),
             'serial_candidates' => $serialCandidates,
+            'adjustment_serials' => $adjustmentSerials,
             'filters' => $request->only(['status', 'adjustment_type', 'warehouse_id', 'search', 'sort_by', 'sort_dir']),
         ]);
     }

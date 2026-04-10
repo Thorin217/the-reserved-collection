@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,6 +12,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
+import { subscribeInventoryStockChanges } from '@/lib/inventory-stock-sync';
 import { index as stocksIndex } from '@/routes/admin/inventory/stocks';
 import type { PaginatedData } from '@/types';
 
@@ -35,6 +37,31 @@ type Props = {
 
 export default function InventoryStocksIndex({ stocks, warehouses, filters }: Props) {
     const warehouseFilter = filters.warehouse_id ?? '_all';
+
+    useEffect(() => {
+        const reloadStocks = () => {
+            router.reload({
+                only: ['stocks'],
+            });
+        };
+
+        const interval = window.setInterval(reloadStocks, 8000);
+        const unsubscribe = subscribeInventoryStockChanges(reloadStocks);
+
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                reloadStocks();
+            }
+        };
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+
+        return () => {
+            window.clearInterval(interval);
+            unsubscribe();
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
+    }, []);
 
     function applyFilters(payload: Props['filters']) {
         router.get(stocksIndex.url(), payload, { preserveState: true, replace: true });
