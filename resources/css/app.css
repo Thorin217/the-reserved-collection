@@ -63,6 +63,10 @@
     --color-gold: oklch(0.598 0.105 57);
     --color-gold-light: oklch(0.680 0.095 58);
     --color-gold-dark: oklch(0.480 0.095 57);
+
+    /* Font aliases for Lovable design compatibility */
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-body: 'Outfit', ui-sans-serif, system-ui, sans-serif;
 }
 
 /* =========================================================
@@ -187,5 +191,15 @@
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+    }
+
+    .bg-hero-overlay {
+        background: linear-gradient(
+            to top,
+            oklch(0.130 0.006 62) 0%,
+            oklch(0.130 0.006 62 / 0.75) 30%,
+            oklch(0.130 0.006 62 / 0.3) 60%,
+            transparent 100%
+        );
     }
 }

@@ -20,12 +20,14 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Admin',
                 'password' => Hash::make('password'),
                 'email_verified_at' => now(),
+                'is_admin' => true,
             ],
         );
 
         $this->call([
             PhaseOneInventorySeeder::class,
             PhaseOneInventoryWorkflowSeeder::class,
+            PortalSeeder::class,
         ]);
     }
 }

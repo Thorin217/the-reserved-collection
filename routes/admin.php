@@ -18,7 +18,7 @@ use App\Http\Controllers\Admin\ProductSerialController;
 use App\Http\Controllers\Admin\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     // Inventario - Productos
     Route::resource('products', ProductController::class)
         ->except(['show', 'create', 'store'])
