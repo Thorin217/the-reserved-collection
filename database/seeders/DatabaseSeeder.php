@@ -8,8 +8,6 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 class DatabaseSeeder extends Seeder
 {
@@ -19,12 +17,6 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         Schema::disableForeignKeyConstraints();
-
-        DB::table('model_has_roles')->truncate();
-        DB::table('model_has_permissions')->truncate();
-        DB::table('role_has_permissions')->truncate();
-        DB::table('roles')->truncate();
-        DB::table('permissions')->truncate();
 
         DB::table('inventory_adjustment_items')->truncate();
         DB::table('inventory_adjustments')->truncate();
@@ -47,26 +39,12 @@ class DatabaseSeeder extends Seeder
 
         Schema::enableForeignKeyConstraints();
 
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-        $adminRole = Role::create(['name' => 'admin', 'guard_name' => 'web']);
-        $customerRole = Role::create(['name' => 'customer', 'guard_name' => 'web']);
-
-        $admin = User::query()->create([
+        User::query()->create([
             'name' => 'Admin',
             'email' => 'admin@admin.com',
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
         ]);
-        $admin->assignRole($adminRole);
-
-        $customer = User::query()->create([
-            'name' => 'Cliente Demo',
-            'email' => 'cliente@reserved-collection.pe',
-            'password' => Hash::make('password'),
-            'email_verified_at' => now(),
-        ]);
-        $customer->assignRole($customerRole);
 
         $this->call([
             PhaseOneInventorySeeder::class,
