@@ -7,6 +7,15 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreProductRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('variants') && $this->has('variant')) {
+            $this->merge([
+                'variants' => [$this->input('variant')],
+            ]);
+        }
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -31,12 +40,11 @@ class StoreProductRequest extends FormRequest
             'has_serial_numbers' => ['boolean'],
             'status' => ['required', 'in:draft,active,inactive'],
 
-            // Variante principal obligatoria
-            'variant' => ['required', 'array'],
-            'variant.sku' => ['required', 'string', 'max:100', 'unique:product_variants,sku'],
-            'variant.cost' => ['nullable', 'numeric', 'min:0'],
-            'variant.price' => ['nullable', 'numeric', 'min:0'],
-            'variant.compare_price' => ['nullable', 'numeric', 'min:0'],
+            'variants' => ['required', 'array', 'min:1'],
+            'variants.*.sku' => ['required', 'string', 'max:100', 'unique:product_variants,sku'],
+            'variants.*.cost' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.price' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.compare_price' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

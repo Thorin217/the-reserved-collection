@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { create as createProduct, index as productsIndex } from '@/routes/admin/products';
 import type { Brand, Category, PaginatedData, Product } from '@/types';
@@ -80,9 +81,14 @@ export default function ProductsIndex({ products, brands, categories, filters }:
                             onChange={e => setSearch(e.target.value)}
                             className="w-64"
                         />
-                        <Button type="submit" variant="outline" size="icon">
-                            <Search className="h-4 w-4" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button type="submit" variant="outline" size="icon">
+                                    <Search className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Search products</TooltipContent>
+                        </Tooltip>
                     </form>
                     <Select value={filters.status ?? ALL} onValueChange={v => applyFilter('status', v)}>
                         <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
@@ -143,20 +149,35 @@ export default function ProductsIndex({ products, brands, categories, filters }:
                                             <TableCell>
                                                 <div className="flex items-center justify-end gap-1">
                                                     {product.has_serial_numbers && (
-                                                        <Button variant="ghost" size="icon" asChild title="Serials">
-                                                            <Link href={ProductSerialController.index.url(product)}>
-                                                                <ListChecks className="h-4 w-4" />
-                                                            </Link>
-                                                        </Button>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button variant="ghost" size="icon" asChild>
+                                                                    <Link href={ProductSerialController.index.url(product)}>
+                                                                        <ListChecks className="h-4 w-4" />
+                                                                    </Link>
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>View serials</TooltipContent>
+                                                        </Tooltip>
                                                     )}
-                                                    <Button variant="ghost" size="icon" asChild title="Edit">
-                                                        <Link href={ProductController.edit.url(product)}>
-                                                            <Edit className="h-4 w-4" />
-                                                        </Link>
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteProduct(product)} title="Delete">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" asChild>
+                                                                <Link href={ProductController.edit.url(product)}>
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Link>
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Edit product</TooltipContent>
+                                                    </Tooltip>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteProduct(product)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Delete product</TooltipContent>
+                                                    </Tooltip>
                                                 </div>
                                             </TableCell>
                                         </TableRow>

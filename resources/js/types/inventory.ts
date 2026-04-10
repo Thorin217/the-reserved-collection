@@ -71,11 +71,30 @@ export type ProductSerial = {
     updated_at: string;
 };
 
-export type Warehouse = {
+export type Branch = {
     id: number;
     name: string;
-    code: string;
+    phone: string | null;
+    email: string | null;
     address: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    is_active: boolean;
+    warehouses_count?: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type Warehouse = {
+    id: number;
+    branch_id: number;
+    name: string;
+    type: 'main' | 'display' | 'returns' | 'transit' | 'reserved' | 'damaged';
+    allows_sales: boolean;
+    description: string | null;
+    is_active: boolean;
+    branch?: Branch;
     created_at: string;
     updated_at: string;
 };

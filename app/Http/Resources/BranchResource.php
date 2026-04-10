@@ -24,6 +24,7 @@ class BranchResource extends JsonResource
             'state' => $this->state,
             'country' => $this->country,
             'is_active' => $this->is_active,
+            'warehouses_count' => $this->warehouses_count,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
 
