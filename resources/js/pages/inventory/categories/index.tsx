@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import * as CategoryController from '@/actions/App/Http/Controllers/Admin/CategoryController';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +51,8 @@ type Props = {
 export default function CategoriesIndex({ categories, parents }: Props) {
     const [editing, setEditing] = useState<Category | null>(null);
     const [creating, setCreating] = useState(false);
+    const [pendingDeleteCategory, setPendingDeleteCategory] =
+        useState<Category | null>(null);
 
     const storeForm = useForm({
         parent_id: NO_PARENT,
@@ -121,11 +124,20 @@ export default function CategoriesIndex({ categories, parents }: Props) {
     }
 
     function deleteCategory(category: Category) {
-        if (!confirm(`Delete category "${category.name}"?`)) {
+        router.delete(CategoryController.destroy.url(category));
+    }
+
+    function requestDeleteCategory(category: Category) {
+        setPendingDeleteCategory(category);
+    }
+
+    function confirmDeleteCategory() {
+        if (!pendingDeleteCategory) {
             return;
         }
 
-        router.delete(CategoryController.destroy.url(category));
+        deleteCategory(pendingDeleteCategory);
+        setPendingDeleteCategory(null);
     }
 
     return (
@@ -217,7 +229,7 @@ export default function CategoriesIndex({ categories, parents }: Props) {
                                                             size="icon"
                                                             className="text-destructive hover:text-destructive"
                                                             onClick={() =>
-                                                                deleteCategory(
+                                                                requestDeleteCategory(
                                                                     category,
                                                                 )
                                                             }
@@ -401,6 +413,22 @@ export default function CategoriesIndex({ categories, parents }: Props) {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmationModal
+                open={!!pendingDeleteCategory}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingDeleteCategory(null);
+                    }
+                }}
+                title="Delete category"
+                description={pendingDeleteCategory
+                    ? `Are you sure you want to delete "${pendingDeleteCategory.name}"? This action cannot be undone.`
+                    : 'Are you sure you want to delete this category?'}
+                confirmLabel="Delete"
+                confirmVariant="destructive"
+                onConfirm={confirmDeleteCategory}
+            />
         </>
     );
 }

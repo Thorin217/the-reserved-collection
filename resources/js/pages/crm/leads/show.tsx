@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeft, Calendar, Clock, Edit, Mail, MessageSquare, Phone, Save, Trash2, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import * as LeadController from '@/actions/App/Http/Controllers/Admin/LeadController';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { index as leadsIndex, show as leadShow } from '@/routes/admin/leads';
+import { index as leadsIndex } from '@/routes/admin/leads';
 import type { Client, Lead, LeadInteraction, User } from '@/types';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
@@ -59,6 +60,8 @@ type Props = {
 
 export default function LeadShow({ lead: { data: lead }, clients, users }: Props) {
     const [editing, setEditing] = useState(false);
+    const [pendingDeleteInteraction, setPendingDeleteInteraction] = useState<LeadInteraction | null>(null);
+    const [confirmLeadDelete, setConfirmLeadDelete] = useState(false);
 
     const editForm = useForm<LeadFormData>({
         client_id: lead.client?.id?.toString() ?? '',
@@ -94,13 +97,33 @@ export default function LeadShow({ lead: { data: lead }, clients, users }: Props
     }
 
     function deleteInteraction(interaction: LeadInteraction) {
-        if (!confirm('Delete this interaction?')) { return; }
         router.delete(`/admin/leads/${lead.id}/interactions/${interaction.id}`);
     }
 
     function deleteLead() {
-        if (!confirm(`Delete lead "${lead.title}"? This action cannot be undone.`)) { return; }
         router.delete(LeadController.destroy.url(lead));
+    }
+
+    function requestDeleteInteraction(interaction: LeadInteraction) {
+        setPendingDeleteInteraction(interaction);
+    }
+
+    function confirmDeleteInteraction() {
+        if (!pendingDeleteInteraction) {
+            return;
+        }
+
+        deleteInteraction(pendingDeleteInteraction);
+        setPendingDeleteInteraction(null);
+    }
+
+    function requestDeleteLead() {
+        setConfirmLeadDelete(true);
+    }
+
+    function confirmDeleteLead() {
+        deleteLead();
+        setConfirmLeadDelete(false);
     }
 
     return (
@@ -134,7 +157,7 @@ export default function LeadShow({ lead: { data: lead }, clients, users }: Props
                             <Edit className="mr-2 h-4 w-4" />
                             {editing ? 'Cancel' : 'Edit'}
                         </Button>
-                        <Button variant="destructive" size="sm" onClick={deleteLead}>
+                        <Button variant="destructive" size="sm" onClick={requestDeleteLead}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
                         </Button>
@@ -330,6 +353,7 @@ export default function LeadShow({ lead: { data: lead }, clients, users }: Props
                                     {lead.interactions?.map((interaction, index) => {
                                         const typeConfig = INTERACTION_TYPE_CONFIG[interaction.type] ?? INTERACTION_TYPE_CONFIG.other;
                                         const Icon = typeConfig.icon;
+
                                         return (
                                             <div key={interaction.id}>
                                                 {index > 0 && <Separator className="mb-4" />}
@@ -344,7 +368,7 @@ export default function LeadShow({ lead: { data: lead }, clients, users }: Props
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
-                                                                onClick={() => deleteInteraction(interaction)}
+                                                                onClick={() => requestDeleteInteraction(interaction)}
                                                             >
                                                                 <Trash2 className="h-3 w-3" />
                                                             </Button>
@@ -366,6 +390,30 @@ export default function LeadShow({ lead: { data: lead }, clients, users }: Props
                     </div>
                 </div>
             </div>
+
+            <ConfirmationModal
+                open={confirmLeadDelete}
+                onOpenChange={setConfirmLeadDelete}
+                title="Delete lead"
+                description={`Are you sure you want to delete "${lead.title}"? This action cannot be undone.`}
+                confirmLabel="Delete"
+                confirmVariant="destructive"
+                onConfirm={confirmDeleteLead}
+            />
+
+            <ConfirmationModal
+                open={!!pendingDeleteInteraction}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingDeleteInteraction(null);
+                    }
+                }}
+                title="Delete interaction"
+                description="Are you sure you want to delete this interaction? This action cannot be undone."
+                confirmLabel="Delete"
+                confirmVariant="destructive"
+                onConfirm={confirmDeleteInteraction}
+            />
         </>
     );
 }

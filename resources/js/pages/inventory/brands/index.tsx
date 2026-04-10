@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import * as BrandController from '@/actions/App/Http/Controllers/Admin/BrandController';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ type Props = {
 export default function BrandsIndex({ brands }: Props) {
     const [editing, setEditing] = useState<Brand | null>(null);
     const [creating, setCreating] = useState(false);
+    const [pendingDeleteBrand, setPendingDeleteBrand] = useState<Brand | null>(null);
 
     const storeForm = useForm({ name: '', description: '', is_active: true });
     const editForm = useForm({ name: '', description: '', is_active: true });
@@ -40,21 +42,41 @@ export default function BrandsIndex({ brands }: Props) {
     function submitCreate(e: React.FormEvent) {
         e.preventDefault();
         storeForm.post(BrandController.store.url(), {
-            onSuccess: () => { storeForm.reset(); setCreating(false); },
+            onSuccess: () => {
+ storeForm.reset(); setCreating(false);
+},
         });
     }
 
     function submitEdit(e: React.FormEvent) {
         e.preventDefault();
-        if (!editing) { return; }
+
+        if (!editing) {
+ return;
+}
+
         editForm.put(BrandController.update.url(editing), {
-            onSuccess: () => { editForm.reset(); setEditing(null); },
+            onSuccess: () => {
+ editForm.reset(); setEditing(null);
+},
         });
     }
 
     function deleteBrand(brand: Brand) {
-        if (!confirm(`Delete brand "${brand.name}"? This action cannot be undone.`)) { return; }
         router.delete(BrandController.destroy.url(brand));
+    }
+
+    function requestDeleteBrand(brand: Brand) {
+        setPendingDeleteBrand(brand);
+    }
+
+    function confirmDeleteBrand() {
+        if (!pendingDeleteBrand) {
+            return;
+        }
+
+        deleteBrand(pendingDeleteBrand);
+        setPendingDeleteBrand(null);
     }
 
     return (
@@ -109,7 +131,7 @@ export default function BrandsIndex({ brands }: Props) {
                                                 </Tooltip>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteBrand(brand)}>
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => requestDeleteBrand(brand)}>
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </TooltipTrigger>
@@ -140,6 +162,22 @@ export default function BrandsIndex({ brands }: Props) {
                     </div>
                 )}
             </div>
+
+            <ConfirmationModal
+                open={!!pendingDeleteBrand}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingDeleteBrand(null);
+                    }
+                }}
+                title="Delete brand"
+                description={pendingDeleteBrand
+                    ? `Are you sure you want to delete "${pendingDeleteBrand.name}"? This action cannot be undone.`
+                    : 'Are you sure you want to delete this brand?'}
+                confirmLabel="Delete"
+                confirmVariant="destructive"
+                onConfirm={confirmDeleteBrand}
+            />
 
             <Dialog open={creating} onOpenChange={setCreating}>
                 <DialogContent>

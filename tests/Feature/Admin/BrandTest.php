@@ -1,7 +1,10 @@
 <?php
 
 use App\Models\Brand;
+use App\Models\Category;
+use App\Models\Product;
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -12,6 +15,22 @@ it('lists brands', function () {
     Brand::factory()->count(3)->create();
 
     $this->get('/admin/brands')->assertSuccessful();
+});
+
+it('includes products count in brands listing payload', function () {
+    $brand = Brand::factory()->create();
+
+    Product::factory()->count(2)->create([
+        'brand_id' => $brand->id,
+        'category_id' => Category::factory()->create()->id,
+    ]);
+
+    $this->get('/admin/brands')
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('inventory/brands/index')
+            ->where('brands.data.0.products_count', 2)
+        );
 });
 
 it('creates a brand', function () {

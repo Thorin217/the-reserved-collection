@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Edit, Plus, Search, Trash2, UserCheck, UserX } from 'lucide-react';
 import { useState } from 'react';
 import * as ClientController from '@/actions/App/Http/Controllers/Admin/ClientController';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -132,6 +133,7 @@ function ClientFormDialog({
 
 export default function ClientsIndex({ clients, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
+    const [pendingDeleteClient, setPendingDeleteClient] = useState<Client | null>(null);
 
     function applyFilter(key: string, value: string) {
         const resolved = value === ALL ? undefined : value || undefined;
@@ -152,8 +154,20 @@ export default function ClientsIndex({ clients, filters }: Props) {
     }
 
     function deleteClient(client: Client) {
-        if (!confirm(`Delete client "${client.name}"?`)) { return; }
         router.delete(ClientController.destroy.url(client));
+    }
+
+    function requestDeleteClient(client: Client) {
+        setPendingDeleteClient(client);
+    }
+
+    function confirmDeleteClient() {
+        if (!pendingDeleteClient) {
+            return;
+        }
+
+        deleteClient(pendingDeleteClient);
+        setPendingDeleteClient(null);
     }
 
     return (
@@ -266,7 +280,7 @@ export default function ClientsIndex({ clients, filters }: Props) {
                                                     variant="ghost"
                                                     size="icon"
                                                     className="text-destructive hover:text-destructive"
-                                                    onClick={() => deleteClient(client)}
+                                                    onClick={() => requestDeleteClient(client)}
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -300,6 +314,22 @@ export default function ClientsIndex({ clients, filters }: Props) {
                         )}
                     </div>
                 )}
+
+                <ConfirmationModal
+                    open={!!pendingDeleteClient}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setPendingDeleteClient(null);
+                        }
+                    }}
+                    title="Delete client"
+                    description={pendingDeleteClient
+                        ? `Are you sure you want to delete "${pendingDeleteClient.name}"? This action cannot be undone.`
+                        : 'Are you sure you want to delete this client?'}
+                    confirmLabel="Delete"
+                    confirmVariant="destructive"
+                    onConfirm={confirmDeleteClient}
+                />
             </div>
         </>
     );

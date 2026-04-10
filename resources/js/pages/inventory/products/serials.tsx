@@ -3,6 +3,7 @@ import { Clock, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import * as ProductController from '@/actions/App/Http/Controllers/Admin/ProductController';
 import * as ProductSerialController from '@/actions/App/Http/Controllers/Admin/ProductSerialController';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,7 @@ type Props = {
 export default function ProductSerials({ product: { data: product }, serials, movements, warehouses }: Props) {
     const [addingSerial, setAddingSerial] = useState(false);
     const [editingSerial, setEditingSerial] = useState<ProductSerial | null>(null);
+    const [pendingDeleteSerial, setPendingDeleteSerial] = useState<ProductSerial | null>(null);
 
     const firstVariant = product.variants?.[0];
 
@@ -74,21 +76,41 @@ export default function ProductSerials({ product: { data: product }, serials, mo
     function submitAdd(e: React.FormEvent) {
         e.preventDefault();
         storeForm.post(ProductSerialController.store.url(product), {
-            onSuccess: () => { storeForm.reset(); setAddingSerial(false); },
+            onSuccess: () => {
+ storeForm.reset(); setAddingSerial(false);
+},
         });
     }
 
     function submitEdit(e: React.FormEvent) {
         e.preventDefault();
-        if (!editingSerial) { return; }
+
+        if (!editingSerial) {
+ return;
+}
+
         editForm.put(ProductSerialController.update.url({ product, serial: editingSerial }), {
-            onSuccess: () => { editForm.reset(); setEditingSerial(null); },
+            onSuccess: () => {
+ editForm.reset(); setEditingSerial(null);
+},
         });
     }
 
     function deleteSerial(serial: ProductSerial) {
-        if (!confirm(`Delete serial "${serial.serial_number}"?`)) { return; }
         router.delete(ProductSerialController.destroy.url({ product, serial }));
+    }
+
+    function requestDeleteSerial(serial: ProductSerial) {
+        setPendingDeleteSerial(serial);
+    }
+
+    function confirmDeleteSerial() {
+        if (!pendingDeleteSerial) {
+            return;
+        }
+
+        deleteSerial(pendingDeleteSerial);
+        setPendingDeleteSerial(null);
     }
 
     const serialCounts = {
@@ -158,6 +180,7 @@ export default function ProductSerials({ product: { data: product }, serials, mo
                                     <tbody className="divide-y">
                                         {serials.data.map(serial => {
                                             const s = SERIAL_STATUS[serial.status] ?? SERIAL_STATUS.available;
+
                                             return (
                                                 <tr key={serial.id} className="hover:bg-muted/30">
                                                     <td className="px-4 py-2 font-mono text-xs font-medium">{serial.serial_number}</td>
@@ -178,7 +201,7 @@ export default function ProductSerials({ product: { data: product }, serials, mo
                                                             </Tooltip>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteSerial(serial)}>
+                                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => requestDeleteSerial(serial)}>
                                                                         <Trash2 className="h-3 w-3" />
                                                                     </Button>
                                                                 </TooltipTrigger>
@@ -326,6 +349,22 @@ export default function ProductSerials({ product: { data: product }, serials, mo
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmationModal
+                open={!!pendingDeleteSerial}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingDeleteSerial(null);
+                    }
+                }}
+                title="Delete serial"
+                description={pendingDeleteSerial
+                    ? `Are you sure you want to delete serial "${pendingDeleteSerial.serial_number}"? This action cannot be undone.`
+                    : 'Are you sure you want to delete this serial?'}
+                confirmLabel="Delete"
+                confirmVariant="destructive"
+                onConfirm={confirmDeleteSerial}
+            />
         </>
     );
 }

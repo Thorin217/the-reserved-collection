@@ -39,13 +39,13 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
                     'reference_id' => null,
                 ]);
 
-            $warehouseA1 = Warehouse::query()->where('name', 'Warehouse A1')->firstOrFail();
-            $warehouseB1 = Warehouse::query()->where('name', 'Warehouse B1')->firstOrFail();
+            $warehouseA1 = Warehouse::query()->where('name', 'Almacén Principal San Isidro')->firstOrFail();
+            $warehouseB1 = Warehouse::query()->where('name', 'Almacén Boutique Cusco')->firstOrFail();
 
-            $simpleVariant = ProductVariant::query()->where('sku', 'P1-SIMPLE-001-STD')->firstOrFail();
-            $serializedVariant = ProductVariant::query()->where('sku', 'P1-SERIAL-001-STD')->firstOrFail();
+            $simpleVariant = ProductVariant::query()->where('sku', 'RLX-SVC-001-STD')->firstOrFail();
+            $serializedVariant = ProductVariant::query()->where('sku', 'RLX-SUB-126610LN-STD')->firstOrFail();
 
-            $seedUser = User::query()->where('email', 'test@example.com')->first();
+            $seedUser = User::query()->where('email', 'admin@admin.com')->first();
 
             $this->resetSerializedSerialsToAvailable($serializedVariant->id, $warehouseA1->id);
 
@@ -84,7 +84,7 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
     {
         ProductSerial::query()
             ->where('product_variant_id', $variantId)
-            ->where('serial_number', 'like', 'P1-SN-%')
+            ->where('serial_number', 'like', 'RLX126610-%')
             ->update([
                 'warehouse_id' => $warehouseId,
                 'status' => ProductSerialStatus::Available,
@@ -116,7 +116,7 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
                 'quantity' => 20,
                 'reserved_quantity' => 2,
                 'available_quantity' => 18,
-                'average_cost' => 1200,
+                'average_cost' => 450,
             ],
         );
 
@@ -134,7 +134,7 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
                 'quantity' => 2,
                 'unit_cost' => null,
                 'balance_after_movement' => 20,
-                'notes' => 'Seed reservation for simple product',
+                'notes' => 'Reserva activa de servicio premium para validación funcional',
                 'user_id' => $userId,
             ],
         );
@@ -146,7 +146,7 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
             ->where('product_variant_id', $variantId)
             ->where('warehouse_id', $warehouseId)
             ->where('status', ProductSerialStatus::Available)
-            ->where('serial_number', 'like', 'P1-SN-%')
+            ->where('serial_number', 'like', 'RLX126610-%')
             ->orderBy('serial_number')
             ->limit(2)
             ->get();
@@ -184,7 +184,7 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
                 'quantity' => 5,
                 'reserved_quantity' => 2,
                 'available_quantity' => 3,
-                'average_cost' => 3500,
+                'average_cost' => 9800,
             ],
         );
 
@@ -203,7 +203,7 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
                     'quantity' => 1,
                     'unit_cost' => null,
                     'balance_after_movement' => 5,
-                    'notes' => 'Seed reservation for serialized product · Serial '.$serial->serial_number,
+                    'notes' => 'Reserva activa de reloj serializado · Serial '.$serial->serial_number,
                     'user_id' => $userId,
                 ],
             );
@@ -218,13 +218,13 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
         ?int $userId,
     ): void {
         $simpleTransfer = InventoryTransfer::query()->updateOrCreate(
-            ['code' => 'TRF-P1-DRAFT-SIMPLE'],
+            ['code' => 'TRF-SI-CUS-0001'],
             [
                 'from_warehouse_id' => $fromWarehouseId,
                 'to_warehouse_id' => $toWarehouseId,
                 'status' => InventoryTransferStatus::Draft,
                 'requested_by' => $userId,
-                'notes' => 'Seed transfer draft for simple product',
+                'notes' => 'Reposición programada de servicio premium para boutique Cusco',
                 'approved_by' => null,
                 'received_by' => null,
                 'sent_at' => null,
@@ -237,18 +237,18 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
         InventoryTransferItem::query()->create([
             'inventory_transfer_id' => $simpleTransfer->id,
             'product_variant_id' => $simpleVariantId,
-            'quantity' => 2,
+            'quantity' => 3,
             'received_quantity' => 0,
         ]);
 
         $serializedTransfer = InventoryTransfer::query()->updateOrCreate(
-            ['code' => 'TRF-P1-DRAFT-SERIAL'],
+            ['code' => 'TRF-SI-CUS-0002'],
             [
                 'from_warehouse_id' => $fromWarehouseId,
                 'to_warehouse_id' => $toWarehouseId,
                 'status' => InventoryTransferStatus::Draft,
                 'requested_by' => $userId,
-                'notes' => 'Seed transfer draft for serialized product',
+                'notes' => 'Traslado de relojes Rolex para vitrina de fin de semana',
                 'approved_by' => null,
                 'received_by' => null,
                 'sent_at' => null,
@@ -261,7 +261,7 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
         InventoryTransferItem::query()->create([
             'inventory_transfer_id' => $serializedTransfer->id,
             'product_variant_id' => $serializedVariantId,
-            'quantity' => 2,
+            'quantity' => 1,
             'received_quantity' => 0,
         ]);
     }
@@ -269,13 +269,13 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
     private function seedDraftAdjustments(int $warehouseId, int $simpleVariantId, int $serializedVariantId, ?int $userId): void
     {
         $increaseAdjustment = InventoryAdjustment::query()->updateOrCreate(
-            ['code' => 'ADJ-P1-DRAFT-IN'],
+            ['code' => 'ADJ-SI-ENTRADA-001'],
             [
                 'warehouse_id' => $warehouseId,
                 'adjustment_type' => InventoryAdjustmentType::Increase,
-                'reason' => 'Seed increase adjustment',
+                'reason' => 'Ingreso por compra de accesorios de relojería',
                 'status' => InventoryAdjustmentStatus::Draft,
-                'notes' => 'Draft adjustment for QA flow',
+                'notes' => 'Pendiente validación documental de factura',
                 'created_by' => $userId,
                 'confirmed_by' => null,
                 'confirmed_at' => null,
@@ -287,18 +287,18 @@ class PhaseOneInventoryWorkflowSeeder extends Seeder
         InventoryAdjustmentItem::query()->create([
             'adjustment_id' => $increaseAdjustment->id,
             'product_variant_id' => $simpleVariantId,
-            'quantity' => 1,
-            'unit_cost' => 1200,
+            'quantity' => 5,
+            'unit_cost' => 450,
         ]);
 
         $decreaseAdjustment = InventoryAdjustment::query()->updateOrCreate(
-            ['code' => 'ADJ-P1-DRAFT-OUT'],
+            ['code' => 'ADJ-SI-SALIDA-001'],
             [
                 'warehouse_id' => $warehouseId,
                 'adjustment_type' => InventoryAdjustmentType::Decrease,
-                'reason' => 'Seed decrease adjustment',
+                'reason' => 'Pieza con desperfecto estético en inspección boutique',
                 'status' => InventoryAdjustmentStatus::Draft,
-                'notes' => 'Draft serialized decrease for QA flow',
+                'notes' => 'Pendiente confirmación para mover a estado damaged',
                 'created_by' => $userId,
                 'confirmed_by' => null,
                 'confirmed_at' => null,

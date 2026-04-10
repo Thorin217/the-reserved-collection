@@ -1,8 +1,10 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import InputError from '@/components/input-error';
+import TablePagination from '@/components/table-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -94,6 +96,9 @@ type Filters = {
     adjustment_type?: string;
     warehouse_id?: string;
     search?: string;
+    sort_by?: string;
+    sort_dir?: 'asc' | 'desc';
+    page?: number;
 };
 
 type Props = {
@@ -113,7 +118,12 @@ export default function InventoryAdjustmentsIndex({
 }: Props) {
     const [creating, setCreating] = useState(false);
     const [editing, setEditing] = useState<Adjustment | null>(null);
+    const [viewingItems, setViewingItems] = useState<Adjustment | null>(null);
     const [confirming, setConfirming] = useState<Adjustment | null>(null);
+    const [pendingAction, setPendingAction] = useState<{
+        action: 'confirm' | 'cancel' | 'delete';
+        adjustment: Adjustment;
+    } | null>(null);
     const [selectedSerialsByItem, setSelectedSerialsByItem] = useState<
         Record<string, string[]>
     >({});
@@ -121,6 +131,8 @@ export default function InventoryAdjustmentsIndex({
     const statusFilter = filters.status ?? '_all';
     const adjustmentTypeFilter = filters.adjustment_type ?? '_all';
     const warehouseFilter = filters.warehouse_id ?? '_all';
+    const sortBy = filters.sort_by ?? 'created_at';
+    const sortDir = filters.sort_dir ?? 'desc';
 
     const createForm = useForm<AdjustmentForm>({
         warehouse_id: '',
@@ -147,11 +159,41 @@ export default function InventoryAdjustmentsIndex({
         [variants.data],
     );
 
+    const variantLabelById = useMemo(
+        () =>
+            variants.data.reduce<Record<number, string>>((carry, variant) => {
+                carry[variant.id] = `${variant.sku} · ${variant.product?.name ?? 'Product'}`;
+
+                return carry;
+            }, {}),
+        [variants.data],
+    );
+
     function applyFilters(payload: Filters) {
         router.get(adjustmentsIndex.url(), payload, {
             preserveState: true,
             replace: true,
         });
+    }
+
+    function sortByColumn(column: string) {
+        const nextDirection: 'asc' | 'desc' =
+            sortBy === column && sortDir === 'asc' ? 'desc' : 'asc';
+
+        applyFilters({
+            ...filters,
+            sort_by: column,
+            sort_dir: nextDirection,
+            page: 1,
+        });
+    }
+
+    function sortIndicator(column: string): string {
+        if (sortBy !== column) {
+            return '↕';
+        }
+
+        return sortDir === 'asc' ? '↑' : '↓';
     }
 
     function openCreate() {
@@ -300,11 +342,37 @@ export default function InventoryAdjustmentsIndex({
     }
 
     function executeDelete(adjustment: Adjustment) {
-        if (!confirm(`Delete adjustment ${adjustment.code}?`)) {
+        router.delete(destroy.url(adjustment), { preserveScroll: true });
+    }
+
+    function openActionConfirmation(
+        action: 'confirm' | 'cancel' | 'delete',
+        adjustment: Adjustment,
+    ) {
+        setPendingAction({ action, adjustment });
+    }
+
+    function proceedPendingAction() {
+        if (!pendingAction) {
             return;
         }
 
-        router.delete(destroy.url(adjustment), { preserveScroll: true });
+        const { action, adjustment } = pendingAction;
+        setPendingAction(null);
+
+        if (action === 'confirm') {
+            executeConfirm(adjustment);
+
+            return;
+        }
+
+        if (action === 'cancel') {
+            executeCancel(adjustment);
+
+            return;
+        }
+
+        executeDelete(adjustment);
     }
 
     return (
@@ -429,15 +497,31 @@ export default function InventoryAdjustmentsIndex({
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Code</TableHead>
-                                    <TableHead>Warehouse</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">
+                                    <TableHead className="text-center">
+                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('code')}>
+                                            Code {sortIndicator('code')}
+                                        </Button>
+                                    </TableHead>
+                                    <TableHead className="text-center">Warehouse</TableHead>
+                                    <TableHead className="text-center">
+                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('adjustment_type')}>
+                                            Type {sortIndicator('adjustment_type')}
+                                        </Button>
+                                    </TableHead>
+                                    <TableHead className="text-center">
+                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('status')}>
+                                            Status {sortIndicator('status')}
+                                        </Button>
+                                    </TableHead>
+                                    <TableHead className="text-center">
                                         Items
                                     </TableHead>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead className="text-right">
+                                    <TableHead className="text-center">
+                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('created_at')}>
+                                            Date {sortIndicator('created_at')}
+                                        </Button>
+                                    </TableHead>
+                                    <TableHead className="text-center">
                                         Actions
                                     </TableHead>
                                 </TableRow>
@@ -445,30 +529,36 @@ export default function InventoryAdjustmentsIndex({
                             <TableBody>
                                 {adjustments.data.map((adjustment) => (
                                     <TableRow key={adjustment.id}>
-                                        <TableCell className="font-mono text-xs">
+                                        <TableCell className="text-center font-mono text-xs">
                                             {adjustment.code}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="text-center">
                                             {adjustment.warehouse?.name ?? '—'}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="text-center">
                                             {adjustment.adjustment_type}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="text-center">
                                             <Badge variant="outline">
                                                 {adjustment.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right">
-                                            {adjustment.items?.length ?? 0}
+                                        <TableCell className="text-center">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setViewingItems(adjustment)}
+                                            >
+                                                {adjustment.items?.length ?? 0} items
+                                            </Button>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="text-center">
                                             {new Date(
                                                 adjustment.created_at,
                                             ).toLocaleString()}
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex items-center justify-end gap-2">
+                                            <div className="flex items-center justify-center gap-2">
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <Button
@@ -519,7 +609,8 @@ export default function InventoryAdjustmentsIndex({
                                                                 <Button
                                                                     size="sm"
                                                                     onClick={() =>
-                                                                        executeConfirm(
+                                                                        openActionConfirmation(
+                                                                            'confirm',
                                                                             adjustment,
                                                                         )
                                                                     }
@@ -535,7 +626,8 @@ export default function InventoryAdjustmentsIndex({
                                                                     size="sm"
                                                                     variant="secondary"
                                                                     onClick={() =>
-                                                                        executeCancel(
+                                                                        openActionConfirmation(
+                                                                            'cancel',
                                                                             adjustment,
                                                                         )
                                                                     }
@@ -551,7 +643,8 @@ export default function InventoryAdjustmentsIndex({
                                                                     size="sm"
                                                                     variant="destructive"
                                                                     onClick={() =>
-                                                                        executeDelete(
+                                                                        openActionConfirmation(
+                                                                            'delete',
                                                                             adjustment,
                                                                         )
                                                                     }
@@ -578,34 +671,20 @@ export default function InventoryAdjustmentsIndex({
                     </CardContent>
                 </Card>
 
-                {adjustments.meta.last_page > 1 && (
-                    <div className="flex items-center justify-center gap-2">
-                        {adjustments.links.prev && (
-                            <Link
-                                href={adjustments.links.prev}
-                                className="text-sm text-primary underline"
-                            >
-                                ← Previous
-                            </Link>
-                        )}
-                        <span className="text-sm text-muted-foreground">
-                            Page {adjustments.meta.current_page} of{' '}
-                            {adjustments.meta.last_page}
-                        </span>
-                        {adjustments.links.next && (
-                            <Link
-                                href={adjustments.links.next}
-                                className="text-sm text-primary underline"
-                            >
-                                Next →
-                            </Link>
-                        )}
-                    </div>
-                )}
+                <TablePagination
+                    currentPage={adjustments.meta.current_page}
+                    lastPage={adjustments.meta.last_page}
+                    onPageChange={(page) =>
+                        applyFilters({
+                            ...filters,
+                            page,
+                        })
+                    }
+                />
             </div>
 
             <Dialog open={creating} onOpenChange={setCreating}>
-                <DialogContent className="max-w-3xl">
+                <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Create adjustment</DialogTitle>
                     </DialogHeader>
@@ -711,7 +790,7 @@ export default function InventoryAdjustmentsIndex({
                             {createForm.data.items.map((item, index) => (
                                 <div
                                     key={`create-adjustment-item-${index}`}
-                                    className="grid gap-3 md:grid-cols-[1fr_130px_130px_100px]"
+                                    className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_130px_130px_100px]"
                                 >
                                     <Select
                                         value={item.product_variant_id}
@@ -726,14 +805,16 @@ export default function InventoryAdjustmentsIndex({
                                             createForm.setData('items', items);
                                         }}
                                     >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select variant" />
+                                        <SelectTrigger className="w-full min-w-0">
+                                            <SelectValue placeholder="Select variant" className="block truncate" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="w-(--radix-select-trigger-width) max-w-[90vw]">
                                             {variantOptions.map((variant) => (
                                                 <SelectItem
                                                     key={variant.value}
                                                     value={variant.value}
+                                                    className="max-w-full truncate"
+                                                    title={variant.label}
                                                 >
                                                     {variant.label}
                                                 </SelectItem>
@@ -807,7 +888,7 @@ export default function InventoryAdjustmentsIndex({
             </Dialog>
 
             <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
-                <DialogContent className="max-w-3xl">
+                <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Edit adjustment</DialogTitle>
                     </DialogHeader>
@@ -910,7 +991,7 @@ export default function InventoryAdjustmentsIndex({
                             {editForm.data.items.map((item, index) => (
                                 <div
                                     key={`edit-adjustment-item-${index}`}
-                                    className="grid gap-3 md:grid-cols-[1fr_130px_130px_100px]"
+                                    className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_130px_130px_100px]"
                                 >
                                     <Select
                                         value={item.product_variant_id}
@@ -925,14 +1006,16 @@ export default function InventoryAdjustmentsIndex({
                                             editForm.setData('items', items);
                                         }}
                                     >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select variant" />
+                                        <SelectTrigger className="w-full min-w-0">
+                                            <SelectValue placeholder="Select variant" className="block truncate" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="w-(--radix-select-trigger-width) max-w-[90vw]">
                                             {variantOptions.map((variant) => (
                                                 <SelectItem
                                                     key={variant.value}
                                                     value={variant.value}
+                                                    className="max-w-full truncate"
+                                                    title={variant.label}
                                                 >
                                                     {variant.label}
                                                 </SelectItem>
@@ -1014,12 +1097,12 @@ export default function InventoryAdjustmentsIndex({
                     }
                 }}
             >
-                <DialogContent className="max-w-3xl">
+                <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Select serials to confirm adjustment</DialogTitle>
                     </DialogHeader>
 
-                    <div className="space-y-4">
+                    <div className="max-h-[55vh] space-y-4 overflow-y-auto pr-1">
                         {(confirming?.items ?? [])
                             .filter((item) => (serialCandidates[item.id.toString()] ?? []).length > 0)
                             .map((item) => {
@@ -1160,6 +1243,92 @@ export default function InventoryAdjustmentsIndex({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <Dialog open={!!viewingItems} onOpenChange={() => setViewingItems(null)}>
+                <DialogContent className="max-h-[80vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>
+                            Adjustment items {viewingItems ? `· ${viewingItems.code}` : ''}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="text-center">Variant</TableHead>
+                                    <TableHead className="text-center">Quantity</TableHead>
+                                    <TableHead className="text-center">Unit cost</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {(viewingItems?.items ?? []).map((item) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell className="text-center">
+                                            {variantLabelById[item.product_variant_id] ?? `Variant #${item.product_variant_id}`}
+                                        </TableCell>
+                                        <TableCell className="text-center">{item.quantity}</TableCell>
+                                        <TableCell className="text-center">{item.unit_cost ?? '—'}</TableCell>
+                                    </TableRow>
+                                ))}
+                                {(viewingItems?.items ?? []).length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="py-6 text-center text-muted-foreground">
+                                            This adjustment has no items.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setViewingItems(null)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <ConfirmationModal
+                open={!!pendingAction}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingAction(null);
+                    }
+                }}
+                title={
+                    pendingAction?.action === 'confirm'
+                        ? 'Confirm adjustment'
+                        : pendingAction?.action === 'cancel'
+                            ? 'Cancel adjustment'
+                            : 'Delete adjustment'
+                }
+                description={
+                    pendingAction
+                        ? pendingAction.action === 'confirm'
+                            ? `Are you sure you want to confirm adjustment ${pendingAction.adjustment.code}?`
+                            : pendingAction.action === 'cancel'
+                                ? `Are you sure you want to cancel adjustment ${pendingAction.adjustment.code}?`
+                                : `Are you sure you want to delete adjustment ${pendingAction.adjustment.code}? This action cannot be undone.`
+                        : ''
+                }
+                confirmLabel={
+                    pendingAction?.action === 'confirm'
+                        ? 'Confirm adjustment'
+                        : pendingAction?.action === 'cancel'
+                            ? 'Cancel adjustment'
+                            : 'Delete adjustment'
+                }
+                confirmVariant={
+                    pendingAction?.action === 'delete'
+                        ? 'destructive'
+                        : pendingAction?.action === 'cancel'
+                            ? 'secondary'
+                            : 'default'
+                }
+                onConfirm={proceedPendingAction}
+            />
         </>
     );
 }

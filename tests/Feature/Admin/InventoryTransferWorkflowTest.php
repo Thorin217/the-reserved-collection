@@ -191,7 +191,7 @@ class InventoryTransferWorkflowTest extends TestCase
             'items' => [
                 ['product_variant_id' => $serializedVariant->id, 'quantity' => 2],
             ],
-        ]);
+        ])->assertRedirect(route('admin.inventory.transfers.index'));
 
         $transfer = InventoryTransfer::query()->latest('id')->firstOrFail();
         $item = $transfer->items()->firstOrFail();
@@ -250,5 +250,67 @@ class InventoryTransferWorkflowTest extends TestCase
                 ->whereNotNull('serial_id')
                 ->count(),
         );
+    }
+
+    public function test_it_includes_transfer_serials_payload_for_view_modal(): void
+    {
+        $serializedVariant = ProductVariant::factory()->create();
+
+        $serials = ProductSerial::factory()
+            ->count(2)
+            ->state([
+                'product_variant_id' => $serializedVariant->id,
+                'warehouse_id' => null,
+                'status' => 'in_transit',
+            ])
+            ->create();
+
+        $transfer = InventoryTransfer::create([
+            'code' => 'TRF-VIEW-001',
+            'from_warehouse_id' => $this->fromWarehouse->id,
+            'to_warehouse_id' => $this->toWarehouse->id,
+            'status' => InventoryTransferStatus::Sent,
+            'requested_by' => $this->user->id,
+            'approved_by' => $this->user->id,
+            'sent_at' => now(),
+        ]);
+
+        $transfer->items()->create([
+            'product_variant_id' => $serializedVariant->id,
+            'quantity' => 2,
+            'received_quantity' => 0,
+        ]);
+
+        foreach ($serials as $serial) {
+            InventoryMovement::create([
+                'movement_type' => 'transfer_out',
+                'reference_type' => InventoryTransfer::class,
+                'reference_id' => $transfer->id,
+                'branch_id' => $this->branch->id,
+                'warehouse_id' => $this->fromWarehouse->id,
+                'product_variant_id' => $serializedVariant->id,
+                'serial_id' => $serial->id,
+                'quantity' => 1,
+                'unit_cost' => null,
+                'balance_after_movement' => 0,
+                'notes' => 'Test transfer out',
+                'user_id' => $this->user->id,
+            ]);
+        }
+
+        $response = $this->get(route('admin.inventory.transfers.index'));
+
+        $response->assertSuccessful();
+
+        /** @var array<string, mixed> $page */
+        $page = $response->viewData('page');
+
+        $serialPayload = data_get(
+            $page,
+            "props.transfer_serials.{$transfer->id}.sent.{$serializedVariant->id}",
+            [],
+        );
+
+        $this->assertCount(2, $serialPayload);
     }
 }

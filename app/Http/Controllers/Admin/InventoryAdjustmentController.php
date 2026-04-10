@@ -33,6 +33,11 @@ class InventoryAdjustmentController extends Controller
     {
         $status = InventoryAdjustmentStatus::tryFrom((string) $request->status);
         $adjustmentType = InventoryAdjustmentType::tryFrom((string) $request->adjustment_type);
+        $allowedSorts = ['code', 'adjustment_type', 'status', 'created_at'];
+        $sortBy = in_array((string) $request->sort_by, $allowedSorts, true)
+            ? (string) $request->sort_by
+            : 'created_at';
+        $sortDirection = strtolower((string) $request->sort_dir) === 'asc' ? 'asc' : 'desc';
 
         $adjustments = InventoryAdjustment::query()
             ->with(['warehouse', 'creator', 'confirmer', 'items.productVariant.product'])
@@ -41,7 +46,8 @@ class InventoryAdjustmentController extends Controller
             ->when($adjustmentType, fn ($query) => $query->where('adjustment_type', $adjustmentType->value))
             ->when($request->warehouse_id, fn ($query, $warehouseId) => $query->where('warehouse_id', $warehouseId))
             ->when($request->search, fn ($query, $search) => $query->where('code', 'like', "%{$search}%"))
-            ->latest()
+            ->orderBy($sortBy, $sortDirection)
+            ->orderBy('id', 'desc')
             ->paginate(20)
             ->withQueryString();
 
@@ -82,7 +88,7 @@ class InventoryAdjustmentController extends Controller
                 ProductVariant::query()->with('product')->where('is_active', true)->orderBy('sku')->get()
             ),
             'serial_candidates' => $serialCandidates,
-            'filters' => $request->only(['status', 'adjustment_type', 'warehouse_id', 'search']),
+            'filters' => $request->only(['status', 'adjustment_type', 'warehouse_id', 'search', 'sort_by', 'sort_dir']),
         ]);
     }
 

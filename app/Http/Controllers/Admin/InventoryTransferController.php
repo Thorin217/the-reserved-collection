@@ -32,6 +32,11 @@ class InventoryTransferController extends Controller
     public function index(Request $request): Response
     {
         $status = InventoryTransferStatus::tryFrom((string) $request->status);
+        $allowedSorts = ['code', 'status', 'created_at'];
+        $sortBy = in_array((string) $request->sort_by, $allowedSorts, true)
+            ? (string) $request->sort_by
+            : 'created_at';
+        $sortDirection = strtolower((string) $request->sort_dir) === 'asc' ? 'asc' : 'desc';
 
         $transfers = InventoryTransfer::query()
             ->with(['fromWarehouse', 'toWarehouse', 'requester', 'approver', 'receiver', 'items.productVariant.product'])
@@ -40,7 +45,8 @@ class InventoryTransferController extends Controller
             ->when($request->from_warehouse_id, fn ($query, $fromWarehouseId) => $query->where('from_warehouse_id', $fromWarehouseId))
             ->when($request->to_warehouse_id, fn ($query, $toWarehouseId) => $query->where('to_warehouse_id', $toWarehouseId))
             ->when($request->search, fn ($query, $search) => $query->where('code', 'like', "%{$search}%"))
-            ->latest()
+            ->orderBy($sortBy, $sortDirection)
+            ->orderBy('id', 'desc')
             ->paginate(20)
             ->withQueryString();
 
@@ -48,6 +54,65 @@ class InventoryTransferController extends Controller
             'send' => [],
             'receive' => [],
         ];
+
+        $transferSerials = [];
+
+        $transferIds = $transfers->getCollection()->pluck('id')->all();
+
+        if (! empty($transferIds)) {
+            $movements = InventoryMovement::query()
+                ->with('serial:id,serial_number')
+                ->where('reference_type', InventoryTransfer::class)
+                ->whereIn('reference_id', $transferIds)
+                ->whereIn('movement_type', [
+                    InventoryMovementType::TransferOut->value,
+                    InventoryMovementType::TransferIn->value,
+                ])
+                ->whereNotNull('serial_id')
+                ->get([
+                    'reference_id',
+                    'movement_type',
+                    'product_variant_id',
+                    'serial_id',
+                ]);
+
+            foreach ($movements as $movement) {
+                $transferId = (string) $movement->reference_id;
+                $variantId = (string) $movement->product_variant_id;
+                $movementType = $movement->movement_type instanceof InventoryMovementType
+                    ? $movement->movement_type->value
+                    : (string) $movement->movement_type;
+
+                $bucket = $movementType === InventoryMovementType::TransferOut->value
+                    ? 'sent'
+                    : 'received';
+
+                if (! isset($transferSerials[$transferId])) {
+                    $transferSerials[$transferId] = [
+                        'sent' => [],
+                        'received' => [],
+                    ];
+                }
+
+                if (! isset($transferSerials[$transferId][$bucket][$variantId])) {
+                    $transferSerials[$transferId][$bucket][$variantId] = [];
+                }
+
+                $serialId = (int) $movement->serial_id;
+                $transferSerials[$transferId][$bucket][$variantId][$serialId] = [
+                    'id' => $serialId,
+                    'serial_number' => $movement->serial?->serial_number,
+                ];
+            }
+
+            foreach ($transferSerials as $transferId => $serialState) {
+                foreach (['sent', 'received'] as $bucket) {
+                    foreach ($serialState[$bucket] as $variantId => $serials) {
+                        $transferSerials[$transferId][$bucket][$variantId] = array_values($serials);
+                    }
+                }
+            }
+        }
 
         foreach ($transfers->getCollection() as $transfer) {
             foreach ($transfer->items as $item) {
@@ -105,7 +170,8 @@ class InventoryTransferController extends Controller
                 ProductVariant::query()->with('product')->where('is_active', true)->orderBy('sku')->get()
             ),
             'serial_candidates' => $serialCandidates,
-            'filters' => $request->only(['status', 'from_warehouse_id', 'to_warehouse_id', 'search']),
+            'transfer_serials' => $transferSerials,
+            'filters' => $request->only(['status', 'from_warehouse_id', 'to_warehouse_id', 'search', 'sort_by', 'sort_dir']),
         ]);
     }
 

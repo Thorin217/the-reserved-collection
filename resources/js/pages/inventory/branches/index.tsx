@@ -1,5 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,12 +27,23 @@ type Props = {
 };
 
 export default function BranchesIndex({ branches }: Props) {
+    const [pendingDeleteBranch, setPendingDeleteBranch] = useState<Branch | null>(null);
+
     function deleteBranch(branch: Branch) {
-        if (!confirm(`Delete branch "${branch.name}"?`)) {
+        router.delete(`/admin/branches/${branch.id}`);
+    }
+
+    function requestDeleteBranch(branch: Branch) {
+        setPendingDeleteBranch(branch);
+    }
+
+    function confirmDeleteBranch() {
+        if (!pendingDeleteBranch) {
             return;
         }
 
-        router.delete(`/admin/branches/${branch.id}`);
+        deleteBranch(pendingDeleteBranch);
+        setPendingDeleteBranch(null);
     }
 
     return (
@@ -99,7 +112,7 @@ export default function BranchesIndex({ branches }: Props) {
                                                             variant="ghost"
                                                             size="icon"
                                                             className="text-destructive hover:text-destructive"
-                                                            onClick={() => deleteBranch(branch)}
+                                                            onClick={() => requestDeleteBranch(branch)}
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
@@ -121,6 +134,22 @@ export default function BranchesIndex({ branches }: Props) {
                         </Table>
                     </CardContent>
                 </Card>
+
+                <ConfirmationModal
+                    open={!!pendingDeleteBranch}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setPendingDeleteBranch(null);
+                        }
+                    }}
+                    title="Delete branch"
+                    description={pendingDeleteBranch
+                        ? `Are you sure you want to delete "${pendingDeleteBranch.name}"? This action cannot be undone.`
+                        : 'Are you sure you want to delete this branch?'}
+                    confirmLabel="Delete"
+                    confirmVariant="destructive"
+                    onConfirm={confirmDeleteBranch}
+                />
             </div>
         </>
     );
