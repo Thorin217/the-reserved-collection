@@ -25,7 +25,7 @@ class FortifyServiceProvider extends ServiceProvider
         {
             public function toResponse($request)
             {
-                return redirect($request->user()->is_admin ? '/dashboard' : '/');
+                return redirect($request->user()->hasRole('admin') ? '/dashboard' : '/');
             }
         });
     }

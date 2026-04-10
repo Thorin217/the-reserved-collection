@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreLeadProposalRequest;
+use App\Http\Resources\LeadProposalResource;
 use App\Http\Resources\LeadResource;
 use App\Http\Resources\ProductResource;
 use App\Models\Lead;
@@ -16,6 +17,21 @@ use Inertia\Response;
 
 class LeadProposalController extends Controller
 {
+    public function show(Lead $lead, LeadProposal $proposal): Response
+    {
+        $proposal->load([
+            'user',
+            'items.product.brand',
+            'items.variant',
+            'items.serial',
+        ]);
+
+        return Inertia::render('crm/leads/proposals/show', [
+            'lead' => LeadResource::make($lead->load('client')),
+            'proposal' => LeadProposalResource::make($proposal),
+        ]);
+    }
+
     public function create(Request $request, Lead $lead): Response
     {
         $lead->load('client');

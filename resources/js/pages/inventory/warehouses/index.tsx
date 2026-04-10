@@ -1,5 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,12 +26,23 @@ type Props = {
 };
 
 export default function WarehousesIndex({ warehouses }: Props) {
+    const [pendingDeleteWarehouse, setPendingDeleteWarehouse] = useState<Warehouse | null>(null);
+
     function deleteWarehouse(warehouse: Warehouse) {
-        if (!confirm(`Delete warehouse "${warehouse.name}"?`)) {
+        router.delete(`/admin/warehouses/${warehouse.id}`);
+    }
+
+    function requestDeleteWarehouse(warehouse: Warehouse) {
+        setPendingDeleteWarehouse(warehouse);
+    }
+
+    function confirmDeleteWarehouse() {
+        if (!pendingDeleteWarehouse) {
             return;
         }
 
-        router.delete(`/admin/warehouses/${warehouse.id}`);
+        deleteWarehouse(pendingDeleteWarehouse);
+        setPendingDeleteWarehouse(null);
     }
 
     return (
@@ -98,7 +111,7 @@ export default function WarehousesIndex({ warehouses }: Props) {
                                                             variant="ghost"
                                                             size="icon"
                                                             className="text-destructive hover:text-destructive"
-                                                            onClick={() => deleteWarehouse(warehouse)}
+                                                            onClick={() => requestDeleteWarehouse(warehouse)}
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
@@ -120,6 +133,22 @@ export default function WarehousesIndex({ warehouses }: Props) {
                         </Table>
                     </CardContent>
                 </Card>
+
+                <ConfirmationModal
+                    open={!!pendingDeleteWarehouse}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setPendingDeleteWarehouse(null);
+                        }
+                    }}
+                    title="Delete warehouse"
+                    description={pendingDeleteWarehouse
+                        ? `Are you sure you want to delete "${pendingDeleteWarehouse.name}"? This action cannot be undone.`
+                        : 'Are you sure you want to delete this warehouse?'}
+                    confirmLabel="Delete"
+                    confirmVariant="destructive"
+                    onConfirm={confirmDeleteWarehouse}
+                />
             </div>
         </>
     );

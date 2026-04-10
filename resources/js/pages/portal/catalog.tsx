@@ -211,7 +211,7 @@ export default function PortalCatalog({ products, brands, categories, wishlistId
                             <p className="text-[11px] text-muted-foreground font-body">Try adjusting your filters.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                             {products.data.map((product, i) => (
                                 <motion.div
                                     key={product.id}

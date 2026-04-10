@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Portal\AuctionHouseController;
 use App\Http\Controllers\Portal\CartController;
 use App\Http\Controllers\Portal\CatalogController;
+use App\Http\Controllers\Portal\MyCollectionController;
 use App\Http\Controllers\Portal\PortalProfileController;
 use App\Http\Controllers\Portal\WishlistController;
 use Illuminate\Support\Facades\Route;
@@ -11,12 +13,14 @@ Route::name('portal.')->group(function () {
     Route::get('/', [CatalogController::class, 'featured'])->name('home');
     Route::get('catalog', [CatalogController::class, 'index'])->name('catalog');
     Route::get('products/{product:slug}', [CatalogController::class, 'show'])->name('products.show');
+    Route::get('auction-house', [AuctionHouseController::class, 'index'])->name('auction-house');
 
     // Authenticated routes
     Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('profile', [PortalProfileController::class, 'show'])->name('profile');
         Route::get('wishlist', [WishlistController::class, 'index'])->name('wishlist');
         Route::post('wishlist/{product}', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
+        Route::get('my-collection', [MyCollectionController::class, 'index'])->name('my-collection');
 
         Route::get('cart', [CartController::class, 'index'])->name('cart');
         Route::post('cart', [CartController::class, 'store'])->name('cart.store');

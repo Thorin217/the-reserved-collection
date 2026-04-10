@@ -31,7 +31,7 @@ class InventoryPhaseOneRoutesTest extends TestCase
 
     public function test_it_renders_inventory_phase_one_routes_for_authenticated_users(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->admin()->create();
 
         foreach ($this->inventoryPhaseOneRoutes() as $routeName) {
             $this->actingAs($user)

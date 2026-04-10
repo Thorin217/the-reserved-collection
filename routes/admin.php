@@ -40,7 +40,11 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     // Inventario - Core fase 1
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('stocks', [InventoryStockController::class, 'index'])->name('stocks.index');
-        Route::get('movements', [InventoryMovementController::class, 'index'])->name('movements.index');
+
+        Route::prefix('movements')->name('movements.')->group(function () {
+            Route::get('/', [InventoryMovementController::class, 'index'])->name('index');
+            Route::post('opening', [InventoryMovementController::class, 'opening'])->name('opening');
+        });
 
         Route::prefix('transfers')->name('transfers.')->group(function () {
             Route::get('/', [InventoryTransferController::class, 'index'])->name('index');
@@ -125,6 +129,7 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         Route::prefix('{lead}/proposals')->name('proposals.')->group(function () {
             Route::get('create', [LeadProposalController::class, 'create'])->name('create');
             Route::post('/', [LeadProposalController::class, 'store'])->name('store');
+            Route::get('{proposal}', [LeadProposalController::class, 'show'])->name('show');
             Route::post('{proposal}/send', [LeadProposalController::class, 'send'])->name('send');
             Route::delete('{proposal}', [LeadProposalController::class, 'destroy'])->name('destroy');
         });

@@ -1,8 +1,8 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Heart, Menu, Package, Search, ShoppingBag, User, X } from 'lucide-react';
-import { useState } from 'react';
-import { cart, catalog, home, wishlist } from '@/routes/portal';
+import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { auctionHouse, cart, catalog, home, myCollection, profile, wishlist } from '@/routes/portal';
 import type { Auth } from '@/types';
 
 type PortalCategory = { id: number; name: string; slug: string };
@@ -13,10 +13,34 @@ type Props = {
     cartCount?: number;
 };
 
+const footerLinks = {
+    Collection: ['Timepieces', 'Fine Jewelry', 'New Arrivals', 'Estate Pieces', 'Exclusives'],
+    Maisons: ['Rolex', 'Patek Philippe', 'Cartier', 'Omega', 'All Brands'],
+    Services: ['Authentication', 'Restoration', 'Appraisal', 'Insurance', 'Concierge'],
+    Company: ['About Us', 'Careers', 'Press', 'Contact'],
+};
+
 export default function PortalLayout({ children, wishlistCount = 0, cartCount = 0 }: Props) {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Portal is always dark — force dark class on <html>, restore on unmount
+    useEffect(() => {
+        const html = document.documentElement;
+        const wasDark = html.classList.contains('dark');
+        html.classList.add('dark');
+        html.style.colorScheme = 'dark';
+        return () => {
+            if (!wasDark) {
+                html.classList.remove('dark');
+                const stored = localStorage.getItem('appearance') || 'system';
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const isDark = stored === 'dark' || (stored === 'system' && prefersDark);
+                html.style.colorScheme = isDark ? 'dark' : 'light';
+            }
+        };
+    }, []);
     const { auth, portalCategories = [] } = usePage<{ auth: Auth; portalCategories: PortalCategory[] }>().props;
     const isAuth = !!auth?.user;
 
@@ -25,10 +49,12 @@ export default function PortalLayout({ children, wishlistCount = 0, cartCount = 
             label: c.name,
             href: catalog({ query: { category_slug: c.slug } }),
         })),
-        { label: 'My Collection', href: isAuth ? wishlist() : '/login' },
+        { label: 'Auctions', href: auctionHouse() },
+        { label: 'My Collection', href: isAuth ? myCollection() : '/login' },
+        { label: 'Services', href: catalog() },
     ];
 
-    function handleSearch(e: React.FormEvent) {
+    function handleSearch(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         router.get(catalog(), { search: searchQuery }, { preserveState: true });
         setSearchOpen(false);
@@ -42,22 +68,16 @@ export default function PortalLayout({ children, wishlistCount = 0, cartCount = 
                 <div className="container mx-auto px-6 flex items-center justify-between h-14 lg:h-16">
                     {/* Logo */}
                     <Link href={home()} className="flex flex-col items-start leading-none">
-                        <div className="flex items-baseline gap-2">
-                            <span className="font-display text-lg lg:text-xl font-semibold text-gold tracking-[0.12em]">
-                                THE RESERVED
-                            </span>
-                            <span className="text-[10px] lg:text-[11px] text-foreground/35 tracking-[0.2em] uppercase font-body font-light">
-                                Collection
-                            </span>
-                        </div>
-                        <span className="text-[7px] text-muted-foreground/40 tracking-[0.25em] uppercase font-body font-light">
-                            powered by{' '}
-                            <span className="text-gold/50 font-medium">KAZU</span>
+                        <span className="font-display text-lg lg:text-xl font-semibold text-gold tracking-[0.12em]">
+                            THE RESERVED
                         </span>
+                        <p className="text-[8px] text-muted-foreground tracking-[0.3em] uppercase font-body font-light mt-0.5">
+                            Collection
+                        </p>
                     </Link>
 
                     {/* Desktop Nav */}
-                    <div className="hidden lg:flex items-center gap-9">
+                    <div className="hidden lg:flex items-center gap-8">
                         {navLinks.map((link) => (
                             <Link
                                 key={link.label}
@@ -106,7 +126,7 @@ export default function PortalLayout({ children, wishlistCount = 0, cartCount = 
 
                         {/* Profile / Auth */}
                         {isAuth ? (
-                            <Link href="/settings/profile" className="hidden sm:block text-foreground/45 hover:text-gold transition-colors" aria-label="Profile">
+                            <Link href={profile()} className="hidden sm:block text-foreground/45 hover:text-gold transition-colors" aria-label="Profile">
                                 <User className="w-4 h-4" strokeWidth={1.5} />
                             </Link>
                         ) : (
@@ -185,7 +205,7 @@ export default function PortalLayout({ children, wishlistCount = 0, cartCount = 
                                             <ShoppingBag className="w-3.5 h-3.5" strokeWidth={1.5} /> Cart
                                             {cartCount > 0 && <span className="text-gold">({cartCount})</span>}
                                         </Link>
-                                        <Link href="/settings/profile" className="text-foreground/55 hover:text-gold transition-colors text-xs font-body font-light tracking-[0.18em] uppercase flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                                        <Link href={profile()} className="text-foreground/55 hover:text-gold transition-colors text-xs font-body font-light tracking-[0.18em] uppercase flex items-center gap-2" onClick={() => setMobileOpen(false)}>
                                             <User className="w-3.5 h-3.5" strokeWidth={1.5} /> Profile
                                         </Link>
                                     </div>
@@ -209,60 +229,39 @@ export default function PortalLayout({ children, wishlistCount = 0, cartCount = 
             </main>
 
             {/* Footer */}
-            <footer className="border-t border-border mt-20">
-                <div className="container mx-auto px-6 py-12">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-                        <div>
-                            <div className="flex flex-col mb-4">
-                                <span className="font-display text-lg text-gold tracking-[0.12em]">THE RESERVED</span>
-                                <span className="text-[9px] text-muted-foreground/50 tracking-[0.2em] uppercase font-body">Collection · powered by KAZU</span>
+            <footer className="bg-card border-t border-border">
+                <div className="container mx-auto px-6 py-16">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
+                        <div className="col-span-2 md:col-span-1">
+                            <div className="mb-5">
+                                <span className="font-display text-lg font-semibold text-gold tracking-[0.12em]">THE RESERVED</span>
+                                <p className="text-[8px] text-muted-foreground tracking-[0.3em] uppercase font-body font-light mt-0.5">Collection</p>
                             </div>
-                            <p className="text-[11px] text-muted-foreground/60 font-body font-light leading-relaxed max-w-xs">
-                                Curated luxury timepieces, jewelry, and collectibles. Every piece authenticated and sourced with care.
+                            <p className="text-muted-foreground text-[11px] font-body font-light leading-relaxed">
+                                The definitive destination for authenticated luxury timepieces and fine jewelry since 2024.
                             </p>
                         </div>
-                        <div>
-                            <h4 className="text-[10px] tracking-[0.25em] uppercase text-foreground/50 mb-3 font-body">Navigation</h4>
-                            <div className="flex flex-col gap-2">
-                                <Link href={home()} className="text-[11px] text-muted-foreground hover:text-gold transition-colors font-body">Home</Link>
-                                <Link href={catalog()} className="text-[11px] text-muted-foreground hover:text-gold transition-colors font-body">All Catalog</Link>
-                                {portalCategories.map((c) => (
-                                    <Link key={c.id} href={catalog({ query: { category_slug: c.slug } })} className="text-[11px] text-muted-foreground hover:text-gold transition-colors font-body">
-                                        {c.name}
-                                    </Link>
-                                ))}
-                                {isAuth && (
-                                    <>
-                                        <Link href={wishlist()} className="text-[11px] text-muted-foreground hover:text-gold transition-colors font-body">My Wishlist</Link>
-                                        <Link href={cart()} className="text-[11px] text-muted-foreground hover:text-gold transition-colors font-body">Cart</Link>
-                                    </>
-                                )}
+                        {Object.entries(footerLinks).map(([title, links]) => (
+                            <div key={title}>
+                                <h4 className="font-body font-medium text-foreground/50 text-[9px] uppercase tracking-[0.25em] mb-4">{title}</h4>
+                                <ul className="space-y-2.5">
+                                    {links.map((link) => (
+                                        <li key={link}>
+                                            <a href="#" className="text-muted-foreground hover:text-gold text-[11px] font-body font-light transition-colors">
+                                                {link}
+                                            </a>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
-                        </div>
-                        <div>
-                            <h4 className="text-[10px] tracking-[0.25em] uppercase text-foreground/50 mb-3 font-body">Trust & Authenticity</h4>
-                            <div className="flex flex-col gap-2">
-                                {[
-                                    'Authenticated by experts',
-                                    'Serial number traceability',
-                                    'Secure transactions',
-                                    'Buyer protection guarantee',
-                                ].map((item) => (
-                                    <div key={item} className="flex items-center gap-2">
-                                        <div className="w-1 h-1 rounded-full bg-gold/60" />
-                                        <span className="text-[11px] text-muted-foreground/70 font-body">{item}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        ))}
                     </div>
-                    <div className="border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <p className="text-[10px] text-muted-foreground/40 tracking-wider font-body">
-                            © {new Date().getFullYear()} The Reserved Collection. All rights reserved.
-                        </p>
-                        <div className="flex items-center gap-1">
-                            <Package className="w-3 h-3 text-gold/40" strokeWidth={1.5} />
-                            <span className="text-[9px] text-muted-foreground/30 tracking-[0.2em] uppercase font-body">Curated Luxury</span>
+                    <div className="border-t border-border mt-14 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <p className="text-muted-foreground/60 text-[10px] font-body font-light">© {new Date().getFullYear()} The Reserved Collection. All rights reserved.</p>
+                        <div className="flex gap-6">
+                            <a href="#" className="text-muted-foreground/60 hover:text-gold text-[10px] font-body font-light transition-colors">Privacy</a>
+                            <a href="#" className="text-muted-foreground/60 hover:text-gold text-[10px] font-body font-light transition-colors">Terms</a>
+                            <a href="#" className="text-muted-foreground/60 hover:text-gold text-[10px] font-body font-light transition-colors">Cookies</a>
                         </div>
                     </div>
                 </div>

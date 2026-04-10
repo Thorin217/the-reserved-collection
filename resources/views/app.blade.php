@@ -7,14 +7,26 @@
         {{-- Anti-FOUC: aplica el tema antes de que React hidrate --}}
         <script>
             (function () {
-                var appearance = localStorage.getItem('appearance') || 'system';
-                var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                var isDark = appearance === 'dark' || (appearance === 'system' && prefersDark);
-                if (isDark) {
+                // Portal & auth pages are always dark — no localStorage check needed
+                var path = window.location.pathname;
+                var isAdminArea = path === '/dashboard' ||
+                                  path.startsWith('/admin') ||
+                                  path.startsWith('/settings') ||
+                                  path.startsWith('/appearance');
+
+                if (!isAdminArea) {
                     document.documentElement.classList.add('dark');
                     document.documentElement.style.colorScheme = 'dark';
                 } else {
-                    document.documentElement.style.colorScheme = 'light';
+                    var appearance = localStorage.getItem('appearance') || 'system';
+                    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    var isDark = appearance === 'dark' || (appearance === 'system' && prefersDark);
+                    if (isDark) {
+                        document.documentElement.classList.add('dark');
+                        document.documentElement.style.colorScheme = 'dark';
+                    } else {
+                        document.documentElement.style.colorScheme = 'light';
+                    }
                 }
             })();
         </script>

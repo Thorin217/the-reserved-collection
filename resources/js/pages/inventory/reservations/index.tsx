@@ -1,8 +1,10 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import InputError from '@/components/input-error';
+import TablePagination from '@/components/table-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
+import { notifyInventoryStockChanged } from '@/lib/inventory-stock-sync';
 import { index as movementsIndex } from '@/routes/admin/inventory/movements';
 import {
     cancel as cancelReservation,
@@ -65,6 +68,9 @@ type Filters = {
     status?: string;
     warehouse_id?: string;
     search?: string;
+    sort_by?: string;
+    sort_dir?: 'asc' | 'desc';
+    page?: number;
 };
 
 type Props = {
@@ -84,10 +90,16 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
         action: 'release' | 'consume' | 'cancel';
         reservationId: number;
     } | null>(null);
+    const [pendingConfirmation, setPendingConfirmation] = useState<{
+        action: 'release' | 'consume' | 'cancel';
+        reservation: Reservation;
+    } | null>(null);
     const [selectedSerialIds, setSelectedSerialIds] = useState<string[]>([]);
 
     const statusFilter = filters.status ?? '_all';
     const warehouseFilter = filters.warehouse_id ?? '_all';
+    const sortBy = filters.sort_by ?? 'created_at';
+    const sortDir = filters.sort_dir ?? 'desc';
 
     const form = useForm<ReservationForm>({
         warehouse_id: '',
@@ -108,6 +120,26 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
         router.get(reservationsIndex.url(), payload, { preserveState: true, replace: true });
     }
 
+    function sortByColumn(column: string) {
+        const nextDirection: 'asc' | 'desc' =
+            sortBy === column && sortDir === 'asc' ? 'desc' : 'asc';
+
+        applyFilters({
+            ...filters,
+            sort_by: column,
+            sort_dir: nextDirection,
+            page: 1,
+        });
+    }
+
+    function sortIndicator(column: string): string {
+        if (sortBy !== column) {
+            return '↕';
+        }
+
+        return sortDir === 'asc' ? '↑' : '↓';
+    }
+
     function openCreate() {
         form.reset();
         setCreating(true);
@@ -125,6 +157,7 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
             onSuccess: () => {
                 form.reset();
                 setCreating(false);
+                notifyInventoryStockChanged();
             },
         });
     }
@@ -161,6 +194,9 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
             {},
             {
                 preserveScroll: true,
+                onSuccess: () => {
+                    notifyInventoryStockChanged();
+                },
                 onFinish: () => setProcessingReservationId(null),
             },
         );
@@ -193,9 +229,27 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                 onSuccess: () => {
                     setPendingAction(null);
                     setSelectedSerialIds([]);
+                    notifyInventoryStockChanged();
                 },
             },
         );
+    }
+
+    function openActionConfirmation(
+        action: 'release' | 'consume' | 'cancel',
+        reservation: Reservation,
+    ) {
+        setPendingConfirmation({ action, reservation });
+    }
+
+    function proceedPendingConfirmation() {
+        if (!pendingConfirmation) {
+            return;
+        }
+
+        const { action, reservation } = pendingConfirmation;
+        setPendingConfirmation(null);
+        executeAction(action, reservation.id);
     }
 
     return (
@@ -270,10 +324,20 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                                     <TableHead>SKU</TableHead>
                                     <TableHead>Warehouse</TableHead>
                                     <TableHead className="text-right">
-                                        Quantity
+                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('quantity')}>
+                                            Quantity {sortIndicator('quantity')}
+                                        </Button>
                                     </TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Expires</TableHead>
+                                    <TableHead>
+                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('status')}>
+                                            Status {sortIndicator('status')}
+                                        </Button>
+                                    </TableHead>
+                                    <TableHead>
+                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('expires_at')}>
+                                            Expires {sortIndicator('expires_at')}
+                                        </Button>
+                                    </TableHead>
                                     <TableHead className="text-right">
                                         Actions
                                     </TableHead>
@@ -347,9 +411,9 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                                                                         reservation.id
                                                                     }
                                                                     onClick={() =>
-                                                                        executeAction(
+                                                                        openActionConfirmation(
                                                                             'release',
-                                                                            reservation.id,
+                                                                            reservation,
                                                                         )
                                                                     }
                                                                 >
@@ -367,9 +431,9 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                                                                         reservation.id
                                                                     }
                                                                     onClick={() =>
-                                                                        executeAction(
+                                                                        openActionConfirmation(
                                                                             'consume',
-                                                                            reservation.id,
+                                                                            reservation,
                                                                         )
                                                                     }
                                                                 >
@@ -388,9 +452,9 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                                                                         reservation.id
                                                                     }
                                                                     onClick={() =>
-                                                                        executeAction(
+                                                                        openActionConfirmation(
                                                                             'cancel',
-                                                                            reservation.id,
+                                                                            reservation,
                                                                         )
                                                                     }
                                                                 >
@@ -414,17 +478,15 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                     </CardContent>
                 </Card>
 
-                {reservations.meta.last_page > 1 && (
-                    <div className="flex items-center justify-center gap-2">
-                        {reservations.links.prev && <Link href={reservations.links.prev} className="text-sm text-primary underline">← Previous</Link>}
-                        <span className="text-sm text-muted-foreground">Page {reservations.meta.current_page} of {reservations.meta.last_page}</span>
-                        {reservations.links.next && <Link href={reservations.links.next} className="text-sm text-primary underline">Next →</Link>}
-                    </div>
-                )}
+                <TablePagination
+                    currentPage={reservations.meta.current_page}
+                    lastPage={reservations.meta.last_page}
+                    onPageChange={(page) => applyFilters({ ...filters, page })}
+                />
             </div>
 
             <Dialog open={creating} onOpenChange={setCreating}>
-                <DialogContent>
+                <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Create reservation</DialogTitle>
                     </DialogHeader>
@@ -445,10 +507,10 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                         <div className="space-y-2">
                             <Label>Variant</Label>
                             <Select value={form.data.product_variant_id} onValueChange={(value) => form.setData('product_variant_id', value)}>
-                                <SelectTrigger><SelectValue placeholder="Select variant" /></SelectTrigger>
+                                <SelectTrigger className="w-full min-w-0"><SelectValue placeholder="Select variant" /></SelectTrigger>
                                 <SelectContent>
                                     {variantOptions.map((variant) => (
-                                        <SelectItem key={variant.value} value={variant.value}>{variant.label}</SelectItem>
+                                        <SelectItem key={variant.value} value={variant.value} className="max-w-full truncate">{variant.label}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -495,12 +557,12 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                     }
                 }}
             >
-                <DialogContent>
+                <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Select serials</DialogTitle>
                     </DialogHeader>
 
-                    <div className="space-y-3">
+                    <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
                         {pendingAction &&
                             (serialCandidates[pendingAction.reservationId.toString()] ?? []).map((serial) => {
                                 const checked = selectedSerialIds.includes(
@@ -593,6 +655,46 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmationModal
+                open={!!pendingConfirmation}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingConfirmation(null);
+                    }
+                }}
+                title={
+                    pendingConfirmation?.action === 'release'
+                        ? 'Release reservation'
+                        : pendingConfirmation?.action === 'consume'
+                            ? 'Consume reservation'
+                            : 'Cancel reservation'
+                }
+                description={
+                    pendingConfirmation
+                        ? pendingConfirmation.action === 'release'
+                            ? `Are you sure you want to release reservation #${pendingConfirmation.reservation.id}?`
+                            : pendingConfirmation.action === 'consume'
+                                ? `Are you sure you want to consume reservation #${pendingConfirmation.reservation.id}?`
+                                : `Are you sure you want to cancel reservation #${pendingConfirmation.reservation.id}?`
+                        : ''
+                }
+                confirmLabel={
+                    pendingConfirmation?.action === 'release'
+                        ? 'Release'
+                        : pendingConfirmation?.action === 'consume'
+                            ? 'Consume'
+                            : 'Cancel reservation'
+                }
+                confirmVariant={
+                    pendingConfirmation?.action === 'cancel'
+                        ? 'destructive'
+                        : pendingConfirmation?.action === 'release'
+                            ? 'outline'
+                            : 'default'
+                }
+                onConfirm={proceedPendingConfirmation}
+            />
         </>
     );
 }

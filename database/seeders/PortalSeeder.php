@@ -2,12 +2,16 @@
 
 namespace Database\Seeders;
 
+use App\Enums\InventoryMovementType;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\InventoryMovement;
+use App\Models\InventoryStock;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Warehouse;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -168,16 +172,18 @@ class PortalSeeder extends Seeder
             ['name' => 'Petite Malle Monogram Canvas Mini', 'brand' => 'Louis Vuitton', 'sku' => 'LV-PM-MONO-MINI', 'price' => 4800, 'compare' => 5500, 'img' => 'bracelet'],
         ];
 
-        $this->seedProducts($watchProducts, $timepieces, $brandMap);
-        $this->seedProducts($jewelryProducts, $jewelry, $brandMap);
-        $this->seedProducts($vaultProducts, $vault, $brandMap);
+        $warehouse = Warehouse::query()->where('name', 'Almacén Principal San Isidro')->first();
+
+        $this->seedProducts($watchProducts, $timepieces, $brandMap, $warehouse);
+        $this->seedProducts($jewelryProducts, $jewelry, $brandMap, $warehouse);
+        $this->seedProducts($vaultProducts, $vault, $brandMap, $warehouse);
     }
 
     /**
      * @param  array<int, array<string, mixed>>  $products
      * @param  Collection<string, Brand>  $brandMap
      */
-    private function seedProducts(array $products, Category $category, $brandMap): void
+    private function seedProducts(array $products, Category $category, $brandMap, ?Warehouse $warehouse): void
     {
         $imageMap = [
             'watch' => public_path('images/product-watch1.jpg'),
@@ -218,14 +224,15 @@ class PortalSeeder extends Seeder
                 'brand_id' => $brand->id,
                 'product_type' => ProductType::Simple,
                 'status' => ProductStatus::Active,
-                'has_serial_numbers' => true,
-                'track_stock' => false,
+                'has_serial_numbers' => false,
+                'track_stock' => true,
                 'description' => "Authenticated {$data['name']} from {$data['brand']}. Every piece verified by our specialist team.",
             ]);
 
-            ProductVariant::create([
+            $variant = ProductVariant::create([
                 'product_id' => $product->id,
                 'sku' => $data['sku'].'-V1',
+                'cost' => (int) round($data['price'] * 0.65),
                 'price' => $data['price'],
                 'compare_price' => $data['compare'],
                 'is_active' => true,
@@ -238,6 +245,39 @@ class PortalSeeder extends Seeder
                 $product->addMedia($imagePath)
                     ->preservingOriginal()
                     ->toMediaCollection('product');
+            }
+
+            if ($warehouse) {
+                $quantity = match (true) {
+                    $data['price'] >= 50000 => 1,
+                    $data['price'] >= 10000 => 2,
+                    $data['price'] >= 5000 => 3,
+                    default => 5,
+                };
+
+                InventoryStock::create([
+                    'warehouse_id' => $warehouse->id,
+                    'product_variant_id' => $variant->id,
+                    'quantity' => $quantity,
+                    'reserved_quantity' => 0,
+                    'available_quantity' => $quantity,
+                    'average_cost' => $variant->cost,
+                ]);
+
+                InventoryMovement::create([
+                    'movement_type' => InventoryMovementType::Opening,
+                    'reference_type' => Product::class,
+                    'reference_id' => $product->id,
+                    'warehouse_id' => $warehouse->id,
+                    'branch_id' => $warehouse->branch_id,
+                    'product_variant_id' => $variant->id,
+                    'serial_id' => null,
+                    'quantity' => $quantity,
+                    'unit_cost' => $variant->cost,
+                    'balance_after_movement' => $quantity,
+                    'notes' => "Apertura de stock · {$data['name']}",
+                    'user_id' => null,
+                ]);
             }
         }
     }

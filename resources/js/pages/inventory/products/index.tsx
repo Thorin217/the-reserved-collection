@@ -3,6 +3,7 @@ import { Edit, ListChecks, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import * as ProductController from '@/actions/App/Http/Controllers/Admin/ProductController';
 import * as ProductSerialController from '@/actions/App/Http/Controllers/Admin/ProductSerialController';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ type Props = {
 
 export default function ProductsIndex({ products, brands, categories, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
+    const [pendingDeleteProduct, setPendingDeleteProduct] = useState<Product | null>(null);
 
     function applyFilter(key: string, value: string) {
         const resolved = value === ALL ? undefined : value || undefined;
@@ -50,8 +52,20 @@ export default function ProductsIndex({ products, brands, categories, filters }:
     }
 
     function deleteProduct(product: Product) {
-        if (!confirm(`Delete product "${product.name}"?`)) { return; }
         router.delete(ProductController.destroy.url(product));
+    }
+
+    function requestDeleteProduct(product: Product) {
+        setPendingDeleteProduct(product);
+    }
+
+    function confirmDeleteProduct() {
+        if (!pendingDeleteProduct) {
+            return;
+        }
+
+        deleteProduct(pendingDeleteProduct);
+        setPendingDeleteProduct(null);
     }
 
     return (
@@ -172,7 +186,7 @@ export default function ProductsIndex({ products, brands, categories, filters }:
                                                     </Tooltip>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteProduct(product)}>
+                                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => requestDeleteProduct(product)}>
                                                                 <Trash2 className="h-4 w-4" />
                                                             </Button>
                                                         </TooltipTrigger>
@@ -204,6 +218,22 @@ export default function ProductsIndex({ products, brands, categories, filters }:
                     </div>
                 )}
             </div>
+
+            <ConfirmationModal
+                open={!!pendingDeleteProduct}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingDeleteProduct(null);
+                    }
+                }}
+                title="Delete product"
+                description={pendingDeleteProduct
+                    ? `Are you sure you want to delete "${pendingDeleteProduct.name}"? This action cannot be undone.`
+                    : ''}
+                confirmLabel="Delete product"
+                confirmVariant="destructive"
+                onConfirm={confirmDeleteProduct}
+            />
         </>
     );
 }

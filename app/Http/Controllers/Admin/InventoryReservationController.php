@@ -28,6 +28,11 @@ class InventoryReservationController extends Controller
     public function index(Request $request): Response
     {
         $status = InventoryReservationStatus::tryFrom((string) $request->status);
+        $allowedSorts = ['quantity', 'status', 'expires_at', 'created_at'];
+        $sortBy = in_array((string) $request->sort_by, $allowedSorts, true)
+            ? (string) $request->sort_by
+            : 'created_at';
+        $sortDirection = strtolower((string) $request->sort_dir) === 'asc' ? 'asc' : 'desc';
 
         $reservations = InventoryReservation::query()
             ->with(['warehouse', 'productVariant.product'])
@@ -39,7 +44,8 @@ class InventoryReservationController extends Controller
                         ->orWhereHas('product', fn ($productQuery) => $productQuery->where('name', 'like', "%{$search}%"));
                 });
             })
-            ->latest()
+            ->orderBy($sortBy, $sortDirection)
+            ->orderBy('id', 'desc')
             ->paginate(20)
             ->withQueryString();
 
@@ -74,7 +80,7 @@ class InventoryReservationController extends Controller
                 ProductVariant::query()->with('product')->where('is_active', true)->orderBy('sku')->get()
             ),
             'serial_candidates' => $serialCandidates,
-            'filters' => $request->only(['status', 'warehouse_id', 'search']),
+            'filters' => $request->only(['status', 'warehouse_id', 'search', 'sort_by', 'sort_dir']),
         ]);
     }
 

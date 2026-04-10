@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use Database\Factories\LeadProposalItemFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LeadProposalItem extends Model
 {
+    /** @use HasFactory<LeadProposalItemFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'lead_proposal_id',
         'product_id',

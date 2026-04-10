@@ -1,8 +1,10 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import InputError from '@/components/input-error';
+import TablePagination from '@/components/table-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
+import { notifyInventoryStockChanged } from '@/lib/inventory-stock-sync';
 import { index as movementsIndex } from '@/routes/admin/inventory/movements';
 import {
     destroy,
@@ -68,6 +71,9 @@ type Filters = {
     from_warehouse_id?: string;
     to_warehouse_id?: string;
     search?: string;
+    sort_by?: string;
+    sort_dir?: 'asc' | 'desc';
+    page?: number;
 };
 
 type Props = {
@@ -78,20 +84,41 @@ type Props = {
         send: Record<string, Array<{ id: number; serial_number: string }>>;
         receive: Record<string, Array<{ id: number; serial_number: string }>>;
     };
+    transfer_serials: Record<
+        string,
+        {
+            sent: Record<string, Array<{ id: number; serial_number: string | null }>>;
+            received: Record<string, Array<{ id: number; serial_number: string | null }>>;
+        }
+    >;
     filters: Filters;
 };
 
-export default function InventoryTransfersIndex({ transfers, warehouses, variants, serial_candidates: serialCandidates, filters }: Props) {
+export default function InventoryTransfersIndex({
+    transfers,
+    warehouses,
+    variants,
+    serial_candidates: serialCandidates,
+    transfer_serials: transferSerials,
+    filters,
+}: Props) {
     const [creating, setCreating] = useState(false);
     const [editing, setEditing] = useState<Transfer | null>(null);
+    const [viewingTransfer, setViewingTransfer] = useState<Transfer | null>(null);
     const [sendingTransfer, setSendingTransfer] = useState<Transfer | null>(null);
     const [receivingTransfer, setReceivingTransfer] = useState<Transfer | null>(null);
+    const [pendingAction, setPendingAction] = useState<{
+        action: 'send' | 'receive' | 'delete';
+        transfer: Transfer;
+    } | null>(null);
     const [selectedSendSerialsByItem, setSelectedSendSerialsByItem] = useState<Record<string, string[]>>({});
     const [selectedReceiveSerialsByItem, setSelectedReceiveSerialsByItem] = useState<Record<string, string[]>>({});
 
     const statusFilter = filters.status ?? '_all';
     const fromWarehouseFilter = filters.from_warehouse_id ?? '_all';
     const toWarehouseFilter = filters.to_warehouse_id ?? '_all';
+    const sortBy = filters.sort_by ?? 'created_at';
+    const sortDir = filters.sort_dir ?? 'desc';
 
     const createForm = useForm<TransferForm>({
         from_warehouse_id: '',
@@ -115,8 +142,38 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
         [variants.data],
     );
 
+    const variantLabelById = useMemo(
+        () =>
+            variants.data.reduce<Record<number, string>>((carry, variant) => {
+                carry[variant.id] = `${variant.sku} · ${variant.product?.name ?? 'Product'}`;
+
+                return carry;
+            }, {}),
+        [variants.data],
+    );
+
     function applyFilters(payload: Filters) {
         router.get(transfersIndex.url(), payload, { preserveState: true, replace: true });
+    }
+
+    function sortByColumn(column: string) {
+        const nextDirection: 'asc' | 'desc' =
+            sortBy === column && sortDir === 'asc' ? 'desc' : 'asc';
+
+        applyFilters({
+            ...filters,
+            sort_by: column,
+            sort_dir: nextDirection,
+            page: 1,
+        });
+    }
+
+    function sortIndicator(column: string): string {
+        if (sortBy !== column) {
+            return '↕';
+        }
+
+        return sortDir === 'asc' ? '↑' : '↓';
     }
 
     function openCreate() {
@@ -136,6 +193,10 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
             })),
         });
         setEditing(transfer);
+    }
+
+    function openView(transfer: Transfer) {
+        setViewingTransfer(transfer);
     }
 
     function submitCreate(e: React.FormEvent) {
@@ -188,7 +249,12 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
         );
 
         if (serializedItems.length === 0) {
-            router.post(send.url(transfer), {}, { preserveScroll: true });
+            router.post(send.url(transfer), {}, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    notifyInventoryStockChanged();
+                },
+            });
 
             return;
         }
@@ -219,7 +285,12 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                 received_quantity: item.quantity,
             }));
 
-            router.post(receive.url(transfer), { items }, { preserveScroll: true });
+            router.post(receive.url(transfer), { items }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    notifyInventoryStockChanged();
+                },
+            });
 
             return;
         }
@@ -262,6 +333,7 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                 onSuccess: () => {
                     setSendingTransfer(null);
                     setSelectedSendSerialsByItem({});
+                    notifyInventoryStockChanged();
                 },
             },
         );
@@ -299,17 +371,44 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                 onSuccess: () => {
                     setReceivingTransfer(null);
                     setSelectedReceiveSerialsByItem({});
+                    notifyInventoryStockChanged();
                 },
             },
         );
     }
 
     function executeDelete(transfer: Transfer) {
-        if (!confirm(`Delete transfer ${transfer.code}?`)) {
+        router.delete(destroy.url(transfer), { preserveScroll: true });
+    }
+
+    function openActionConfirmation(
+        action: 'send' | 'receive' | 'delete',
+        transfer: Transfer,
+    ) {
+        setPendingAction({ action, transfer });
+    }
+
+    function proceedPendingAction() {
+        if (!pendingAction) {
             return;
         }
 
-        router.delete(destroy.url(transfer), { preserveScroll: true });
+        const { action, transfer } = pendingAction;
+        setPendingAction(null);
+
+        if (action === 'send') {
+            executeSend(transfer);
+
+            return;
+        }
+
+        if (action === 'receive') {
+            executeReceive(transfer);
+
+            return;
+        }
+
+        executeDelete(transfer);
     }
 
     return (
@@ -392,12 +491,24 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Code</TableHead>
+                                    <TableHead>
+                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('code')}>
+                                            Code {sortIndicator('code')}
+                                        </Button>
+                                    </TableHead>
                                     <TableHead>From</TableHead>
                                     <TableHead>To</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Items</TableHead>
-                                    <TableHead>Date</TableHead>
+                                    <TableHead>
+                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('status')}>
+                                            Status {sortIndicator('status')}
+                                        </Button>
+                                    </TableHead>
+                                    <TableHead className="text-right"># items</TableHead>
+                                    <TableHead>
+                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('created_at')}>
+                                            Date {sortIndicator('created_at')}
+                                        </Button>
+                                    </TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -419,8 +530,8 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                                                 {transfer.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right">
-                                            {transfer.items?.length ?? 0}
+                                        <TableCell className="text-right text-foreground">
+                                            {(transfer.items?.length ?? 0)} items
                                         </TableCell>
                                         <TableCell>
                                             {new Date(
@@ -453,6 +564,17 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                                                     <TooltipContent>View movement trace</TooltipContent>
                                                 </Tooltip>
 
+                                                {transfer.status !== 'draft' && (
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button size="sm" variant="outline" onClick={() => openView(transfer)}>
+                                                                View
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>View transfer details</TooltipContent>
+                                                    </Tooltip>
+                                                )}
+
                                                 {transfer.status === 'draft' && (
                                                     <>
                                                         <Tooltip>
@@ -463,13 +585,13 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                                                         </Tooltip>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
-                                                                <Button size="sm" onClick={() => executeSend(transfer)}>Send</Button>
+                                                                <Button size="sm" onClick={() => openActionConfirmation('send', transfer)}>Send</Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>Mark transfer as sent</TooltipContent>
                                                         </Tooltip>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
-                                                                <Button size="sm" variant="destructive" onClick={() => executeDelete(transfer)}>Delete</Button>
+                                                                <Button size="sm" variant="destructive" onClick={() => openActionConfirmation('delete', transfer)}>Delete</Button>
                                                             </TooltipTrigger>
                                                             <TooltipContent>Delete draft transfer</TooltipContent>
                                                         </Tooltip>
@@ -478,7 +600,7 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                                                 {transfer.status === 'sent' && (
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <Button size="sm" onClick={() => executeReceive(transfer)}>Receive</Button>
+                                                            <Button size="sm" onClick={() => openActionConfirmation('receive', transfer)}>Receive</Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent>Mark transfer as received</TooltipContent>
                                                     </Tooltip>
@@ -495,17 +617,15 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                     </CardContent>
                 </Card>
 
-                {transfers.meta.last_page > 1 && (
-                    <div className="flex items-center justify-center gap-2">
-                        {transfers.links.prev && <Link href={transfers.links.prev} className="text-sm text-primary underline">← Previous</Link>}
-                        <span className="text-sm text-muted-foreground">Page {transfers.meta.current_page} of {transfers.meta.last_page}</span>
-                        {transfers.links.next && <Link href={transfers.links.next} className="text-sm text-primary underline">Next →</Link>}
-                    </div>
-                )}
+                <TablePagination
+                    currentPage={transfers.meta.current_page}
+                    lastPage={transfers.meta.last_page}
+                    onPageChange={(page) => applyFilters({ ...filters, page })}
+                />
             </div>
 
             <Dialog open={creating} onOpenChange={setCreating}>
-                <DialogContent className="max-w-3xl">
+                <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Create transfer</DialogTitle>
                     </DialogHeader>
@@ -548,22 +668,24 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                                 <Button type="button" size="sm" variant="outline" onClick={addCreateItem}>Add item</Button>
                             </div>
                             {createForm.data.items.map((item, index) => (
-                                <div key={`create-item-${index}`} className="grid gap-3 md:grid-cols-[1fr_160px_100px]">
-                                    <Select
-                                        value={item.product_variant_id}
-                                        onValueChange={(value) => {
-                                            const items = [...createForm.data.items];
-                                            items[index] = { ...items[index], product_variant_id: value };
-                                            createForm.setData('items', items);
-                                        }}
-                                    >
-                                        <SelectTrigger><SelectValue placeholder="Select variant" /></SelectTrigger>
-                                        <SelectContent>
-                                            {variantOptions.map((variant) => (
-                                                <SelectItem key={variant.value} value={variant.value}>{variant.label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                <div key={`create-item-${index}`} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_100px] md:items-center">
+                                    <div className="min-w-0">
+                                        <Select
+                                            value={item.product_variant_id}
+                                            onValueChange={(value) => {
+                                                const items = [...createForm.data.items];
+                                                items[index] = { ...items[index], product_variant_id: value };
+                                                createForm.setData('items', items);
+                                            }}
+                                        >
+                                            <SelectTrigger className="w-full min-w-0"><SelectValue placeholder="Select variant" /></SelectTrigger>
+                                            <SelectContent>
+                                                {variantOptions.map((variant) => (
+                                                    <SelectItem key={variant.value} value={variant.value} className="max-w-full truncate">{variant.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                     <Input
                                         type="number"
                                         min="0.001"
@@ -590,7 +712,7 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
             </Dialog>
 
             <Dialog open={!!editing} onOpenChange={() => setEditing(null)}>
-                <DialogContent className="max-w-3xl">
+                <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Edit transfer</DialogTitle>
                     </DialogHeader>
@@ -633,22 +755,24 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                                 <Button type="button" size="sm" variant="outline" onClick={addEditItem}>Add item</Button>
                             </div>
                             {editForm.data.items.map((item, index) => (
-                                <div key={`edit-item-${index}`} className="grid gap-3 md:grid-cols-[1fr_160px_100px]">
-                                    <Select
-                                        value={item.product_variant_id}
-                                        onValueChange={(value) => {
-                                            const items = [...editForm.data.items];
-                                            items[index] = { ...items[index], product_variant_id: value };
-                                            editForm.setData('items', items);
-                                        }}
-                                    >
-                                        <SelectTrigger><SelectValue placeholder="Select variant" /></SelectTrigger>
-                                        <SelectContent>
-                                            {variantOptions.map((variant) => (
-                                                <SelectItem key={variant.value} value={variant.value}>{variant.label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                <div key={`edit-item-${index}`} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_100px] md:items-center">
+                                    <div className="min-w-0">
+                                        <Select
+                                            value={item.product_variant_id}
+                                            onValueChange={(value) => {
+                                                const items = [...editForm.data.items];
+                                                items[index] = { ...items[index], product_variant_id: value };
+                                                editForm.setData('items', items);
+                                            }}
+                                        >
+                                            <SelectTrigger className="w-full min-w-0"><SelectValue placeholder="Select variant" /></SelectTrigger>
+                                            <SelectContent>
+                                                {variantOptions.map((variant) => (
+                                                    <SelectItem key={variant.value} value={variant.value} className="max-w-full truncate">{variant.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                     <Input
                                         type="number"
                                         min="0.001"
@@ -674,6 +798,112 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                 </DialogContent>
             </Dialog>
 
+            <Dialog open={!!viewingTransfer} onOpenChange={() => setViewingTransfer(null)}>
+                <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Transfer details</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-md border p-3">
+                                <p className="text-xs text-muted-foreground">Code</p>
+                                <p className="font-mono text-sm">{viewingTransfer?.code ?? '—'}</p>
+                            </div>
+                            <div className="rounded-md border p-3">
+                                <p className="text-xs text-muted-foreground">Status</p>
+                                <p className="text-sm font-medium capitalize">{viewingTransfer?.status ?? '—'}</p>
+                            </div>
+                            <div className="rounded-md border p-3">
+                                <p className="text-xs text-muted-foreground">From warehouse</p>
+                                <p className="text-sm">{viewingTransfer?.from_warehouse?.name ?? '—'}</p>
+                            </div>
+                            <div className="rounded-md border p-3">
+                                <p className="text-xs text-muted-foreground">To warehouse</p>
+                                <p className="text-sm">{viewingTransfer?.to_warehouse?.name ?? '—'}</p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-md border p-3">
+                            <p className="mb-2 text-xs text-muted-foreground">Notes</p>
+                            <p className="text-sm">{viewingTransfer?.notes?.trim() ? viewingTransfer.notes : '—'}</p>
+                        </div>
+
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Variant</TableHead>
+                                        <TableHead className="text-right">Requested</TableHead>
+                                        <TableHead className="text-right">Received</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {(viewingTransfer?.items ?? []).map((item) => (
+                                        <TableRow key={item.id}>
+                                            <TableCell className="max-w-95 truncate">
+                                                {variantLabelById[item.product_variant_id] ?? `Variant #${item.product_variant_id}`}
+
+                                                <div className="mt-2 flex flex-wrap gap-1">
+                                                    {(
+                                                        transferSerials[viewingTransfer?.id?.toString() ?? '']
+                                                            ?.sent[item.product_variant_id.toString()] ?? []
+                                                    ).map((serial) => {
+                                                        const wasReceived = (
+                                                            transferSerials[viewingTransfer?.id?.toString() ?? '']
+                                                                ?.received[item.product_variant_id.toString()] ?? []
+                                                        ).some((receivedSerial) => receivedSerial.id === serial.id);
+
+                                                        return (
+                                                            <Badge
+                                                                key={`sent-${item.id}-${serial.id}`}
+                                                                variant="outline"
+                                                                className={wasReceived
+                                                                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                                                                    : 'border-amber-300 bg-amber-50 text-amber-700'}
+                                                            >
+                                                                {serial.serial_number ?? `Serial #${serial.id}`}
+                                                                <span className="ml-1 text-[10px] uppercase tracking-wide">
+                                                                    {wasReceived ? 'received' : 'in transit'}
+                                                                </span>
+                                                            </Badge>
+                                                        );
+                                                    })}
+
+                                                    {(
+                                                        transferSerials[viewingTransfer?.id?.toString() ?? '']
+                                                            ?.sent[item.product_variant_id.toString()] ?? []
+                                                    ).length === 0 && (
+                                                        <span className="text-xs text-muted-foreground">
+                                                            No serial transfer records
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right">{item.quantity}</TableCell>
+                                            <TableCell className="text-right">{item.received_quantity ?? '—'}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {(viewingTransfer?.items ?? []).length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={3} className="py-6 text-center text-muted-foreground">
+                                                No items registered.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setViewingTransfer(null)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog
                 open={!!sendingTransfer}
                 onOpenChange={(open) => {
@@ -683,7 +913,7 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                     }
                 }}
             >
-                <DialogContent className="max-w-3xl">
+                <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Select serials to send</DialogTitle>
                     </DialogHeader>
@@ -842,7 +1072,7 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                     }
                 }}
             >
-                <DialogContent className="max-w-3xl">
+                <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Select serials to receive</DialogTitle>
                     </DialogHeader>
@@ -991,6 +1221,40 @@ export default function InventoryTransfersIndex({ transfers, warehouses, variant
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmationModal
+                open={!!pendingAction}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingAction(null);
+                    }
+                }}
+                title={
+                    pendingAction?.action === 'send'
+                        ? 'Send transfer'
+                        : pendingAction?.action === 'receive'
+                            ? 'Receive transfer'
+                            : 'Delete transfer'
+                }
+                description={
+                    pendingAction
+                        ? pendingAction.action === 'send'
+                            ? `Are you sure you want to send transfer ${pendingAction.transfer.code}?`
+                            : pendingAction.action === 'receive'
+                                ? `Are you sure you want to receive transfer ${pendingAction.transfer.code}?`
+                                : `Are you sure you want to delete transfer ${pendingAction.transfer.code}? This action cannot be undone.`
+                        : ''
+                }
+                confirmLabel={
+                    pendingAction?.action === 'send'
+                        ? 'Send transfer'
+                        : pendingAction?.action === 'receive'
+                            ? 'Receive transfer'
+                            : 'Delete transfer'
+                }
+                confirmVariant={pendingAction?.action === 'delete' ? 'destructive' : 'default'}
+                onConfirm={proceedPendingAction}
+            />
         </>
     );
 }
