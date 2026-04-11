@@ -26,8 +26,10 @@ class NegotiationResource extends JsonResource
             'updated_at' => $this->updated_at,
 
             'user' => UserResource::make($this->whenLoaded('user')),
+            'lead' => LeadResource::make($this->whenLoaded('lead')),
             'proposal' => LeadProposalResource::make($this->whenLoaded('proposal')),
             'offers' => NegotiationOfferResource::collection($this->whenLoaded('offers')),
+            'offers_count' => $this->whenCounted('offers'),
         ];
     }
 }

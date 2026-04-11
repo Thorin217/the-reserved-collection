@@ -2,7 +2,8 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { auctionHouse, cart, catalog, home, myCollection, profile, wishlist } from '@/routes/portal';
+import { auctionHouse, cart, catalog, home, myCollection, wishlist } from '@/routes/portal';
+import { edit as profileSettings } from '@/routes/profile';
 import type { Auth } from '@/types';
 
 type PortalCategory = { id: number; name: string; slug: string };
@@ -68,12 +69,17 @@ export default function PortalLayout({ children, wishlistCount = 0, cartCount = 
                 <div className="container mx-auto px-6 flex items-center justify-between h-14 lg:h-16">
                     {/* Logo */}
                     <Link href={home()} className="flex flex-col items-start leading-none">
-                        <span className="font-display text-lg lg:text-xl font-semibold text-gold tracking-[0.12em]">
-                            THE RESERVED
+                        <div className="flex items-baseline gap-2">
+                            <span className="font-display text-lg lg:text-xl font-semibold text-gold tracking-[0.12em]">
+                                THE RESERVED
+                            </span>
+                            <span className="text-[10px] lg:text-[11px] text-foreground/35 tracking-[0.2em] uppercase font-body font-light">
+                                Collection
+                            </span>
+                        </div>
+                        <span className="text-[7px] text-muted-foreground/40 tracking-[0.25em] uppercase font-body font-light">
+                            powered by <span className="text-gold/50 font-medium">KAZU</span>
                         </span>
-                        <p className="text-[8px] text-muted-foreground tracking-[0.3em] uppercase font-body font-light mt-0.5">
-                            Collection
-                        </p>
                     </Link>
 
                     {/* Desktop Nav */}
@@ -126,7 +132,7 @@ export default function PortalLayout({ children, wishlistCount = 0, cartCount = 
 
                         {/* Profile / Auth */}
                         {isAuth ? (
-                            <Link href={profile()} className="hidden sm:block text-foreground/45 hover:text-gold transition-colors" aria-label="Profile">
+                            <Link href={profileSettings()} className="hidden sm:block text-foreground/45 hover:text-gold transition-colors" aria-label="Profile">
                                 <User className="w-4 h-4" strokeWidth={1.5} />
                             </Link>
                         ) : (
@@ -205,7 +211,7 @@ export default function PortalLayout({ children, wishlistCount = 0, cartCount = 
                                             <ShoppingBag className="w-3.5 h-3.5" strokeWidth={1.5} /> Cart
                                             {cartCount > 0 && <span className="text-gold">({cartCount})</span>}
                                         </Link>
-                                        <Link href={profile()} className="text-foreground/55 hover:text-gold transition-colors text-xs font-body font-light tracking-[0.18em] uppercase flex items-center gap-2" onClick={() => setMobileOpen(false)}>
+                                        <Link href={profileSettings()} className="text-foreground/55 hover:text-gold transition-colors text-xs font-body font-light tracking-[0.18em] uppercase flex items-center gap-2" onClick={() => setMobileOpen(false)}>
                                             <User className="w-3.5 h-3.5" strokeWidth={1.5} /> Profile
                                         </Link>
                                     </div>
@@ -234,8 +240,13 @@ export default function PortalLayout({ children, wishlistCount = 0, cartCount = 
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
                         <div className="col-span-2 md:col-span-1">
                             <div className="mb-5">
-                                <span className="font-display text-lg font-semibold text-gold tracking-[0.12em]">THE RESERVED</span>
-                                <p className="text-[8px] text-muted-foreground tracking-[0.3em] uppercase font-body font-light mt-0.5">Collection</p>
+                                <div className="flex items-baseline gap-1.5">
+                                    <span className="font-display text-lg font-semibold text-gold tracking-[0.12em]">THE RESERVED</span>
+                                    <span className="text-[10px] text-foreground/35 tracking-[0.2em] uppercase font-body font-light">Collection</span>
+                                </div>
+                                <p className="text-[7px] text-muted-foreground/40 tracking-[0.25em] uppercase font-body font-light mt-0.5">
+                                    powered by <span className="text-gold/50 font-medium">KAZU</span>
+                                </p>
                             </div>
                             <p className="text-muted-foreground text-[11px] font-body font-light leading-relaxed">
                                 The definitive destination for authenticated luxury timepieces and fine jewelry since 2024.

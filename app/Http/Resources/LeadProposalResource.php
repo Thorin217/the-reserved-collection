@@ -24,6 +24,7 @@ class LeadProposalResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
 
+            'lead' => LeadResource::make($this->whenLoaded('lead')),
             'user' => UserResource::make($this->whenLoaded('user')),
             'items' => LeadProposalItemResource::collection($this->whenLoaded('items')),
             'items_count' => $this->whenCounted('items'),

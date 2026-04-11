@@ -80,42 +80,32 @@ class PhaseOneInventorySeeder extends Seeder
                 ],
             );
 
-            $category = Category::query()->updateOrCreate(
-                ['slug' => 'relojes-joyeria-bolsos-lujo'],
+            $watchCategory = Category::query()->updateOrCreate(
+                ['slug' => 'timepieces'],
                 [
                     'parent_id' => null,
-                    'name' => 'Relojes, Joyería y Bolsos de Lujo',
-                    'description' => 'Catálogo premium para boutiques: relojería fina, joyas y marroquinería.',
-                    'is_active' => true,
-                ],
-            );
-
-            $watchCategory = Category::query()->updateOrCreate(
-                ['slug' => 'relojes-lujo'],
-                [
-                    'parent_id' => $category->id,
-                    'name' => 'Relojes de Lujo',
-                    'description' => 'Piezas de alta relojería con trazabilidad por serial.',
+                    'name' => 'Timepieces',
+                    'description' => 'Luxury watches and fine timepieces with serial tracking.',
                     'is_active' => true,
                 ],
             );
 
             $jewelryCategory = Category::query()->updateOrCreate(
-                ['slug' => 'joyeria-fina'],
+                ['slug' => 'jewelry'],
                 [
-                    'parent_id' => $category->id,
-                    'name' => 'Joyería Fina',
-                    'description' => 'Joyas premium para vitrina y venta por colección.',
+                    'parent_id' => null,
+                    'name' => 'Jewelry',
+                    'description' => 'Fine jewelry including rings, necklaces, bracelets, and earrings.',
                     'is_active' => true,
                 ],
             );
 
             $bagsCategory = Category::query()->updateOrCreate(
-                ['slug' => 'bolsos-lujo'],
+                ['slug' => 'the-vaults'],
                 [
-                    'parent_id' => $category->id,
-                    'name' => 'Bolsos de Lujo',
-                    'description' => 'Marroquinería de lujo con control por serial.',
+                    'parent_id' => null,
+                    'name' => 'The Vaults',
+                    'description' => 'Rare collectibles, luxury handbags, and curated accessories.',
                     'is_active' => true,
                 ],
             );

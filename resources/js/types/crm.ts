@@ -75,6 +75,7 @@ export type LeadProposal = {
     status: ProposalStatus;
     sent_via: 'whatsapp' | 'email' | null;
     sent_at: string | null;
+    lead?: Lead;
     user?: User;
     items?: LeadProposalItem[];
     items_count?: number;
@@ -106,8 +107,10 @@ export type Negotiation = {
     notes: string | null;
     agreed_at: string | null;
     user?: User;
+    lead?: Lead;
     proposal?: LeadProposal;
     offers?: NegotiationOffer[];
+    offers_count?: number;
     created_at: string;
     updated_at: string;
 };

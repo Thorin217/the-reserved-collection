@@ -95,7 +95,13 @@ function ProductPickerDialog({
                                         : pick(product, product.variants?.[0] ?? null)
                                 }
                             >
-                                <Package className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
+                                    {product.image_url ? (
+                                        <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                                    ) : (
+                                        <Package className="m-auto mt-2.5 h-4 w-4 text-muted-foreground" />
+                                    )}
+                                </div>
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate font-medium text-sm">{product.name}</p>
                                     <p className="text-xs text-muted-foreground">

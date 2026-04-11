@@ -50,6 +50,7 @@ export type Product = {
     track_stock: boolean;
     has_serial_numbers: boolean;
     status: 'draft' | 'active' | 'inactive';
+    image_url: string;
     variants_count?: number;
     category?: Category;
     brand?: Brand;

@@ -7,16 +7,40 @@ use App\Http\Requests\Admin\StoreNegotiationOfferRequest;
 use App\Http\Requests\Admin\StoreNegotiationRequest;
 use App\Http\Resources\LeadResource;
 use App\Http\Resources\NegotiationResource;
+use App\Http\Resources\UserResource;
 use App\Models\Lead;
 use App\Models\Negotiation;
 use App\Models\NegotiationOffer;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\QueryBuilder;
 
 class NegotiationController extends Controller
 {
+    public function index(Request $request): Response
+    {
+        $negotiations = QueryBuilder::for(Negotiation::class)
+            ->allowedFilters(
+                AllowedFilter::exact('status'),
+                AllowedFilter::exact('user_id'),
+            )
+            ->with(['lead.client', 'user', 'proposal'])
+            ->withCount('offers')
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return Inertia::render('crm/negotiations/index', [
+            'negotiations' => NegotiationResource::collection($negotiations),
+            'users' => UserResource::collection(User::orderBy('name')->get()),
+            'filters' => $request->only(['filter']),
+        ]);
+    }
+
     public function show(Lead $lead, Negotiation $negotiation): Response
     {
         $negotiation->load(['user', 'proposal.items.product', 'offers' => fn ($q) => $q->with('user')->oldest()]);

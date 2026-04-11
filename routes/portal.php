@@ -5,10 +5,14 @@ use App\Http\Controllers\Portal\CartController;
 use App\Http\Controllers\Portal\CatalogController;
 use App\Http\Controllers\Portal\MyCollectionController;
 use App\Http\Controllers\Portal\PortalProfileController;
+use App\Http\Controllers\Portal\ProposalPreviewController;
 use App\Http\Controllers\Portal\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::name('portal.')->group(function () {
+    // Signed proposal preview (no auth required, link expires)
+    Route::get('proposals/{proposal}/preview', [ProposalPreviewController::class, 'show'])->name('proposals.preview');
+
     // Public routes
     Route::get('/', [CatalogController::class, 'featured'])->name('home');
     Route::get('catalog', [CatalogController::class, 'index'])->name('catalog');

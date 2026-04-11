@@ -105,6 +105,10 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         Route::delete('{warehouse}', [WarehouseController::class, 'destroy'])->name('destroy');
     });
 
+    // CRM — standalone index pages
+    Route::get('proposals', [LeadProposalController::class, 'index'])->name('proposals.index');
+    Route::get('negotiations', [NegotiationController::class, 'index'])->name('negotiations.index');
+
     // CRM
     Route::prefix('clients')->name('clients.')->group(function () {
         Route::get('/', [ClientController::class, 'index'])->name('index');

@@ -13,6 +13,8 @@ createInertiaApp({
         switch (true) {
             case name === 'welcome':
                 return null;
+            case name.startsWith('portal/proposals/preview'):
+                return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):
@@ -35,13 +37,15 @@ createInertiaApp({
 // already sets dark on <html> before JS loads, so calling initializeTheme()
 // here on portal pages would remove it if the user has appearance='light',
 // causing a visible flash.
-const _currentPath = window.location.pathname;
-const _isAdminArea =
-    _currentPath === '/dashboard' ||
-    _currentPath.startsWith('/admin') ||
-    _currentPath.startsWith('/settings') ||
-    _currentPath.startsWith('/appearance');
+if (typeof window !== 'undefined') {
+    const _currentPath = window.location.pathname;
+    const _isAdminArea =
+        _currentPath === '/dashboard' ||
+        _currentPath.startsWith('/admin') ||
+        _currentPath.startsWith('/settings') ||
+        _currentPath.startsWith('/appearance');
 
-if (_isAdminArea) {
-    initializeTheme();
+    if (_isAdminArea) {
+        initializeTheme();
+    }
 }

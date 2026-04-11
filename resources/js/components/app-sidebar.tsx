@@ -2,7 +2,9 @@ import { Link } from '@inertiajs/react';
 import {
     ArrowRightLeft,
     Building2,
+    FileText,
     FolderOpen,
+    Handshake,
     LayoutGrid,
     Package,
     ShieldCheck,
@@ -31,6 +33,8 @@ import { index as brandsIndex } from '@/routes/admin/brands';
 import { index as categoriesIndex } from '@/routes/admin/categories';
 import { index as clientsIndex } from '@/routes/admin/clients';
 import { index as leadsIndex } from '@/routes/admin/leads';
+import { index as negotiationsIndex } from '@/routes/admin/negotiations';
+import { index as proposalsIndex } from '@/routes/admin/proposals';
 import { index as productsIndex } from '@/routes/admin/products';
 import type { NavItem } from '@/types';
 
@@ -96,6 +100,16 @@ const crmNavItems: NavItem[] = [
         href: leadsIndex(),
         icon: TrendingUp,
     },
+    {
+        title: 'Proposals',
+        href: proposalsIndex(),
+        icon: FileText,
+    },
+    {
+        title: 'Negotiations',
+        href: negotiationsIndex(),
+        icon: Handshake,
+    },
 ];
 
 const configurationNavItems: NavItem[] = [
@@ -131,7 +145,7 @@ export function AppSidebar() {
             <SidebarContent>
                 <NavMain items={mainNavItems} label="General" />
                 <SidebarSeparator />
-                <NavMain items={inventoryNavItems} label="Inventory" />
+                 <NavCollapsible label="Inventory" title="Inventory" items={inventoryNavItems} />
                 <SidebarSeparator />
                 <NavCollapsible label="Configuration" title="Configuration" items={configurationNavItems} />
                 <SidebarSeparator />

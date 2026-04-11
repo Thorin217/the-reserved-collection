@@ -35,8 +35,8 @@ class PortalSeeder extends Seeder
         );
 
         $vault = Category::firstOrCreate(
-            ['slug' => 'the-vault'],
-            ['name' => 'The Vault', 'is_active' => true, 'description' => 'Rare collectibles, luxury handbags, art, and memorabilia']
+            ['slug' => 'the-vaults'],
+            ['name' => 'The Vaults', 'is_active' => true, 'description' => 'Rare collectibles, luxury handbags, art, and memorabilia']
         );
 
         // ── Brands ───────────────────────────────────────────────────────────────

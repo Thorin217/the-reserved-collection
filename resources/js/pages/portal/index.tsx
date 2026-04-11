@@ -1,10 +1,12 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Award, ChevronLeft, ChevronRight, Clock, Eye, Flame, Gavel, Heart, Package, RefreshCw, Shield, Truck } from 'lucide-react';
+import { ArrowRight, Award, ChevronLeft, ChevronRight, Clock, Eye, Flame, Gavel, Heart, LayoutDashboard, Package, RefreshCw, Shield, Truck } from 'lucide-react';
 import { useRef, useState } from 'react';
 import * as WishlistController from '@/actions/App/Http/Controllers/Portal/WishlistController';
 import PortalLayout from '@/layouts/portal-layout';
 import { auctionHouse, catalog } from '@/routes/portal';
+import { dashboard } from '@/routes';
+import type { Auth } from '@/types';
 
 type PortalProduct = {
     id: number;
@@ -231,6 +233,7 @@ function AuctionSection() {
 }
 
 export default function PortalHome({ featured, brands, wishlistIds = [] }: Props) {
+    const { auth } = usePage<{ auth: Auth }>().props;
     const [localWishlist, setLocalWishlist] = useState<number[]>(wishlistIds);
     const scrollRef = useRef<HTMLDivElement>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -302,6 +305,15 @@ export default function PortalHome({ featured, brands, wishlistIds = [] }: Props
                             >
                                 Browse All Brands
                             </Link>
+                            {auth?.isAdmin && (
+                                <Link
+                                    href={dashboard()}
+                                    className="inline-flex items-center gap-2 border border-gold/40 text-gold hover:bg-gold/10 px-7 py-3.5 font-body text-xs font-medium tracking-[0.15em] uppercase transition-all duration-300"
+                                >
+                                    <LayoutDashboard className="w-3.5 h-3.5" strokeWidth={1.5} />
+                                    Admin Panel
+                                </Link>
+                            )}
                         </div>
                     </motion.div>
                 </div>
