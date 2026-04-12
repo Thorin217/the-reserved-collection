@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Attribute;
+use App\Models\AttributeOption;
 use App\Models\Branch;
 use App\Models\Brand;
 use App\Models\Category;
@@ -155,6 +157,81 @@ it('replaces product image on update', function () {
     $product->refresh();
 
     expect($product->getMedia('product'))->toHaveCount(1);
+});
+
+it('stores product-level attribute values on create', function () {
+    $materialAttribute = Attribute::query()->create([
+        'code' => 'material',
+        'name' => 'Material',
+        'entity_level' => 'product',
+        'data_type' => 'select',
+        'is_required' => true,
+        'is_active' => true,
+    ]);
+
+    $materialOption = AttributeOption::query()->create([
+        'attribute_id' => $materialAttribute->id,
+        'value' => 'steel',
+        'label' => 'Steel',
+    ]);
+
+    $diameterAttribute = Attribute::query()->create([
+        'code' => 'diameter',
+        'name' => 'Diameter',
+        'entity_level' => 'product',
+        'data_type' => 'decimal',
+        'unit' => 'mm',
+        'is_required' => false,
+        'is_active' => true,
+    ]);
+
+    $diameterOption = AttributeOption::query()->create([
+        'attribute_id' => $diameterAttribute->id,
+        'value' => '41_5_mm',
+        'label' => '41.5 mm',
+    ]);
+
+    $this->post('/admin/products', [
+        'category_id' => $this->category->id,
+        'brand_id' => $this->brand->id,
+        'name' => 'Rolex Datejust',
+        'sku' => 'ROL-DTJ-001',
+        'product_type' => 'serializable',
+        'has_serial_numbers' => true,
+        'track_stock' => true,
+        'status' => 'active',
+        'attributes' => [
+            [
+                'attribute_id' => $materialAttribute->id,
+                'attribute_option_id' => $materialOption->id,
+            ],
+            [
+                'attribute_id' => $diameterAttribute->id,
+                'attribute_option_id' => $diameterOption->id,
+            ],
+        ],
+        'variants' => [
+            [
+                'sku' => 'ROL-DTJ-001-VAR',
+                'price' => 10000,
+                'cost' => 8000,
+            ],
+        ],
+    ])->assertRedirect('/admin/products');
+
+    $product = Product::query()->where('sku', 'ROL-DTJ-001')->firstOrFail();
+
+    $this->assertDatabaseHas('product_attribute_values', [
+        'product_id' => $product->id,
+        'attribute_id' => $materialAttribute->id,
+        'attribute_option_id' => $materialOption->id,
+    ]);
+
+    $this->assertDatabaseHas('product_attribute_values', [
+        'product_id' => $product->id,
+        'attribute_id' => $diameterAttribute->id,
+        'attribute_option_id' => $diameterOption->id,
+    ]);
 });
 
 it('adds variants when updating a product', function () {

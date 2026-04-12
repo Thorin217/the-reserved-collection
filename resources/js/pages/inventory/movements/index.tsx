@@ -1,7 +1,8 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { Eye, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import InputError from '@/components/input-error';
+import TablePagination from '@/components/table-pagination';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -50,6 +51,7 @@ type Props = {
         reference_type?: string;
         reference_id?: string;
         search?: string;
+        page?: string;
     };
 };
 
@@ -344,11 +346,11 @@ export default function InventoryMovementsIndex({ movements, branches, warehouse
                 </Card>
 
                 {movements.meta.last_page > 1 && (
-                    <div className="flex items-center justify-center gap-2">
-                        {movements.links.prev && <Link href={movements.links.prev} className="text-sm text-primary underline">← Previous</Link>}
-                        <span className="text-sm text-muted-foreground">Page {movements.meta.current_page} of {movements.meta.last_page}</span>
-                        {movements.links.next && <Link href={movements.links.next} className="text-sm text-primary underline">Next →</Link>}
-                    </div>
+                    <TablePagination
+                        currentPage={movements.meta.current_page}
+                        lastPage={movements.meta.last_page}
+                        onPageChange={(page) => applyFilters({ ...filters, page: String(page) })}
+                    />
                 )}
             </div>
 

@@ -8,6 +8,7 @@ import {
     LayoutGrid,
     Package,
     ShieldCheck,
+    SlidersHorizontal,
     Tag,
     TrendingUp,
     Users,
@@ -34,8 +35,8 @@ import { index as categoriesIndex } from '@/routes/admin/categories';
 import { index as clientsIndex } from '@/routes/admin/clients';
 import { index as leadsIndex } from '@/routes/admin/leads';
 import { index as negotiationsIndex } from '@/routes/admin/negotiations';
-import { index as proposalsIndex } from '@/routes/admin/proposals';
 import { index as productsIndex } from '@/routes/admin/products';
+import { index as proposalsIndex } from '@/routes/admin/proposals';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -122,6 +123,11 @@ const configurationNavItems: NavItem[] = [
         title: 'Warehouses',
         href: '/admin/warehouses',
         icon: Warehouse,
+    },
+    {
+        title: 'Attributes',
+        href: '/admin/attributes',
+        icon: SlidersHorizontal,
     },
 ];
 

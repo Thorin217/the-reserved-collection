@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowRight } from 'lucide-react';
 import { FlashMessage } from '@/components/flash-message';
+import TablePagination from '@/components/table-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,6 +31,7 @@ type Filters = {
         status?: string;
         user_id?: string;
     };
+    page?: string;
 };
 
 type Props = {
@@ -174,17 +176,11 @@ export default function NegotiationsIndex({ negotiations, users, filters }: Prop
                 </Card>
 
                 {negotiations.meta.last_page > 1 && (
-                    <div className="flex justify-center gap-4">
-                        {negotiations.links.prev && (
-                            <Link href={negotiations.links.prev} className="text-sm text-primary underline">← Previous</Link>
-                        )}
-                        <span className="text-sm text-muted-foreground">
-                            Page {negotiations.meta.current_page} of {negotiations.meta.last_page}
-                        </span>
-                        {negotiations.links.next && (
-                            <Link href={negotiations.links.next} className="text-sm text-primary underline">Next →</Link>
-                        )}
-                    </div>
+                    <TablePagination
+                        currentPage={negotiations.meta.current_page}
+                        lastPage={negotiations.meta.last_page}
+                        onPageChange={(page) => router.get(negotiationsIndex(), { filter: active, page: String(page) }, { preserveState: true, replace: true })}
+                    />
                 )}
             </div>
         </>

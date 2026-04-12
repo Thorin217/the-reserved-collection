@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { index as productsIndex } from '@/routes/admin/products';
-import type { InventoryMovement, PaginatedData, Product, ProductSerial, Warehouse } from '@/types';
+import type { Attribute, InventoryMovement, PaginatedData, Product, ProductSerial, Warehouse } from '@/types';
 
 const SERIAL_STATUS: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
     available: { label: 'Available', variant: 'default' },
@@ -32,12 +32,21 @@ type Props = {
     serials: PaginatedData<ProductSerial>;
     movements: { data: InventoryMovement[] };
     warehouses: { data: Warehouse[] };
+    serialAttributes: { data: Attribute[] };
 };
 
-export default function ProductSerials({ product: { data: product }, serials, movements, warehouses }: Props) {
+type SerialAttributeRow = {
+    attribute_id: string;
+    attribute_option_id: string;
+};
+
+const MAX_PREVIEW_ATTRIBUTES = 3;
+
+export default function ProductSerials({ product: { data: product }, serials, movements, warehouses, serialAttributes }: Props) {
     const [addingSerial, setAddingSerial] = useState(false);
     const [editingSerial, setEditingSerial] = useState<ProductSerial | null>(null);
     const [pendingDeleteSerial, setPendingDeleteSerial] = useState<ProductSerial | null>(null);
+    const [attributesPreviewSerial, setAttributesPreviewSerial] = useState<ProductSerial | null>(null);
 
     const firstVariant = product.variants?.[0];
 
@@ -47,6 +56,7 @@ export default function ProductSerials({ product: { data: product }, serials, mo
         imei_or_reference: '',
         warehouse_id: '',
         status: 'available',
+        attributes: [] as SerialAttributeRow[],
     });
 
     const editForm = useForm({
@@ -54,12 +64,23 @@ export default function ProductSerials({ product: { data: product }, serials, mo
         imei_or_reference: '',
         warehouse_id: '',
         status: 'available',
+        attributes: [] as SerialAttributeRow[],
     });
+
+    function mapAttributeValuesToRows(serial: ProductSerial): SerialAttributeRow[] {
+        return (serial.attribute_values ?? [])
+            .map((attributeValue) => ({
+                attribute_id: attributeValue.attribute_id.toString(),
+                attribute_option_id: attributeValue.attribute_option_id ? attributeValue.attribute_option_id.toString() : '',
+            }))
+            .filter((attributeRow) => attributeRow.attribute_id !== '');
+    }
 
     function openAdd() {
         storeForm.reset();
         storeForm.setData('product_variant_id', firstVariant?.id.toString() ?? '');
         storeForm.setData('status', 'available');
+        storeForm.setData('attributes', []);
         setAddingSerial(true);
     }
 
@@ -69,12 +90,18 @@ export default function ProductSerials({ product: { data: product }, serials, mo
             imei_or_reference: serial.imei_or_reference ?? '',
             warehouse_id: serial.warehouse_id?.toString() ?? '',
             status: serial.status,
+            attributes: mapAttributeValuesToRows(serial),
         });
         setEditingSerial(serial);
     }
 
     function submitAdd(e: React.FormEvent) {
         e.preventDefault();
+        storeForm.transform((payload) => ({
+            ...payload,
+            attributes: payload.attributes.filter((attribute) => attribute.attribute_id !== ''),
+        }));
+
         storeForm.post(ProductSerialController.store.url(product), {
             onSuccess: () => {
  storeForm.reset(); setAddingSerial(false);
@@ -88,6 +115,11 @@ export default function ProductSerials({ product: { data: product }, serials, mo
         if (!editingSerial) {
  return;
 }
+
+        editForm.transform((payload) => ({
+            ...payload,
+            attributes: payload.attributes.filter((attribute) => attribute.attribute_id !== ''),
+        }));
 
         editForm.put(ProductSerialController.update.url({ product, serial: editingSerial }), {
             onSuccess: () => {
@@ -111,6 +143,119 @@ export default function ProductSerials({ product: { data: product }, serials, mo
 
         deleteSerial(pendingDeleteSerial);
         setPendingDeleteSerial(null);
+    }
+
+    function addAttributeRow(form: typeof storeForm | typeof editForm): void {
+        form.setData('attributes', [
+            ...form.data.attributes,
+            {
+                attribute_id: '',
+                attribute_option_id: '',
+            },
+        ]);
+    }
+
+    function removeAttributeRow(form: typeof storeForm | typeof editForm, index: number): void {
+        form.setData('attributes', form.data.attributes.filter((_, itemIndex) => itemIndex !== index));
+    }
+
+    function updateAttributeSelection(form: typeof storeForm | typeof editForm, index: number, attributeId: string): void {
+        const nextAttributes = [...form.data.attributes];
+        nextAttributes[index] = {
+            attribute_id: attributeId,
+            attribute_option_id: '',
+        };
+
+        form.setData('attributes', nextAttributes);
+    }
+
+    function updateAttributeOption(form: typeof storeForm | typeof editForm, index: number, optionId: string): void {
+        const nextAttributes = [...form.data.attributes];
+        nextAttributes[index] = {
+            ...nextAttributes[index],
+            attribute_option_id: optionId,
+        };
+
+        form.setData('attributes', nextAttributes);
+    }
+
+    function renderAttributesForm(form: typeof storeForm | typeof editForm, formType: 'store' | 'edit') {
+        if (serialAttributes.data.length === 0) {
+            return (
+                <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                    No serial attributes configured yet. Create them in Configuration → Attributes.
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <Label>Serial attributes</Label>
+                    <Button type="button" size="sm" variant="outline" onClick={() => addAttributeRow(form)}>
+                        Add attribute
+                    </Button>
+                </div>
+
+                {form.data.attributes.map((attributeRow, index) => {
+                    const fieldKey = `${formType === 'store' ? 'attributes' : 'attributes'}.${index}`;
+                    const selectedAttribute = serialAttributes.data.find((attribute) => attribute.id.toString() === attributeRow.attribute_id);
+                    const usedAttributeIds = form.data.attributes
+                        .filter((_, rowIndex) => rowIndex !== index)
+                        .map((row) => row.attribute_id)
+                        .filter((attributeId) => attributeId !== '');
+
+                    const availableAttributes = serialAttributes.data.filter(
+                        (attribute) => attribute.id.toString() === attributeRow.attribute_id || !usedAttributeIds.includes(attribute.id.toString()),
+                    );
+
+                    return (
+                        <div key={`serial-attribute-${formType}-${index}`} className="space-y-2 rounded-md border p-3">
+                            <div className="flex items-center justify-between">
+                                <Label>Attribute</Label>
+                                <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => removeAttributeRow(form, index)}>
+                                    Remove
+                                </Button>
+                            </div>
+
+                            <Select value={attributeRow.attribute_id} onValueChange={(value) => updateAttributeSelection(form, index, value)}>
+                                <SelectTrigger><SelectValue placeholder="Select attribute" /></SelectTrigger>
+                                <SelectContent>
+                                    {availableAttributes.map((attribute) => (
+                                        <SelectItem key={attribute.id} value={attribute.id.toString()}>
+                                            {attribute.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError message={form.errors[`${fieldKey}.attribute_id` as keyof typeof form.errors]} />
+
+                            {selectedAttribute && (
+                                <>
+                                    <Select value={attributeRow.attribute_option_id} onValueChange={(value) => updateAttributeOption(form, index, value)}>
+                                        <SelectTrigger><SelectValue placeholder={`Select ${selectedAttribute.name} value`} /></SelectTrigger>
+                                        <SelectContent>
+                                            {(selectedAttribute.attribute_options ?? []).map((option) => (
+                                                <SelectItem key={option.id} value={option.id.toString()}>
+                                                    {option.label ?? option.value}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={form.errors[`${fieldKey}.attribute_option_id` as keyof typeof form.errors]} />
+                                </>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    function serialAttributesPreview(serial: ProductSerial) {
+        return (serial.attribute_values ?? [])
+            .filter((item) => item.attribute && item.attribute_option)
+            .slice(0, MAX_PREVIEW_ATTRIBUTES);
     }
 
     const serialCounts = {
@@ -173,6 +318,7 @@ export default function ProductSerials({ product: { data: product }, serials, mo
                                             <th className="px-4 py-2 text-left font-medium">Serial</th>
                                             <th className="px-4 py-2 text-left font-medium">Reference</th>
                                             <th className="px-4 py-2 text-left font-medium">Warehouse</th>
+                                            <th className="px-4 py-2 text-left font-medium">Attributes</th>
                                             <th className="px-4 py-2 text-center font-medium">Status</th>
                                             <th className="px-4 py-2 text-right font-medium">Actions</th>
                                         </tr>
@@ -186,6 +332,25 @@ export default function ProductSerials({ product: { data: product }, serials, mo
                                                     <td className="px-4 py-2 font-mono text-xs font-medium">{serial.serial_number}</td>
                                                     <td className="px-4 py-2 text-muted-foreground text-xs">{serial.imei_or_reference ?? '—'}</td>
                                                     <td className="px-4 py-2">{serial.warehouse?.name ?? '—'}</td>
+                                                    <td className="px-4 py-2">
+                                                        {serialAttributesPreview(serial).length === 0 ? (
+                                                            <span className="text-xs text-muted-foreground">No attributes</span>
+                                                        ) : (
+                                                            <div className="space-y-1">
+                                                                {serialAttributesPreview(serial).map((item) => (
+                                                                    <div key={item.id} className="text-xs">
+                                                                        <span className="font-medium">{item.attribute?.name}:</span>{' '}
+                                                                        <span className="text-muted-foreground">{item.attribute_option?.label ?? item.attribute_option?.value}</span>
+                                                                    </div>
+                                                                ))}
+                                                                {(serial.attribute_values?.length ?? 0) > MAX_PREVIEW_ATTRIBUTES && (
+                                                                    <button type="button" className="text-xs text-primary underline" onClick={() => setAttributesPreviewSerial(serial)}>
+                                                                        View all
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </td>
                                                     <td className="px-4 py-2 text-center">
                                                         <Badge variant={s.variant}>{s.label}</Badge>
                                                     </td>
@@ -214,7 +379,7 @@ export default function ProductSerials({ product: { data: product }, serials, mo
                                         })}
                                         {serials.data.length === 0 && (
                                             <tr>
-                                                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                                                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                                                     No serials. <button className="text-primary underline" onClick={openAdd}>Register first serial</button>
                                                 </td>
                                             </tr>
@@ -301,6 +466,7 @@ export default function ProductSerials({ product: { data: product }, serials, mo
                                 </Select>
                             </div>
                         </div>
+                        {renderAttributesForm(storeForm, 'store')}
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setAddingSerial(false)}>Cancel</Button>
                             <Button type="submit" disabled={storeForm.processing}>{storeForm.processing ? 'Saving...' : 'Register'}</Button>
@@ -342,6 +508,7 @@ export default function ProductSerials({ product: { data: product }, serials, mo
                                 </Select>
                             </div>
                         </div>
+                        {renderAttributesForm(editForm, 'edit')}
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setEditingSerial(null)}>Cancel</Button>
                             <Button type="submit" disabled={editForm.processing}>{editForm.processing ? 'Saving...' : 'Update'}</Button>
@@ -365,6 +532,26 @@ export default function ProductSerials({ product: { data: product }, serials, mo
                 confirmVariant="destructive"
                 onConfirm={confirmDeleteSerial}
             />
+
+            <Dialog open={!!attributesPreviewSerial} onOpenChange={() => setAttributesPreviewSerial(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Serial attributes</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-2 text-sm">
+                        {(attributesPreviewSerial?.attribute_values ?? []).length === 0 && (
+                            <p className="text-muted-foreground">No attributes assigned.</p>
+                        )}
+                        {(attributesPreviewSerial?.attribute_values ?? []).map((item) => (
+                            <div key={item.id} className="rounded-md border px-3 py-2">
+                                <p className="font-medium">{item.attribute?.name}</p>
+                                <p className="text-muted-foreground">{item.attribute_option?.label ?? item.attribute_option?.value ?? '—'}</p>
+                            </div>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

@@ -5,6 +5,7 @@ import * as ProductController from '@/actions/App/Http/Controllers/Admin/Product
 import * as ProductSerialController from '@/actions/App/Http/Controllers/Admin/ProductSerialController';
 import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
+import TablePagination from '@/components/table-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,7 +35,7 @@ type Props = {
     products: PaginatedData<Product>;
     brands: { data: Brand[] };
     categories: { data: Category[] };
-    filters: { search?: string; status?: string; brand_id?: string; category_id?: string };
+    filters: { search?: string; status?: string; brand_id?: string; category_id?: string; page?: string };
 };
 
 export default function ProductsIndex({ products, brands, categories, filters }: Props) {
@@ -211,11 +212,11 @@ export default function ProductsIndex({ products, brands, categories, filters }:
                 </Card>
 
                 {products.meta.last_page > 1 && (
-                    <div className="flex justify-center gap-4">
-                        {products.links.prev && <Link href={products.links.prev} className="text-sm text-primary underline">← Previous</Link>}
-                        <span className="text-sm text-muted-foreground">Page {products.meta.current_page} of {products.meta.last_page}</span>
-                        {products.links.next && <Link href={products.links.next} className="text-sm text-primary underline">Next →</Link>}
-                    </div>
+                    <TablePagination
+                        currentPage={products.meta.current_page}
+                        lastPage={products.meta.last_page}
+                        onPageChange={(page) => router.get(productsIndex(), { ...filters, page: String(page) }, { preserveState: true, replace: true })}
+                    />
                 )}
             </div>
 

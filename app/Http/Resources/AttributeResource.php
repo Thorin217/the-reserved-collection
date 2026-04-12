@@ -19,6 +19,7 @@ class AttributeResource extends JsonResource
             'code' => $this->code,
             'name' => $this->name,
             'entity_level' => $this->entity_level,
+            'entity_levels' => $this->whenLoaded('entityLevels', fn () => $this->entityLevels->pluck('entity_level')->map(fn ($level) => is_string($level) ? $level : $level?->value)->values()),
             'data_type' => $this->data_type,
             'unit' => $this->unit,
             'is_filterable' => $this->is_filterable,

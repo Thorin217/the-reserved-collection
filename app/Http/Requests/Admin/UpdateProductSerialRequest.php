@@ -27,6 +27,9 @@ class UpdateProductSerialRequest extends FormRequest
             'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
             'status' => ['required', 'in:available,reserved,sold,returned,damaged,in_transit'],
             'serial_number' => ['required', 'string', 'max:255', "unique:product_serials,serial_number,{$serialId}"],
+            'attributes' => ['nullable', 'array'],
+            'attributes.*.attribute_id' => ['required_with:attributes', 'integer', 'distinct', 'exists:attributes,id'],
+            'attributes.*.attribute_option_id' => ['nullable', 'integer', 'exists:attribute_options,id'],
         ];
     }
 }

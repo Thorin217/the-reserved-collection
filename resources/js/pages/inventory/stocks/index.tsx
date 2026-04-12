@@ -1,5 +1,6 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useEffect } from 'react';
+import TablePagination from '@/components/table-pagination';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,6 +33,7 @@ type Props = {
     filters: {
         warehouse_id?: string;
         search?: string;
+        page?: string;
     };
 };
 
@@ -157,11 +159,11 @@ export default function InventoryStocksIndex({ stocks, warehouses, filters }: Pr
                 </Card>
 
                 {stocks.meta.last_page > 1 && (
-                    <div className="flex items-center justify-center gap-2">
-                        {stocks.links.prev && <Link href={stocks.links.prev} className="text-sm text-primary underline">← Previous</Link>}
-                        <span className="text-sm text-muted-foreground">Page {stocks.meta.current_page} of {stocks.meta.last_page}</span>
-                        {stocks.links.next && <Link href={stocks.links.next} className="text-sm text-primary underline">Next →</Link>}
-                    </div>
+                    <TablePagination
+                        currentPage={stocks.meta.current_page}
+                        lastPage={stocks.meta.last_page}
+                        onPageChange={(page) => applyFilters({ ...filters, page: String(page) })}
+                    />
                 )}
             </div>
         </>

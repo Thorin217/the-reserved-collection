@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { ArrowRight, Search } from 'lucide-react';
 import { useState } from 'react';
 import { FlashMessage } from '@/components/flash-message';
+import TablePagination from '@/components/table-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,6 +37,7 @@ type Filters = {
         sent_via?: string;
         user_id?: string;
     };
+    page?: string;
 };
 
 type Props = {
@@ -203,17 +205,11 @@ export default function ProposalsIndex({ proposals, users, filters }: Props) {
                 </Card>
 
                 {proposals.meta.last_page > 1 && (
-                    <div className="flex justify-center gap-4">
-                        {proposals.links.prev && (
-                            <Link href={proposals.links.prev} className="text-sm text-primary underline">← Previous</Link>
-                        )}
-                        <span className="text-sm text-muted-foreground">
-                            Page {proposals.meta.current_page} of {proposals.meta.last_page}
-                        </span>
-                        {proposals.links.next && (
-                            <Link href={proposals.links.next} className="text-sm text-primary underline">Next →</Link>
-                        )}
-                    </div>
+                    <TablePagination
+                        currentPage={proposals.meta.current_page}
+                        lastPage={proposals.meta.last_page}
+                        onPageChange={(page) => router.get(proposalsIndex(), { filter: active, page: String(page) }, { preserveState: true, replace: true })}
+                    />
                 )}
             </div>
         </>

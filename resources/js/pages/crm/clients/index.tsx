@@ -4,6 +4,7 @@ import { useState } from 'react';
 import * as ClientController from '@/actions/App/Http/Controllers/Admin/ClientController';
 import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
+import TablePagination from '@/components/table-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,7 +29,7 @@ const ALL = '_all';
 
 type Props = {
     clients: PaginatedData<Client>;
-    filters: { search?: string; status?: string };
+    filters: { search?: string; status?: string; page?: string };
 };
 
 type ClientFormData = {
@@ -302,17 +303,11 @@ export default function ClientsIndex({ clients, filters }: Props) {
                 </Card>
 
                 {clients.meta.last_page > 1 && (
-                    <div className="flex justify-center gap-4">
-                        {clients.links.prev && (
-                            <Link href={clients.links.prev} className="text-sm text-primary underline">← Previous</Link>
-                        )}
-                        <span className="text-sm text-muted-foreground">
-                            Page {clients.meta.current_page} of {clients.meta.last_page}
-                        </span>
-                        {clients.links.next && (
-                            <Link href={clients.links.next} className="text-sm text-primary underline">Next →</Link>
-                        )}
-                    </div>
+                    <TablePagination
+                        currentPage={clients.meta.current_page}
+                        lastPage={clients.meta.last_page}
+                        onPageChange={(page) => router.get(clientsIndex(), { ...filters, page: String(page) }, { preserveState: true, replace: true })}
+                    />
                 )}
 
                 <ConfirmationModal

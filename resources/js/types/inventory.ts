@@ -33,9 +33,35 @@ export type ProductVariant = {
     compare_price: string | null;
     weight: string | null;
     is_active: boolean;
+    attribute_values?: ProductAttributeValue[];
     serials?: ProductSerial[];
     created_at: string;
     updated_at: string;
+};
+
+export type AttributeOption = {
+    id: number;
+    value: string;
+    label: string | null;
+};
+
+export type Attribute = {
+    id: number;
+    name: string;
+    code: string;
+    data_type: 'text' | 'textarea' | 'number' | 'decimal' | 'boolean' | 'date' | 'select';
+    unit: string | null;
+    is_required: boolean;
+    is_filterable: boolean;
+    attribute_options?: AttributeOption[];
+};
+
+export type ProductAttributeValue = {
+    id: number;
+    attribute_id: number;
+    attribute_option_id: number | null;
+    attribute?: Attribute;
+    attribute_option?: AttributeOption;
 };
 
 export type Product = {
@@ -68,6 +94,7 @@ export type ProductSerial = {
     status: 'available' | 'reserved' | 'sold' | 'returned' | 'damaged' | 'in_transit';
     product_variant?: ProductVariant;
     warehouse?: Warehouse;
+    attribute_values?: ProductAttributeValue[];
     created_at: string;
     updated_at: string;
 };

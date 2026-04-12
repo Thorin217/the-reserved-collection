@@ -51,6 +51,11 @@ class UpdateProductRequest extends FormRequest
             'status' => ['required', 'in:draft,active,inactive'],
             'image' => ['nullable', 'image', 'max:5120'],
 
+            'attributes' => ['nullable', 'array'],
+            'attributes.*.attribute_id' => ['required_with:attributes', 'integer', 'distinct', 'exists:attributes,id'],
+            'attributes.*.value' => ['nullable'],
+            'attributes.*.attribute_option_id' => ['nullable', 'integer', 'exists:attribute_options,id'],
+
             'variants' => ['sometimes', 'array', 'min:1'],
             'variants.*.id' => [
                 'nullable',
@@ -93,6 +98,9 @@ class UpdateProductRequest extends FormRequest
             'variants.*.cost' => ['nullable', 'numeric', 'min:0'],
             'variants.*.price' => ['nullable', 'numeric', 'min:0'],
             'variants.*.compare_price' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.attributes' => ['nullable', 'array'],
+            'variants.*.attributes.*.attribute_id' => ['required_with:variants.*.attributes', 'integer', 'distinct', 'exists:attributes,id'],
+            'variants.*.attributes.*.attribute_option_id' => ['nullable', 'integer', 'exists:attribute_options,id'],
         ];
     }
 }

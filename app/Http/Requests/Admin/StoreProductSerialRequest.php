@@ -42,6 +42,9 @@ class StoreProductSerialRequest extends FormRequest
             'imei_or_reference' => ['nullable', 'string', 'max:255'],
             'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
             'status' => ['required', 'in:available,reserved,sold,returned,damaged,in_transit'],
+            'attributes' => ['nullable', 'array'],
+            'attributes.*.attribute_id' => ['required_with:attributes', 'integer', 'distinct', 'exists:attributes,id'],
+            'attributes.*.attribute_option_id' => ['nullable', 'integer', 'exists:attribute_options,id'],
         ];
     }
 }

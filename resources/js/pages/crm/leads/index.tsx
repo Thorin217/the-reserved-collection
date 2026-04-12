@@ -3,6 +3,7 @@ import { ArrowRight, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import * as LeadController from '@/actions/App/Http/Controllers/Admin/LeadController';
 import { FlashMessage } from '@/components/flash-message';
+import TablePagination from '@/components/table-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -58,7 +59,7 @@ type Props = {
     leads: PaginatedData<Lead>;
     clients: { data: Client[] };
     users: { data: User[] };
-    filters: { search?: string; status?: string; source?: string; assigned_to?: string };
+    filters: { search?: string; status?: string; source?: string; assigned_to?: string; page?: string };
 };
 
 function NewLeadDialog({ clients, users, onSubmit }: { clients: Client[]; users: User[]; onSubmit: (data: LeadFormData, close: () => void) => void }) {
@@ -306,17 +307,11 @@ export default function LeadsIndex({ leads, clients, users, filters }: Props) {
                 </Card>
 
                 {leads.meta.last_page > 1 && (
-                    <div className="flex justify-center gap-4">
-                        {leads.links.prev && (
-                            <Link href={leads.links.prev} className="text-sm text-primary underline">← Previous</Link>
-                        )}
-                        <span className="text-sm text-muted-foreground">
-                            Page {leads.meta.current_page} of {leads.meta.last_page}
-                        </span>
-                        {leads.links.next && (
-                            <Link href={leads.links.next} className="text-sm text-primary underline">Next →</Link>
-                        )}
-                    </div>
+                    <TablePagination
+                        currentPage={leads.meta.current_page}
+                        lastPage={leads.meta.last_page}
+                        onPageChange={(page) => router.get(leadsIndex(), { ...filters, page: String(page) }, { preserveState: true, replace: true })}
+                    />
                 )}
             </div>
         </>

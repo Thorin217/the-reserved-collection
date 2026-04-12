@@ -5,6 +5,7 @@ import * as BrandController from '@/actions/App/Http/Controllers/Admin/BrandCont
 import ConfirmationModal from '@/components/confirmation-modal';
 import { FlashMessage } from '@/components/flash-message';
 import InputError from '@/components/input-error';
+import TablePagination from '@/components/table-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,6 +24,7 @@ type Props = {
     filters: {
         search?: string;
         status?: string;
+        page?: string;
     };
 };
 
@@ -197,11 +199,11 @@ export default function BrandsIndex({ brands, filters }: Props) {
                 </Card>
 
                 {brands.meta.last_page > 1 && (
-                    <div className="flex justify-center gap-2">
-                        {brands.links.prev && <Link href={brands.links.prev} className="text-sm text-primary underline">← Previous</Link>}
-                        <span className="text-sm text-muted-foreground">Page {brands.meta.current_page} of {brands.meta.last_page}</span>
-                        {brands.links.next && <Link href={brands.links.next} className="text-sm text-primary underline">Next →</Link>}
-                    </div>
+                    <TablePagination
+                        currentPage={brands.meta.current_page}
+                        lastPage={brands.meta.last_page}
+                        onPageChange={(page) => router.get(brandsIndex(), { ...filters, page: String(page) }, { preserveState: true, replace: true })}
+                    />
                 )}
             </div>
 

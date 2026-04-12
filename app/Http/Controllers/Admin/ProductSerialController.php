@@ -2,18 +2,22 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AttributeEntityLevel;
 use App\Enums\InventoryMovementType;
 use App\Enums\ProductSerialStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreProductSerialRequest;
 use App\Http\Requests\Admin\UpdateProductSerialRequest;
+use App\Http\Resources\AttributeResource;
 use App\Http\Resources\InventoryMovementResource;
 use App\Http\Resources\ProductResource;
 use App\Http\Resources\ProductSerialResource;
 use App\Http\Resources\WarehouseResource;
+use App\Models\Attribute;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Product;
+use App\Models\ProductAttributeValue;
 use App\Models\ProductSerial;
 use App\Models\Warehouse;
 use Illuminate\Http\RedirectResponse;
@@ -28,7 +32,7 @@ class ProductSerialController extends Controller
         $product->load(['brand', 'category', 'variants.serials.warehouse']);
 
         $serials = ProductSerial::whereHas('productVariant', fn ($q) => $q->where('product_id', $product->id))
-            ->with(['productVariant', 'warehouse'])
+            ->with(['productVariant', 'warehouse', 'attributeValues.attribute', 'attributeValues.attributeOption'])
             ->latest()
             ->paginate(30);
 
@@ -43,6 +47,16 @@ class ProductSerialController extends Controller
             'serials' => ProductSerialResource::collection($serials),
             'movements' => InventoryMovementResource::collection($movements),
             'warehouses' => WarehouseResource::collection(Warehouse::orderBy('name')->get()),
+            'serialAttributes' => AttributeResource::collection(
+                Attribute::query()
+                    ->where('is_active', true)
+                    ->forEntityLevel(AttributeEntityLevel::Serial)
+                    ->with(['attributeOptions' => fn ($query) => $query->orderBy('sort_order')->orderBy('id')])
+                    ->orderBy('is_required', 'desc')
+                    ->orderBy('sort_order')
+                    ->orderBy('name')
+                    ->get()
+            ),
         ]);
     }
 
@@ -52,6 +66,8 @@ class ProductSerialController extends Controller
             $data = $request->validated();
 
             $serial = ProductSerial::create($data);
+
+            $this->syncSerialAttributes($serial, $data['attributes'] ?? []);
 
             $this->syncSerialStock(
                 productVariantId: $serial->product_variant_id,
@@ -101,6 +117,8 @@ class ProductSerialController extends Controller
             $fromStatus = $serial->status;
 
             $serial->update($request->validated());
+
+            $this->syncSerialAttributes($serial, $request->validated()['attributes'] ?? []);
 
             $this->syncSerialStock(
                 productVariantId: $serial->product_variant_id,
@@ -251,5 +269,60 @@ class ProductSerialController extends Controller
         $stock->reserved_quantity = max(0, (float) $stock->reserved_quantity + $reservedDelta);
         $stock->available_quantity = max(0, (float) $stock->available_quantity + $availableDelta);
         $stock->save();
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $attributesPayload
+     */
+    private function syncSerialAttributes(ProductSerial $serial, array $attributesPayload): void
+    {
+        $attributes = collect($attributesPayload)
+            ->map(fn (array $attribute): array => [
+                'attribute_id' => (int) ($attribute['attribute_id'] ?? 0),
+                'attribute_option_id' => isset($attribute['attribute_option_id']) && $attribute['attribute_option_id'] !== ''
+                    ? (int) $attribute['attribute_option_id']
+                    : null,
+            ])
+            ->filter(fn (array $attribute) => $attribute['attribute_id'] > 0)
+            ->values();
+
+        ProductAttributeValue::query()
+            ->where('product_serial_id', $serial->id)
+            ->whereHas('attribute', fn ($query) => $query->forEntityLevel(AttributeEntityLevel::Serial))
+            ->delete();
+
+        if ($attributes->isEmpty()) {
+            return;
+        }
+
+        $availableAttributes = Attribute::query()
+            ->where('is_active', true)
+            ->forEntityLevel(AttributeEntityLevel::Serial)
+            ->whereIn('id', $attributes->pluck('attribute_id')->all())
+            ->with('attributeOptions')
+            ->get()
+            ->keyBy('id');
+
+        foreach ($attributes as $attributePayload) {
+            $attribute = $availableAttributes->get($attributePayload['attribute_id']);
+
+            if (! $attribute) {
+                continue;
+            }
+
+            $optionId = $attributePayload['attribute_option_id'];
+
+            if (! $optionId || ! $attribute->attributeOptions->contains('id', $optionId)) {
+                continue;
+            }
+
+            ProductAttributeValue::query()->create([
+                'product_id' => $serial->productVariant?->product_id,
+                'product_variant_id' => $serial->product_variant_id,
+                'product_serial_id' => $serial->id,
+                'attribute_id' => $attribute->id,
+                'attribute_option_id' => $optionId,
+            ]);
+        }
     }
 }

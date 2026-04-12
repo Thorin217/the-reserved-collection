@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\CategoryController;
@@ -103,6 +104,13 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         Route::get('{warehouse}/edit', [WarehouseController::class, 'edit'])->name('edit');
         Route::put('{warehouse}', [WarehouseController::class, 'update'])->name('update');
         Route::delete('{warehouse}', [WarehouseController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('attributes')->name('attributes.')->group(function () {
+        Route::get('/', [AttributeController::class, 'index'])->name('index');
+        Route::post('/', [AttributeController::class, 'store'])->name('store');
+        Route::put('{attribute}', [AttributeController::class, 'update'])->name('update');
+        Route::delete('{attribute}', [AttributeController::class, 'destroy'])->name('destroy');
     });
 
     // CRM — standalone index pages
