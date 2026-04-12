@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
@@ -19,12 +20,24 @@ import type { Brand, PaginatedData } from '@/types';
 
 type Props = {
     brands: PaginatedData<Brand>;
+    filters: {
+        search?: string;
+        status?: string;
+    };
 };
 
-export default function BrandsIndex({ brands }: Props) {
+export default function BrandsIndex({ brands, filters }: Props) {
     const [editing, setEditing] = useState<Brand | null>(null);
     const [creating, setCreating] = useState(false);
     const [pendingDeleteBrand, setPendingDeleteBrand] = useState<Brand | null>(null);
+
+    const statusFilter = filters.status ?? '_all';
+
+    const statusOptions = [
+        { value: '_all', label: 'All statuses' },
+        { value: 'active', label: 'Active' },
+        { value: 'inactive', label: 'Inactive' },
+    ];
 
     const storeForm = useForm({ name: '', description: '', is_active: true });
     const editForm = useForm({ name: '', description: '', is_active: true });
@@ -79,6 +92,10 @@ export default function BrandsIndex({ brands }: Props) {
         setPendingDeleteBrand(null);
     }
 
+    function applyFilters(payload: Props['filters']) {
+        router.get(brandsIndex.url(), payload, { preserveState: true, replace: true });
+    }
+
     return (
         <>
             <Head title="Brands" />
@@ -95,6 +112,31 @@ export default function BrandsIndex({ brands }: Props) {
                         New brand
                     </Button>
                 </div>
+
+                <Card>
+                    <CardContent className="grid gap-3 p-4 md:grid-cols-2">
+                        <Input
+                            placeholder="Search by name or description"
+                            defaultValue={filters.search ?? ''}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    applyFilters({
+                                        ...filters,
+                                        search: (e.currentTarget as HTMLInputElement).value,
+                                    });
+                                }
+                            }}
+                        />
+
+                        <SearchableSelect
+                            value={statusFilter}
+                            onValueChange={(value) => applyFilters({ ...filters, status: value === '_all' ? '' : value })}
+                            options={statusOptions}
+                            placeholder="Status"
+                            searchPlaceholder="Search status"
+                        />
+                    </CardContent>
+                </Card>
 
                 <Card>
                     <CardContent className="p-0">

@@ -39,6 +39,7 @@ class StoreProductRequest extends FormRequest
             'track_stock' => ['boolean'],
             'has_serial_numbers' => ['boolean'],
             'status' => ['required', 'in:draft,active,inactive'],
+            'image' => ['nullable', 'image', 'max:5120'],
 
             'variants' => ['required', 'array', 'min:1'],
             'variants.*.sku' => ['required', 'string', 'max:100', 'unique:product_variants,sku'],

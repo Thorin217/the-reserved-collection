@@ -49,6 +49,7 @@ class UpdateProductRequest extends FormRequest
             'track_stock' => ['boolean'],
             'has_serial_numbers' => ['boolean'],
             'status' => ['required', 'in:draft,active,inactive'],
+            'image' => ['nullable', 'image', 'max:5120'],
 
             'variants' => ['sometimes', 'array', 'min:1'],
             'variants.*.id' => [

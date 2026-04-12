@@ -59,7 +59,7 @@ class ProductController extends Controller
         $data['track_stock'] = $data['track_stock'] ?? true;
         $data['has_serial_numbers'] = $data['has_serial_numbers'] ?? false;
 
-        DB::transaction(function () use ($data) {
+        DB::transaction(function () use ($data, $request) {
             $product = Product::create($data);
 
             foreach ($data['variants'] as $variantData) {
@@ -68,6 +68,12 @@ class ProductController extends Controller
                     'product_id' => $product->id,
                     'is_active' => true,
                 ]);
+            }
+
+            if ($request->hasFile('image')) {
+                $product
+                    ->addMediaFromRequest('image')
+                    ->toMediaCollection('product');
             }
         });
 
@@ -91,7 +97,7 @@ class ProductController extends Controller
         $data['track_stock'] = $data['track_stock'] ?? $product->track_stock;
         $data['has_serial_numbers'] = $data['has_serial_numbers'] ?? $product->has_serial_numbers;
 
-        DB::transaction(function () use ($data, $product) {
+        DB::transaction(function () use ($data, $product, $request) {
             $product->update([
                 'category_id' => $data['category_id'],
                 'brand_id' => $data['brand_id'],
@@ -130,6 +136,13 @@ class ProductController extends Controller
                 }
 
                 $product->variants()->create($payload);
+            }
+
+            if ($request->hasFile('image')) {
+                $product->clearMediaCollection('product');
+                $product
+                    ->addMediaFromRequest('image')
+                    ->toMediaCollection('product');
             }
         });
 

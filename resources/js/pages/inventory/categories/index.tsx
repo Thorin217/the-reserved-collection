@@ -18,12 +18,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+    SearchableSelect,
+} from '@/components/ui/searchable-select';
 import {
     Table,
     TableBody,
@@ -42,13 +38,19 @@ import { index as categoriesIndex } from '@/routes/admin/categories';
 import type { Category, PaginatedData } from '@/types';
 
 const NO_PARENT = '_none';
+const ALL = '_all';
 
 type Props = {
     categories: PaginatedData<Category>;
     parents: { data: Category[] };
+    filters: {
+        search?: string;
+        status?: string;
+        parent_id?: string;
+    };
 };
 
-export default function CategoriesIndex({ categories, parents }: Props) {
+export default function CategoriesIndex({ categories, parents, filters }: Props) {
     const [editing, setEditing] = useState<Category | null>(null);
     const [creating, setCreating] = useState(false);
     const [pendingDeleteCategory, setPendingDeleteCategory] =
@@ -66,6 +68,34 @@ export default function CategoriesIndex({ categories, parents }: Props) {
         description: '',
         is_active: true,
     });
+
+    const statusFilter = filters.status ?? ALL;
+    const parentFilter = filters.parent_id ?? ALL;
+
+    const statusOptions = [
+        { value: ALL, label: 'All statuses' },
+        { value: 'active', label: 'Active' },
+        { value: 'inactive', label: 'Inactive' },
+    ];
+
+    const parentFilterOptions = [
+        { value: ALL, label: 'All parents' },
+        { value: NO_PARENT, label: 'None (root)' },
+        ...parents.data.map((parent) => ({
+            value: parent.id.toString(),
+            label: parent.name,
+            keywords: parent.name,
+        })),
+    ];
+
+    const parentFormOptions = [
+        { value: NO_PARENT, label: 'None (root)' },
+        ...parents.data.map((parent) => ({
+            value: parent.id.toString(),
+            label: parent.name,
+            keywords: parent.name,
+        })),
+    ];
 
     function openCreate() {
         storeForm.reset();
@@ -140,6 +170,13 @@ export default function CategoriesIndex({ categories, parents }: Props) {
         setPendingDeleteCategory(null);
     }
 
+    function applyFilters(payload: Props['filters']) {
+        router.get(categoriesIndex.url(), payload, {
+            preserveState: true,
+            replace: true,
+        });
+    }
+
     return (
         <>
             <Head title="Categories" />
@@ -158,6 +195,39 @@ export default function CategoriesIndex({ categories, parents }: Props) {
                         New category
                     </Button>
                 </div>
+
+                <Card>
+                    <CardContent className="grid gap-3 p-4 md:grid-cols-3">
+                        <Input
+                            placeholder="Search by name or description"
+                            defaultValue={filters.search ?? ''}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    applyFilters({
+                                        ...filters,
+                                        search: (e.currentTarget as HTMLInputElement).value,
+                                    });
+                                }
+                            }}
+                        />
+
+                        <SearchableSelect
+                            value={statusFilter}
+                            onValueChange={(value) => applyFilters({ ...filters, status: value === ALL ? '' : value })}
+                            options={statusOptions}
+                            placeholder="Status"
+                            searchPlaceholder="Search status"
+                        />
+
+                        <SearchableSelect
+                            value={parentFilter}
+                            onValueChange={(value) => applyFilters({ ...filters, parent_id: value === ALL ? '' : value })}
+                            options={parentFilterOptions}
+                            placeholder="Parent"
+                            searchPlaceholder="Search parent category"
+                        />
+                    </CardContent>
+                </Card>
 
                 <Card>
                     <CardContent className="p-0">
@@ -286,29 +356,15 @@ export default function CategoriesIndex({ categories, parents }: Props) {
                         </div>
                         <div className="space-y-2">
                             <Label>Parent category</Label>
-                            <Select
+                            <SearchableSelect
                                 value={storeForm.data.parent_id}
                                 onValueChange={(v) =>
                                     storeForm.setData('parent_id', v)
                                 }
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="None (root)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={NO_PARENT}>
-                                        None (root)
-                                    </SelectItem>
-                                    {parents.data.map((p) => (
-                                        <SelectItem
-                                            key={p.id}
-                                            value={p.id.toString()}
-                                        >
-                                            {p.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                options={parentFormOptions}
+                                placeholder="None (root)"
+                                searchPlaceholder="Search parent category"
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Description</Label>
@@ -359,29 +415,15 @@ export default function CategoriesIndex({ categories, parents }: Props) {
                         </div>
                         <div className="space-y-2">
                             <Label>Parent category</Label>
-                            <Select
+                            <SearchableSelect
                                 value={editForm.data.parent_id}
                                 onValueChange={(v) =>
                                     editForm.setData('parent_id', v)
                                 }
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="None (root)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={NO_PARENT}>
-                                        None (root)
-                                    </SelectItem>
-                                    {parents.data.map((p) => (
-                                        <SelectItem
-                                            key={p.id}
-                                            value={p.id.toString()}
-                                        >
-                                            {p.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                options={parentFormOptions}
+                                placeholder="None (root)"
+                                searchPlaceholder="Search parent category"
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Description</Label>

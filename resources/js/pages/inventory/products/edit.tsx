@@ -45,6 +45,7 @@ export default function ProductEdit({ product: { data: product }, brands, catego
         track_stock: product.track_stock,
         has_serial_numbers: product.has_serial_numbers,
         status: product.status,
+        image: null as File | null,
         variants: initialVariants,
     });
 
@@ -82,7 +83,9 @@ export default function ProductEdit({ product: { data: product }, brands, catego
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        put(ProductController.update.url(product));
+        put(ProductController.update.url(product), {
+            forceFormData: true,
+        });
     }
 
     return (
@@ -305,6 +308,42 @@ export default function ProductEdit({ product: { data: product }, brands, catego
                     </div>
 
                     <div className="space-y-4">
+                        <Card>
+                            <CardHeader><CardTitle>Image</CardTitle></CardHeader>
+                            <CardContent className="space-y-3">
+                                {product.image_url ? (
+                                    <img
+                                        src={product.image_url}
+                                        alt={product.name}
+                                        className="h-36 w-full rounded-md border object-cover"
+                                    />
+                                ) : (
+                                    <div className="flex h-36 w-full items-center justify-center rounded-md border text-xs text-muted-foreground">
+                                        No image uploaded
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="image">Replace image</Label>
+                                    <Input
+                                        id="image"
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => setData('image', e.target.files?.[0] ?? null)}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        JPG, PNG or WEBP up to 5MB.
+                                    </p>
+                                    {data.image && (
+                                        <p className="text-xs text-foreground">
+                                            Selected: {data.image.name}
+                                        </p>
+                                    )}
+                                    <InputError message={errors.image} />
+                                </div>
+                            </CardContent>
+                        </Card>
+
                         <Card>
                             <CardHeader><CardTitle>Status & type</CardTitle></CardHeader>
                             <CardContent className="space-y-4">

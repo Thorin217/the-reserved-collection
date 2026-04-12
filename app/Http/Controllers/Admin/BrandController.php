@@ -8,20 +8,39 @@ use App\Http\Requests\Admin\UpdateBrandRequest;
 use App\Http\Resources\BrandResource;
 use App\Models\Brand;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class BrandController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $brands = Brand::withCount('products')
+            ->when($request->search, function ($query, $search) {
+                $query->where(function ($subQuery) use ($search) {
+                    $subQuery
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->status, function ($query, $status) {
+                if ($status === 'active') {
+                    $query->where('is_active', true);
+                }
+
+                if ($status === 'inactive') {
+                    $query->where('is_active', false);
+                }
+            })
             ->orderBy('name')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         return Inertia::render('inventory/brands/index', [
             'brands' => BrandResource::collection($brands),
+            'filters' => $request->only(['search', 'status']),
         ]);
     }
 

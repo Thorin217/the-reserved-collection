@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Table,
     TableBody,
@@ -51,6 +51,16 @@ type Warehouse = {
     name: string;
 };
 
+type Brand = {
+    id: number;
+    name: string;
+};
+
+type Category = {
+    id: number;
+    name: string;
+};
+
 type Variant = {
     id: number;
     sku: string;
@@ -67,6 +77,8 @@ type ReservationForm = {
 type Filters = {
     status?: string;
     warehouse_id?: string;
+    brand_id?: string;
+    category_id?: string;
     search?: string;
     sort_by?: string;
     sort_dir?: 'asc' | 'desc';
@@ -76,12 +88,22 @@ type Filters = {
 type Props = {
     reservations: PaginatedData<Reservation>;
     warehouses: { data: Warehouse[] };
+    brands: { data: Brand[] };
+    categories: { data: Category[] };
     variants: { data: Variant[] };
     serial_candidates: Record<string, Array<{ id: number; serial_number: string }>>;
     filters: Filters;
 };
 
-export default function InventoryReservationsIndex({ reservations, warehouses, variants, serial_candidates: serialCandidates, filters }: Props) {
+export default function InventoryReservationsIndex({
+    reservations,
+    warehouses,
+    brands,
+    categories,
+    variants,
+    serial_candidates: serialCandidates,
+    filters,
+}: Props) {
     const [processingReservationId, setProcessingReservationId] = useState<
         number | null
     >(null);
@@ -98,6 +120,8 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
 
     const statusFilter = filters.status ?? '_all';
     const warehouseFilter = filters.warehouse_id ?? '_all';
+    const brandFilter = filters.brand_id ?? '_all';
+    const categoryFilter = filters.category_id ?? '_all';
     const sortBy = filters.sort_by ?? 'created_at';
     const sortDir = filters.sort_dir ?? 'desc';
 
@@ -112,8 +136,65 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
         () => variants.data.map((variant) => ({
             value: variant.id.toString(),
             label: `${variant.sku} · ${variant.product?.name ?? 'Product'}`,
+            keywords: `${variant.sku} ${variant.product?.name ?? ''}`,
         })),
         [variants.data],
+    );
+
+    const statusOptions = useMemo(
+        () => [
+            { value: '_all', label: 'All statuses' },
+            { value: 'active', label: 'Active' },
+            { value: 'released', label: 'Released' },
+            { value: 'consumed', label: 'Consumed' },
+            { value: 'cancelled', label: 'Cancelled' },
+        ],
+        [],
+    );
+
+    const warehouseFilterOptions = useMemo(
+        () => [
+            { value: '_all', label: 'All warehouses' },
+            ...warehouses.data.map((warehouse) => ({
+                value: warehouse.id.toString(),
+                label: warehouse.name,
+                keywords: warehouse.name,
+            })),
+        ],
+        [warehouses.data],
+    );
+
+    const brandFilterOptions = useMemo(
+        () => [
+            { value: '_all', label: 'All brands' },
+            ...brands.data.map((brand) => ({
+                value: brand.id.toString(),
+                label: brand.name,
+                keywords: brand.name,
+            })),
+        ],
+        [brands.data],
+    );
+
+    const categoryFilterOptions = useMemo(
+        () => [
+            { value: '_all', label: 'All categories' },
+            ...categories.data.map((category) => ({
+                value: category.id.toString(),
+                label: category.name,
+                keywords: category.name,
+            })),
+        ],
+        [categories.data],
+    );
+
+    const warehouseOptions = useMemo(
+        () => warehouses.data.map((warehouse) => ({
+            value: warehouse.id.toString(),
+            label: warehouse.name,
+            keywords: warehouse.name,
+        })),
+        [warehouses.data],
     );
 
     function applyFilters(payload: Filters) {
@@ -272,7 +353,7 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                 </div>
 
                 <Card>
-                    <CardContent className="grid gap-3 p-4 md:grid-cols-3">
+                    <CardContent className="grid gap-3 p-4 md:grid-cols-5">
                         <Input
                             placeholder="Search by product or SKU"
                             defaultValue={filters.search ?? ''}
@@ -286,32 +367,37 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                             }}
                         />
 
-                        <Select
+                        <SearchableSelect
                             value={statusFilter}
                             onValueChange={(value) => applyFilters({ ...filters, status: value === '_all' ? '' : value })}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="_all">All statuses</SelectItem>
-                                <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="released">Released</SelectItem>
-                                <SelectItem value="consumed">Consumed</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                        </Select>
+                            options={statusOptions}
+                            placeholder="Status"
+                            searchPlaceholder="Search status"
+                        />
 
-                        <Select
+                        <SearchableSelect
                             value={warehouseFilter}
                             onValueChange={(value) => applyFilters({ ...filters, warehouse_id: value === '_all' ? '' : value })}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Warehouse" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="_all">All warehouses</SelectItem>
-                                {warehouses.data.map((warehouse) => (
-                                    <SelectItem key={warehouse.id} value={warehouse.id.toString()}>{warehouse.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            options={warehouseFilterOptions}
+                            placeholder="Warehouse"
+                            searchPlaceholder="Search warehouse"
+                        />
+
+                        <SearchableSelect
+                            value={brandFilter}
+                            onValueChange={(value) => applyFilters({ ...filters, brand_id: value === '_all' ? '' : value })}
+                            options={brandFilterOptions}
+                            placeholder="Brand"
+                            searchPlaceholder="Search brand"
+                        />
+
+                        <SearchableSelect
+                            value={categoryFilter}
+                            onValueChange={(value) => applyFilters({ ...filters, category_id: value === '_all' ? '' : value })}
+                            options={categoryFilterOptions}
+                            placeholder="Category"
+                            searchPlaceholder="Search category"
+                        />
                     </CardContent>
                 </Card>
 
@@ -493,27 +579,25 @@ export default function InventoryReservationsIndex({ reservations, warehouses, v
                     <form onSubmit={submitCreate} className="space-y-4">
                         <div className="space-y-2">
                             <Label>Warehouse</Label>
-                            <Select value={form.data.warehouse_id} onValueChange={(value) => form.setData('warehouse_id', value)}>
-                                <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
-                                <SelectContent>
-                                    {warehouses.data.map((warehouse) => (
-                                        <SelectItem key={warehouse.id} value={warehouse.id.toString()}>{warehouse.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <SearchableSelect
+                                value={form.data.warehouse_id}
+                                onValueChange={(value) => form.setData('warehouse_id', value)}
+                                options={warehouseOptions}
+                                placeholder="Select warehouse"
+                                searchPlaceholder="Search warehouse"
+                            />
                             <InputError message={form.errors.warehouse_id} />
                         </div>
 
                         <div className="space-y-2">
                             <Label>Variant</Label>
-                            <Select value={form.data.product_variant_id} onValueChange={(value) => form.setData('product_variant_id', value)}>
-                                <SelectTrigger className="w-full min-w-0"><SelectValue placeholder="Select variant" /></SelectTrigger>
-                                <SelectContent>
-                                    {variantOptions.map((variant) => (
-                                        <SelectItem key={variant.value} value={variant.value} className="max-w-full truncate">{variant.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <SearchableSelect
+                                value={form.data.product_variant_id}
+                                onValueChange={(value) => form.setData('product_variant_id', value)}
+                                options={variantOptions}
+                                placeholder="Select variant"
+                                searchPlaceholder="Search variant or product"
+                            />
                             <InputError message={form.errors.product_variant_id} />
                         </div>
 

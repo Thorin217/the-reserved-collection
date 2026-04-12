@@ -33,6 +33,19 @@ it('includes products count in brands listing payload', function () {
         );
 });
 
+it('filters brands by search and status', function () {
+    Brand::factory()->create(['name' => 'Rolex', 'is_active' => true]);
+    Brand::factory()->create(['name' => 'Omega', 'is_active' => false]);
+
+    $this->get('/admin/brands?search=Rolex&status=active')
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('inventory/brands/index')
+            ->where('brands.data.0.name', 'Rolex')
+            ->where('brands.data', fn ($brands) => count($brands) === 1)
+        );
+});
+
 it('creates a brand', function () {
     $this->post('/admin/brands', [
         'name' => 'Rolex',

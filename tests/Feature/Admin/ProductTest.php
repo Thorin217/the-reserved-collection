@@ -9,6 +9,7 @@ use App\Models\ProductSerial;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Models\Warehouse;
+use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -78,6 +79,31 @@ it('creates a serializable product with variant', function () {
     $this->assertDatabaseHas('product_variants', ['sku' => 'ROL-SUB-001-VAR-2']);
 });
 
+it('uploads product image on create', function () {
+    $this->post('/admin/products', [
+        'category_id' => $this->category->id,
+        'brand_id' => $this->brand->id,
+        'name' => 'Rolex Explorer',
+        'sku' => 'ROL-EXP-001',
+        'product_type' => 'serializable',
+        'has_serial_numbers' => true,
+        'track_stock' => true,
+        'status' => 'active',
+        'image' => UploadedFile::fake()->image('explorer.jpg'),
+        'variants' => [
+            [
+                'sku' => 'ROL-EXP-001-VAR',
+                'price' => 12000,
+                'cost' => 8000,
+            ],
+        ],
+    ])->assertRedirect('/admin/products');
+
+    $product = Product::query()->where('sku', 'ROL-EXP-001')->firstOrFail();
+
+    expect($product->getFirstMediaUrl('product'))->not->toBe('');
+});
+
 it('validates required fields on product create', function () {
     $this->post('/admin/products', [])
         ->assertSessionHasErrors(['name', 'sku', 'category_id', 'brand_id', 'variants']);
@@ -103,6 +129,32 @@ it('updates a product', function () {
     ])->assertRedirect('/admin/products');
 
     $this->assertDatabaseHas('products', ['id' => $product->id, 'name' => 'New Name', 'status' => 'active']);
+});
+
+it('replaces product image on update', function () {
+    $product = Product::factory()->create([
+        'brand_id' => $this->brand->id,
+        'category_id' => $this->category->id,
+    ]);
+
+    $product->addMedia(UploadedFile::fake()->image('old.jpg')->path())
+        ->toMediaCollection('product');
+
+    $this->put("/admin/products/{$product->id}", [
+        'category_id' => $this->category->id,
+        'brand_id' => $this->brand->id,
+        'name' => $product->name,
+        'sku' => $product->sku,
+        'product_type' => $product->product_type->value,
+        'track_stock' => true,
+        'has_serial_numbers' => true,
+        'status' => 'active',
+        'image' => UploadedFile::fake()->image('new.jpg'),
+    ])->assertRedirect('/admin/products');
+
+    $product->refresh();
+
+    expect($product->getMedia('product'))->toHaveCount(1);
 });
 
 it('adds variants when updating a product', function () {

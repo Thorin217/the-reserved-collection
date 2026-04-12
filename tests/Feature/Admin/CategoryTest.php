@@ -32,6 +32,30 @@ it('includes products count in categories listing payload', function () {
         );
 });
 
+it('filters categories by search, status and parent', function () {
+    $parent = Category::factory()->create(['name' => 'Watches']);
+
+    Category::factory()->create([
+        'name' => 'Sport Watches',
+        'is_active' => true,
+        'parent_id' => $parent->id,
+    ]);
+
+    Category::factory()->create([
+        'name' => 'Vintage Watches',
+        'is_active' => false,
+        'parent_id' => $parent->id,
+    ]);
+
+    $this->get("/admin/categories?search=Sport&status=active&parent_id={$parent->id}")
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('inventory/categories/index')
+            ->where('categories.data.0.name', 'Sport Watches')
+            ->where('categories.data', fn ($categories) => count($categories) === 1)
+        );
+});
+
 it('creates a root category', function () {
     $this->post('/admin/categories', [
         'name' => 'Watches',

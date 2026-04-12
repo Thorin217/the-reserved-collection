@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Table,
     TableBody,
@@ -138,8 +138,52 @@ export default function InventoryTransfersIndex({
         () => variants.data.map((variant) => ({
             value: variant.id.toString(),
             label: `${variant.sku} · ${variant.product?.name ?? 'Product'}`,
+            keywords: `${variant.sku} ${variant.product?.name ?? ''}`,
         })),
         [variants.data],
+    );
+
+    const statusOptions = useMemo(
+        () => [
+            { value: '_all', label: 'All statuses' },
+            { value: 'draft', label: 'Draft' },
+            { value: 'sent', label: 'Sent' },
+            { value: 'received', label: 'Received' },
+        ],
+        [],
+    );
+
+    const warehouseFilterFromOptions = useMemo(
+        () => [
+            { value: '_all', label: 'All origins' },
+            ...warehouses.data.map((warehouse) => ({
+                value: warehouse.id.toString(),
+                label: warehouse.name,
+                keywords: warehouse.name,
+            })),
+        ],
+        [warehouses.data],
+    );
+
+    const warehouseFilterToOptions = useMemo(
+        () => [
+            { value: '_all', label: 'All destinations' },
+            ...warehouses.data.map((warehouse) => ({
+                value: warehouse.id.toString(),
+                label: warehouse.name,
+                keywords: warehouse.name,
+            })),
+        ],
+        [warehouses.data],
+    );
+
+    const warehouseOptions = useMemo(
+        () => warehouses.data.map((warehouse) => ({
+            value: warehouse.id.toString(),
+            label: warehouse.name,
+            keywords: warehouse.name,
+        })),
+        [warehouses.data],
     );
 
     const variantLabelById = useMemo(
@@ -445,44 +489,29 @@ export default function InventoryTransfersIndex({
                             }}
                         />
 
-                        <Select
+                        <SearchableSelect
                             value={statusFilter}
                             onValueChange={(value) => applyFilters({ ...filters, status: value === '_all' ? '' : value })}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="_all">All statuses</SelectItem>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="sent">Sent</SelectItem>
-                                <SelectItem value="received">Received</SelectItem>
-                            </SelectContent>
-                        </Select>
+                            options={statusOptions}
+                            placeholder="Status"
+                            searchPlaceholder="Search status"
+                        />
 
-                        <Select
+                        <SearchableSelect
                             value={fromWarehouseFilter}
                             onValueChange={(value) => applyFilters({ ...filters, from_warehouse_id: value === '_all' ? '' : value })}
-                        >
-                            <SelectTrigger><SelectValue placeholder="From warehouse" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="_all">All origins</SelectItem>
-                                {warehouses.data.map((warehouse) => (
-                                    <SelectItem key={warehouse.id} value={warehouse.id.toString()}>{warehouse.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            options={warehouseFilterFromOptions}
+                            placeholder="From warehouse"
+                            searchPlaceholder="Search origin warehouse"
+                        />
 
-                        <Select
+                        <SearchableSelect
                             value={toWarehouseFilter}
                             onValueChange={(value) => applyFilters({ ...filters, to_warehouse_id: value === '_all' ? '' : value })}
-                        >
-                            <SelectTrigger><SelectValue placeholder="To warehouse" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="_all">All destinations</SelectItem>
-                                {warehouses.data.map((warehouse) => (
-                                    <SelectItem key={warehouse.id} value={warehouse.id.toString()}>{warehouse.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            options={warehouseFilterToOptions}
+                            placeholder="To warehouse"
+                            searchPlaceholder="Search destination warehouse"
+                        />
                     </CardContent>
                 </Card>
 
@@ -633,26 +662,24 @@ export default function InventoryTransfersIndex({
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
                                 <Label>From warehouse</Label>
-                                <Select value={createForm.data.from_warehouse_id} onValueChange={(value) => createForm.setData('from_warehouse_id', value)}>
-                                    <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
-                                    <SelectContent>
-                                        {warehouses.data.map((warehouse) => (
-                                            <SelectItem key={warehouse.id} value={warehouse.id.toString()}>{warehouse.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                    value={createForm.data.from_warehouse_id}
+                                    onValueChange={(value) => createForm.setData('from_warehouse_id', value)}
+                                    options={warehouseOptions}
+                                    placeholder="Select warehouse"
+                                    searchPlaceholder="Search warehouse"
+                                />
                                 <InputError message={createForm.errors.from_warehouse_id} />
                             </div>
                             <div className="space-y-2">
                                 <Label>To warehouse</Label>
-                                <Select value={createForm.data.to_warehouse_id} onValueChange={(value) => createForm.setData('to_warehouse_id', value)}>
-                                    <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
-                                    <SelectContent>
-                                        {warehouses.data.map((warehouse) => (
-                                            <SelectItem key={warehouse.id} value={warehouse.id.toString()}>{warehouse.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                    value={createForm.data.to_warehouse_id}
+                                    onValueChange={(value) => createForm.setData('to_warehouse_id', value)}
+                                    options={warehouseOptions}
+                                    placeholder="Select warehouse"
+                                    searchPlaceholder="Search warehouse"
+                                />
                                 <InputError message={createForm.errors.to_warehouse_id} />
                             </div>
                         </div>
@@ -670,21 +697,17 @@ export default function InventoryTransfersIndex({
                             {createForm.data.items.map((item, index) => (
                                 <div key={`create-item-${index}`} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_100px] md:items-center">
                                     <div className="min-w-0">
-                                        <Select
+                                        <SearchableSelect
                                             value={item.product_variant_id}
                                             onValueChange={(value) => {
                                                 const items = [...createForm.data.items];
                                                 items[index] = { ...items[index], product_variant_id: value };
                                                 createForm.setData('items', items);
                                             }}
-                                        >
-                                            <SelectTrigger className="w-full min-w-0"><SelectValue placeholder="Select variant" /></SelectTrigger>
-                                            <SelectContent>
-                                                {variantOptions.map((variant) => (
-                                                    <SelectItem key={variant.value} value={variant.value} className="max-w-full truncate">{variant.label}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            options={variantOptions}
+                                            placeholder="Select variant"
+                                            searchPlaceholder="Search variant or product"
+                                        />
                                     </div>
                                     <Input
                                         type="number"
@@ -720,26 +743,24 @@ export default function InventoryTransfersIndex({
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
                                 <Label>From warehouse</Label>
-                                <Select value={editForm.data.from_warehouse_id} onValueChange={(value) => editForm.setData('from_warehouse_id', value)}>
-                                    <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
-                                    <SelectContent>
-                                        {warehouses.data.map((warehouse) => (
-                                            <SelectItem key={warehouse.id} value={warehouse.id.toString()}>{warehouse.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                    value={editForm.data.from_warehouse_id}
+                                    onValueChange={(value) => editForm.setData('from_warehouse_id', value)}
+                                    options={warehouseOptions}
+                                    placeholder="Select warehouse"
+                                    searchPlaceholder="Search warehouse"
+                                />
                                 <InputError message={editForm.errors.from_warehouse_id} />
                             </div>
                             <div className="space-y-2">
                                 <Label>To warehouse</Label>
-                                <Select value={editForm.data.to_warehouse_id} onValueChange={(value) => editForm.setData('to_warehouse_id', value)}>
-                                    <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
-                                    <SelectContent>
-                                        {warehouses.data.map((warehouse) => (
-                                            <SelectItem key={warehouse.id} value={warehouse.id.toString()}>{warehouse.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                    value={editForm.data.to_warehouse_id}
+                                    onValueChange={(value) => editForm.setData('to_warehouse_id', value)}
+                                    options={warehouseOptions}
+                                    placeholder="Select warehouse"
+                                    searchPlaceholder="Search warehouse"
+                                />
                                 <InputError message={editForm.errors.to_warehouse_id} />
                             </div>
                         </div>
@@ -757,21 +778,17 @@ export default function InventoryTransfersIndex({
                             {editForm.data.items.map((item, index) => (
                                 <div key={`edit-item-${index}`} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_100px] md:items-center">
                                     <div className="min-w-0">
-                                        <Select
+                                        <SearchableSelect
                                             value={item.product_variant_id}
                                             onValueChange={(value) => {
                                                 const items = [...editForm.data.items];
                                                 items[index] = { ...items[index], product_variant_id: value };
                                                 editForm.setData('items', items);
                                             }}
-                                        >
-                                            <SelectTrigger className="w-full min-w-0"><SelectValue placeholder="Select variant" /></SelectTrigger>
-                                            <SelectContent>
-                                                {variantOptions.map((variant) => (
-                                                    <SelectItem key={variant.value} value={variant.value} className="max-w-full truncate">{variant.label}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            options={variantOptions}
+                                            placeholder="Select variant"
+                                            searchPlaceholder="Search variant or product"
+                                        />
                                     </div>
                                     <Input
                                         type="number"

@@ -7,9 +7,13 @@ use App\Enums\InventoryReservationStatus;
 use App\Enums\ProductSerialStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreInventoryReservationRequest;
+use App\Http\Resources\BrandResource;
+use App\Http\Resources\CategoryResource;
 use App\Http\Resources\InventoryReservationResource;
 use App\Http\Resources\ProductVariantResource;
 use App\Http\Resources\WarehouseResource;
+use App\Models\Brand;
+use App\Models\Category;
 use App\Models\InventoryMovement;
 use App\Models\InventoryReservation;
 use App\Models\InventoryStock;
@@ -38,6 +42,12 @@ class InventoryReservationController extends Controller
             ->with(['warehouse', 'productVariant.product'])
             ->when($status, fn ($query) => $query->where('status', $status->value))
             ->when($request->warehouse_id, fn ($query, $warehouseId) => $query->where('warehouse_id', $warehouseId))
+            ->when($request->brand_id, function ($query, $brandId) {
+                $query->whereHas('productVariant.product', fn ($productQuery) => $productQuery->where('brand_id', $brandId));
+            })
+            ->when($request->category_id, function ($query, $categoryId) {
+                $query->whereHas('productVariant.product', fn ($productQuery) => $productQuery->where('category_id', $categoryId));
+            })
             ->when($request->search, function ($query, $search) {
                 $query->whereHas('productVariant', function ($variantQuery) use ($search) {
                     $variantQuery->where('sku', 'like', "%{$search}%")
@@ -76,11 +86,13 @@ class InventoryReservationController extends Controller
         return Inertia::render('inventory/reservations/index', [
             'reservations' => InventoryReservationResource::collection($reservations),
             'warehouses' => WarehouseResource::collection(Warehouse::query()->orderBy('name')->get()),
+            'brands' => BrandResource::collection(Brand::query()->where('is_active', true)->orderBy('name')->get()),
+            'categories' => CategoryResource::collection(Category::query()->where('is_active', true)->orderBy('name')->get()),
             'variants' => ProductVariantResource::collection(
                 ProductVariant::query()->with('product')->where('is_active', true)->orderBy('sku')->get()
             ),
             'serial_candidates' => $serialCandidates,
-            'filters' => $request->only(['status', 'warehouse_id', 'search', 'sort_by', 'sort_dir']),
+            'filters' => $request->only(['status', 'warehouse_id', 'brand_id', 'category_id', 'search', 'sort_by', 'sort_dir']),
         ]);
     }
 

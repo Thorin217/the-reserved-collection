@@ -18,13 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Table,
     TableBody,
@@ -106,8 +100,21 @@ type Props = {
     adjustments: PaginatedData<Adjustment>;
     warehouses: { data: Warehouse[] };
     variants: { data: Variant[] };
-    serial_candidates: Record<string, Array<{ id: number; serial_number: string }>>;
-    adjustment_serials: Record<string, Record<string, Array<{ id: number; serial_number: string | null; status: string | null }>>>;
+    serial_candidates: Record<
+        string,
+        Array<{ id: number; serial_number: string }>
+    >;
+    adjustment_serials: Record<
+        string,
+        Record<
+            string,
+            Array<{
+                id: number;
+                serial_number: string | null;
+                status: string | null;
+            }>
+        >
+    >;
     filters: Filters;
 };
 
@@ -158,14 +165,65 @@ export default function InventoryAdjustmentsIndex({
             variants.data.map((variant) => ({
                 value: variant.id.toString(),
                 label: `${variant.sku} · ${variant.product?.name ?? 'Product'}`,
+                keywords: `${variant.sku} ${variant.product?.name ?? ''}`,
             })),
         [variants.data],
+    );
+
+    const statusOptions = useMemo(
+        () => [
+            { value: '_all', label: 'All statuses' },
+            { value: 'draft', label: 'Draft' },
+            { value: 'confirmed', label: 'Confirmed' },
+            { value: 'cancelled', label: 'Cancelled' },
+        ],
+        [],
+    );
+
+    const adjustmentTypeFilterOptions = useMemo(
+        () => [
+            { value: '_all', label: 'All types' },
+            { value: 'increase', label: 'Increase' },
+            { value: 'decrease', label: 'Decrease' },
+        ],
+        [],
+    );
+
+    const warehouseFilterOptions = useMemo(
+        () => [
+            { value: '_all', label: 'All warehouses' },
+            ...warehouses.data.map((warehouse) => ({
+                value: warehouse.id.toString(),
+                label: warehouse.name,
+                keywords: warehouse.name,
+            })),
+        ],
+        [warehouses.data],
+    );
+
+    const warehouseOptions = useMemo(
+        () =>
+            warehouses.data.map((warehouse) => ({
+                value: warehouse.id.toString(),
+                label: warehouse.name,
+                keywords: warehouse.name,
+            })),
+        [warehouses.data],
+    );
+
+    const adjustmentTypeOptions = useMemo(
+        () => [
+            { value: 'increase', label: 'Increase' },
+            { value: 'decrease', label: 'Decrease' },
+        ],
+        [],
     );
 
     const variantLabelById = useMemo(
         () =>
             variants.data.reduce<Record<number, string>>((carry, variant) => {
-                carry[variant.id] = `${variant.sku} · ${variant.product?.name ?? 'Product'}`;
+                carry[variant.id] =
+                    `${variant.sku} · ${variant.product?.name ?? 'Product'}`;
 
                 return carry;
             }, {}),
@@ -284,8 +342,7 @@ export default function InventoryAdjustmentsIndex({
 
     function executeConfirm(adjustment: Adjustment) {
         const serializedItems = (adjustment.items ?? []).filter(
-            (item) =>
-                (serialCandidates[item.id.toString()] ?? []).length > 0,
+            (item) => (serialCandidates[item.id.toString()] ?? []).length > 0,
         );
 
         if (serializedItems.length === 0) {
@@ -303,14 +360,13 @@ export default function InventoryAdjustmentsIndex({
             return;
         }
 
-        const initialSelections = serializedItems.reduce<Record<string, string[]>>(
-            (carry, item) => {
-                carry[item.id.toString()] = [];
+        const initialSelections = serializedItems.reduce<
+            Record<string, string[]>
+        >((carry, item) => {
+            carry[item.id.toString()] = [];
 
-                return carry;
-            },
-            {},
-        );
+            return carry;
+        }, {});
 
         setSelectedSerialsByItem(initialSelections);
         setConfirming(adjustment);
@@ -322,12 +378,15 @@ export default function InventoryAdjustmentsIndex({
         }
 
         const payloadItems = (confirming.items ?? [])
-            .filter((item) => (serialCandidates[item.id.toString()] ?? []).length > 0)
+            .filter(
+                (item) =>
+                    (serialCandidates[item.id.toString()] ?? []).length > 0,
+            )
             .map((item) => ({
                 id: item.id,
-                serial_ids: (selectedSerialsByItem[item.id.toString()] ?? []).map(
-                    (serialId) => Number(serialId),
-                ),
+                serial_ids: (
+                    selectedSerialsByItem[item.id.toString()] ?? []
+                ).map((serialId) => Number(serialId)),
             }));
 
         router.post(
@@ -422,7 +481,7 @@ export default function InventoryAdjustmentsIndex({
                             }}
                         />
 
-                        <Select
+                        <SearchableSelect
                             value={statusFilter}
                             onValueChange={(value) =>
                                 applyFilters({
@@ -430,25 +489,12 @@ export default function InventoryAdjustmentsIndex({
                                     status: value === '_all' ? '' : value,
                                 })
                             }
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="_all">
-                                    All statuses
-                                </SelectItem>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="confirmed">
-                                    Confirmed
-                                </SelectItem>
-                                <SelectItem value="cancelled">
-                                    Cancelled
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
+                            options={statusOptions}
+                            placeholder="Status"
+                            searchPlaceholder="Search status"
+                        />
 
-                        <Select
+                        <SearchableSelect
                             value={adjustmentTypeFilter}
                             onValueChange={(value) =>
                                 applyFilters({
@@ -457,22 +503,12 @@ export default function InventoryAdjustmentsIndex({
                                         value === '_all' ? '' : value,
                                 })
                             }
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="_all">All types</SelectItem>
-                                <SelectItem value="increase">
-                                    Increase
-                                </SelectItem>
-                                <SelectItem value="decrease">
-                                    Decrease
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
+                            options={adjustmentTypeFilterOptions}
+                            placeholder="Type"
+                            searchPlaceholder="Search adjustment type"
+                        />
 
-                        <Select
+                        <SearchableSelect
                             value={warehouseFilter}
                             onValueChange={(value) =>
                                 applyFilters({
@@ -480,24 +516,10 @@ export default function InventoryAdjustmentsIndex({
                                     warehouse_id: value === '_all' ? '' : value,
                                 })
                             }
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Warehouse" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="_all">
-                                    All warehouses
-                                </SelectItem>
-                                {warehouses.data.map((warehouse) => (
-                                    <SelectItem
-                                        key={warehouse.id}
-                                        value={warehouse.id.toString()}
-                                    >
-                                        {warehouse.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            options={warehouseFilterOptions}
+                            placeholder="Warehouse"
+                            searchPlaceholder="Search warehouse"
+                        />
                     </CardContent>
                 </Card>
 
@@ -507,18 +529,37 @@ export default function InventoryAdjustmentsIndex({
                             <TableHeader>
                                 <TableRow>
                                     <TableHead className="text-center">
-                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('code')}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => sortByColumn('code')}
+                                        >
                                             Code {sortIndicator('code')}
                                         </Button>
                                     </TableHead>
-                                    <TableHead className="text-center">Warehouse</TableHead>
                                     <TableHead className="text-center">
-                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('adjustment_type')}>
-                                            Type {sortIndicator('adjustment_type')}
+                                        Warehouse
+                                    </TableHead>
+                                    <TableHead className="text-center">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                                sortByColumn('adjustment_type')
+                                            }
+                                        >
+                                            Type{' '}
+                                            {sortIndicator('adjustment_type')}
                                         </Button>
                                     </TableHead>
                                     <TableHead className="text-center">
-                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('status')}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                                sortByColumn('status')
+                                            }
+                                        >
                                             Status {sortIndicator('status')}
                                         </Button>
                                     </TableHead>
@@ -526,7 +567,13 @@ export default function InventoryAdjustmentsIndex({
                                         Items
                                     </TableHead>
                                     <TableHead className="text-center">
-                                        <Button variant="ghost" size="sm" onClick={() => sortByColumn('created_at')}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                                sortByColumn('created_at')
+                                            }
+                                        >
                                             Date {sortIndicator('created_at')}
                                         </Button>
                                     </TableHead>
@@ -556,9 +603,12 @@ export default function InventoryAdjustmentsIndex({
                                             <Button
                                                 size="sm"
                                                 variant="outline"
-                                                onClick={() => setViewingItems(adjustment)}
+                                                onClick={() =>
+                                                    setViewingItems(adjustment)
+                                                }
                                             >
-                                                {adjustment.items?.length ?? 0} items
+                                                {adjustment.items?.length ?? 0}{' '}
+                                                items
                                             </Button>
                                         </TableCell>
                                         <TableCell className="text-center">
@@ -591,14 +641,18 @@ export default function InventoryAdjustmentsIndex({
                                                             </Link>
                                                         </Button>
                                                     </TooltipTrigger>
-                                                    <TooltipContent>View movement trace</TooltipContent>
+                                                    <TooltipContent>
+                                                        View movement trace
+                                                    </TooltipContent>
                                                 </Tooltip>
 
                                                 {adjustment.status ===
                                                     'draft' && (
                                                     <>
                                                         <Tooltip>
-                                                            <TooltipTrigger asChild>
+                                                            <TooltipTrigger
+                                                                asChild
+                                                            >
                                                                 <Button
                                                                     size="sm"
                                                                     variant="outline"
@@ -611,10 +665,14 @@ export default function InventoryAdjustmentsIndex({
                                                                     Edit
                                                                 </Button>
                                                             </TooltipTrigger>
-                                                            <TooltipContent>Edit adjustment</TooltipContent>
+                                                            <TooltipContent>
+                                                                Edit adjustment
+                                                            </TooltipContent>
                                                         </Tooltip>
                                                         <Tooltip>
-                                                            <TooltipTrigger asChild>
+                                                            <TooltipTrigger
+                                                                asChild
+                                                            >
                                                                 <Button
                                                                     size="sm"
                                                                     onClick={() =>
@@ -627,10 +685,15 @@ export default function InventoryAdjustmentsIndex({
                                                                     Confirm
                                                                 </Button>
                                                             </TooltipTrigger>
-                                                            <TooltipContent>Confirm adjustment</TooltipContent>
+                                                            <TooltipContent>
+                                                                Confirm
+                                                                adjustment
+                                                            </TooltipContent>
                                                         </Tooltip>
                                                         <Tooltip>
-                                                            <TooltipTrigger asChild>
+                                                            <TooltipTrigger
+                                                                asChild
+                                                            >
                                                                 <Button
                                                                     size="sm"
                                                                     variant="secondary"
@@ -644,10 +707,15 @@ export default function InventoryAdjustmentsIndex({
                                                                     Cancel
                                                                 </Button>
                                                             </TooltipTrigger>
-                                                            <TooltipContent>Cancel adjustment</TooltipContent>
+                                                            <TooltipContent>
+                                                                Cancel
+                                                                adjustment
+                                                            </TooltipContent>
                                                         </Tooltip>
                                                         <Tooltip>
-                                                            <TooltipTrigger asChild>
+                                                            <TooltipTrigger
+                                                                asChild
+                                                            >
                                                                 <Button
                                                                     size="sm"
                                                                     variant="destructive"
@@ -661,7 +729,10 @@ export default function InventoryAdjustmentsIndex({
                                                                     Delete
                                                                 </Button>
                                                             </TooltipTrigger>
-                                                            <TooltipContent>Delete draft adjustment</TooltipContent>
+                                                            <TooltipContent>
+                                                                Delete draft
+                                                                adjustment
+                                                            </TooltipContent>
                                                         </Tooltip>
                                                     </>
                                                 )}
@@ -681,7 +752,10 @@ export default function InventoryAdjustmentsIndex({
                                                                 View
                                                             </Button>
                                                         </TooltipTrigger>
-                                                        <TooltipContent>View adjustment details</TooltipContent>
+                                                        <TooltipContent>
+                                                            View adjustment
+                                                            details
+                                                        </TooltipContent>
                                                     </Tooltip>
                                                 )}
                                             </div>
@@ -714,7 +788,7 @@ export default function InventoryAdjustmentsIndex({
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
                                 <Label>Warehouse</Label>
-                                <Select
+                                <SearchableSelect
                                     value={createForm.data.warehouse_id}
                                     onValueChange={(value) =>
                                         createForm.setData(
@@ -722,28 +796,17 @@ export default function InventoryAdjustmentsIndex({
                                             value,
                                         )
                                     }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select warehouse" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {warehouses.data.map((warehouse) => (
-                                            <SelectItem
-                                                key={warehouse.id}
-                                                value={warehouse.id.toString()}
-                                            >
-                                                {warehouse.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    options={warehouseOptions}
+                                    placeholder="Select warehouse"
+                                    searchPlaceholder="Search warehouse"
+                                />
                                 <InputError
                                     message={createForm.errors.warehouse_id}
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label>Type</Label>
-                                <Select
+                                <SearchableSelect
                                     value={createForm.data.adjustment_type}
                                     onValueChange={(value) =>
                                         createForm.setData(
@@ -751,19 +814,10 @@ export default function InventoryAdjustmentsIndex({
                                             value,
                                         )
                                     }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="increase">
-                                            Increase
-                                        </SelectItem>
-                                        <SelectItem value="decrease">
-                                            Decrease
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                    options={adjustmentTypeOptions}
+                                    placeholder="Select type"
+                                    searchPlaceholder="Search type"
+                                />
                                 <InputError
                                     message={createForm.errors.adjustment_type}
                                 />
@@ -814,7 +868,7 @@ export default function InventoryAdjustmentsIndex({
                                     key={`create-adjustment-item-${index}`}
                                     className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_130px_130px_100px]"
                                 >
-                                    <Select
+                                    <SearchableSelect
                                         value={item.product_variant_id}
                                         onValueChange={(value) => {
                                             const items = [
@@ -826,23 +880,10 @@ export default function InventoryAdjustmentsIndex({
                                             };
                                             createForm.setData('items', items);
                                         }}
-                                    >
-                                        <SelectTrigger className="w-full min-w-0">
-                                            <SelectValue placeholder="Select variant" className="block truncate" />
-                                        </SelectTrigger>
-                                        <SelectContent className="w-(--radix-select-trigger-width) max-w-[90vw]">
-                                            {variantOptions.map((variant) => (
-                                                <SelectItem
-                                                    key={variant.value}
-                                                    value={variant.value}
-                                                    className="max-w-full truncate"
-                                                    title={variant.label}
-                                                >
-                                                    {variant.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        options={variantOptions}
+                                        placeholder="Select variant"
+                                        searchPlaceholder="Search variant or product"
+                                    />
                                     <Input
                                         type="number"
                                         min="0.001"
@@ -918,33 +959,22 @@ export default function InventoryAdjustmentsIndex({
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
                                 <Label>Warehouse</Label>
-                                <Select
+                                <SearchableSelect
                                     value={editForm.data.warehouse_id}
                                     onValueChange={(value) =>
                                         editForm.setData('warehouse_id', value)
                                     }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select warehouse" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {warehouses.data.map((warehouse) => (
-                                            <SelectItem
-                                                key={warehouse.id}
-                                                value={warehouse.id.toString()}
-                                            >
-                                                {warehouse.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    options={warehouseOptions}
+                                    placeholder="Select warehouse"
+                                    searchPlaceholder="Search warehouse"
+                                />
                                 <InputError
                                     message={editForm.errors.warehouse_id}
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label>Type</Label>
-                                <Select
+                                <SearchableSelect
                                     value={editForm.data.adjustment_type}
                                     onValueChange={(value) =>
                                         editForm.setData(
@@ -952,19 +982,10 @@ export default function InventoryAdjustmentsIndex({
                                             value,
                                         )
                                     }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="increase">
-                                            Increase
-                                        </SelectItem>
-                                        <SelectItem value="decrease">
-                                            Decrease
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                    options={adjustmentTypeOptions}
+                                    placeholder="Select type"
+                                    searchPlaceholder="Search type"
+                                />
                                 <InputError
                                     message={editForm.errors.adjustment_type}
                                 />
@@ -1015,7 +1036,7 @@ export default function InventoryAdjustmentsIndex({
                                     key={`edit-adjustment-item-${index}`}
                                     className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_130px_130px_100px]"
                                 >
-                                    <Select
+                                    <SearchableSelect
                                         value={item.product_variant_id}
                                         onValueChange={(value) => {
                                             const items = [
@@ -1027,23 +1048,10 @@ export default function InventoryAdjustmentsIndex({
                                             };
                                             editForm.setData('items', items);
                                         }}
-                                    >
-                                        <SelectTrigger className="w-full min-w-0">
-                                            <SelectValue placeholder="Select variant" className="block truncate" />
-                                        </SelectTrigger>
-                                        <SelectContent className="w-(--radix-select-trigger-width) max-w-[90vw]">
-                                            {variantOptions.map((variant) => (
-                                                <SelectItem
-                                                    key={variant.value}
-                                                    value={variant.value}
-                                                    className="max-w-full truncate"
-                                                    title={variant.label}
-                                                >
-                                                    {variant.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        options={variantOptions}
+                                        placeholder="Select variant"
+                                        searchPlaceholder="Search variant or product"
+                                    />
                                     <Input
                                         type="number"
                                         min="0.001"
@@ -1121,17 +1129,24 @@ export default function InventoryAdjustmentsIndex({
             >
                 <DialogContent className="max-h-[85vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
-                        <DialogTitle>Select serials to confirm adjustment</DialogTitle>
+                        <DialogTitle>
+                            Select serials to confirm adjustment
+                        </DialogTitle>
                     </DialogHeader>
 
                     <div className="max-h-[55vh] space-y-4 overflow-y-auto pr-1">
                         {(confirming?.items ?? [])
-                            .filter((item) => (serialCandidates[item.id.toString()] ?? []).length > 0)
+                            .filter(
+                                (item) =>
+                                    (serialCandidates[item.id.toString()] ?? [])
+                                        .length > 0,
+                            )
                             .map((item) => {
                                 const options =
                                     serialCandidates[item.id.toString()] ?? [];
                                 const selected =
-                                    selectedSerialsByItem[item.id.toString()] ?? [];
+                                    selectedSerialsByItem[item.id.toString()] ??
+                                    [];
                                 const required = Math.trunc(
                                     Number(item.quantity),
                                 );
@@ -1168,23 +1183,25 @@ export default function InventoryAdjustmentsIndex({
                                                                             prev,
                                                                         ) => ({
                                                                             ...prev,
-                                                                            [item.id]: prev[
-                                                                                item.id
-                                                                            ]?.includes(
-                                                                                serialId,
-                                                                            )
-                                                                                ? prev[
-                                                                                      item
-                                                                                          .id
-                                                                                  ]
-                                                                                : [
-                                                                                      ...(prev[
+                                                                            [item.id]:
+                                                                                prev[
+                                                                                    item
+                                                                                        .id
+                                                                                ]?.includes(
+                                                                                    serialId,
+                                                                                )
+                                                                                    ? prev[
                                                                                           item
                                                                                               .id
-                                                                                      ] ??
-                                                                                          []),
-                                                                                      serialId,
-                                                                                  ],
+                                                                                      ]
+                                                                                    : [
+                                                                                          ...(prev[
+                                                                                              item
+                                                                                                  .id
+                                                                                          ] ??
+                                                                                              []),
+                                                                                          serialId,
+                                                                                      ],
                                                                         }),
                                                                     );
 
@@ -1194,26 +1211,28 @@ export default function InventoryAdjustmentsIndex({
                                                                 setSelectedSerialsByItem(
                                                                     (prev) => ({
                                                                         ...prev,
-                                                                        [item.id]: (
-                                                                            prev[
-                                                                                item
-                                                                                    .id
-                                                                            ] ??
-                                                                            []
-                                                                        ).filter(
+                                                                        [item.id]:
                                                                             (
-                                                                                id,
-                                                                            ) =>
-                                                                                id
-                                                                                !==
-                                                                                serialId,
-                                                                        ),
+                                                                                prev[
+                                                                                    item
+                                                                                        .id
+                                                                                ] ??
+                                                                                []
+                                                                            ).filter(
+                                                                                (
+                                                                                    id,
+                                                                                ) =>
+                                                                                    id !==
+                                                                                    serialId,
+                                                                            ),
                                                                     }),
                                                                 );
                                                             }}
                                                         />
                                                         <span className="font-mono text-xs">
-                                                            {serial.serial_number}
+                                                            {
+                                                                serial.serial_number
+                                                            }
                                                         </span>
                                                     </label>
                                                 );
@@ -1238,27 +1257,26 @@ export default function InventoryAdjustmentsIndex({
                         <Button
                             type="button"
                             onClick={submitConfirmWithSerials}
-                            disabled={
-                                (confirming?.items ?? [])
-                                    .filter(
-                                        (item) =>
-                                            (serialCandidates[
+                            disabled={(confirming?.items ?? [])
+                                .filter(
+                                    (item) =>
+                                        (
+                                            serialCandidates[
                                                 item.id.toString()
-                                            ] ?? []).length > 0,
-                                    )
-                                    .some((item) => {
-                                        const selected =
-                                            selectedSerialsByItem[
-                                                item.id.toString()
-                                            ] ?? [];
+                                            ] ?? []
+                                        ).length > 0,
+                                )
+                                .some((item) => {
+                                    const selected =
+                                        selectedSerialsByItem[
+                                            item.id.toString()
+                                        ] ?? [];
 
-                                        return (
-                                            selected.length
-                                            !==
-                                            Math.trunc(Number(item.quantity))
-                                        );
-                                    })
-                            }
+                                    return (
+                                        selected.length !==
+                                        Math.trunc(Number(item.quantity))
+                                    );
+                                })}
                         >
                             Confirm adjustment
                         </Button>
@@ -1266,11 +1284,15 @@ export default function InventoryAdjustmentsIndex({
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={!!viewingItems} onOpenChange={() => setViewingItems(null)}>
+            <Dialog
+                open={!!viewingItems}
+                onOpenChange={() => setViewingItems(null)}
+            >
                 <DialogContent className="max-h-[80vh] w-[95vw] overflow-y-auto sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>
-                            Adjustment items {viewingItems ? `· ${viewingItems.code}` : ''}
+                            Adjustment items{' '}
+                            {viewingItems ? `· ${viewingItems.code}` : ''}
                         </DialogTitle>
                     </DialogHeader>
 
@@ -1278,9 +1300,15 @@ export default function InventoryAdjustmentsIndex({
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="text-center">Variant</TableHead>
-                                    <TableHead className="text-center">Quantity</TableHead>
-                                    <TableHead className="text-center">Unit cost</TableHead>
+                                    <TableHead className="text-center">
+                                        Variant
+                                    </TableHead>
+                                    <TableHead className="text-center">
+                                        Quantity
+                                    </TableHead>
+                                    <TableHead className="text-center">
+                                        Unit cost
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -1289,34 +1317,56 @@ export default function InventoryAdjustmentsIndex({
                                         <TableCell className="text-center">
                                             <div className="space-y-2">
                                                 <p>
-                                                    {variantLabelById[item.product_variant_id] ?? `Variant #${item.product_variant_id}`}
+                                                    {variantLabelById[
+                                                        item.product_variant_id
+                                                    ] ??
+                                                        `Variant #${item.product_variant_id}`}
                                                 </p>
 
                                                 <div className="flex flex-wrap justify-center gap-1">
-                                                    {(adjustmentSerials[viewingItems?.id?.toString() ?? '']?.[item.product_variant_id.toString()] ?? []).map((serial) => (
+                                                    {(
+                                                        adjustmentSerials[
+                                                            viewingItems?.id?.toString() ??
+                                                                ''
+                                                        ]?.[
+                                                            item.product_variant_id.toString()
+                                                        ] ?? []
+                                                    ).map((serial) => (
                                                         <Badge
                                                             key={`adj-serial-${item.id}-${serial.id}`}
                                                             variant="outline"
-                                                            className={serial.status === 'damaged'
-                                                                ? 'border-rose-300 bg-rose-50 text-rose-700'
-                                                                : 'border-amber-300 bg-amber-50 text-amber-700'}
+                                                            className={
+                                                                serial.status ===
+                                                                'damaged'
+                                                                    ? 'border-rose-300 bg-rose-50 text-rose-700'
+                                                                    : 'border-amber-300 bg-amber-50 text-amber-700'
+                                                            }
                                                         >
-                                                            {serial.serial_number ?? `Serial #${serial.id}`}
-                                                            <span className="ml-1 text-[10px] uppercase tracking-wide">
-                                                                {serial.status ?? 'tracked'}
+                                                            {serial.serial_number ??
+                                                                `Serial #${serial.id}`}
+                                                            <span className="ml-1 text-[10px] tracking-wide uppercase">
+                                                                {serial.status ??
+                                                                    'tracked'}
                                                             </span>
                                                         </Badge>
                                                     ))}
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-center">{item.quantity}</TableCell>
-                                        <TableCell className="text-center">{item.unit_cost ?? '—'}</TableCell>
+                                        <TableCell className="text-center">
+                                            {item.quantity}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            {item.unit_cost ?? '—'}
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                                 {(viewingItems?.items ?? []).length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="py-6 text-center text-muted-foreground">
+                                        <TableCell
+                                            colSpan={3}
+                                            className="py-6 text-center text-muted-foreground"
+                                        >
                                             This adjustment has no items.
                                         </TableCell>
                                     </TableRow>
@@ -1326,7 +1376,11 @@ export default function InventoryAdjustmentsIndex({
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setViewingItems(null)}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setViewingItems(null)}
+                        >
                             Close
                         </Button>
                     </DialogFooter>
@@ -1344,31 +1398,31 @@ export default function InventoryAdjustmentsIndex({
                     pendingAction?.action === 'confirm'
                         ? 'Confirm adjustment'
                         : pendingAction?.action === 'cancel'
-                            ? 'Cancel adjustment'
-                            : 'Delete adjustment'
+                          ? 'Cancel adjustment'
+                          : 'Delete adjustment'
                 }
                 description={
                     pendingAction
                         ? pendingAction.action === 'confirm'
                             ? `Are you sure you want to confirm adjustment ${pendingAction.adjustment.code}?`
                             : pendingAction.action === 'cancel'
-                                ? `Are you sure you want to cancel adjustment ${pendingAction.adjustment.code}?`
-                                : `Are you sure you want to delete adjustment ${pendingAction.adjustment.code}? This action cannot be undone.`
+                              ? `Are you sure you want to cancel adjustment ${pendingAction.adjustment.code}?`
+                              : `Are you sure you want to delete adjustment ${pendingAction.adjustment.code}? This action cannot be undone.`
                         : ''
                 }
                 confirmLabel={
                     pendingAction?.action === 'confirm'
                         ? 'Confirm adjustment'
                         : pendingAction?.action === 'cancel'
-                            ? 'Cancel adjustment'
-                            : 'Delete adjustment'
+                          ? 'Cancel adjustment'
+                          : 'Delete adjustment'
                 }
                 confirmVariant={
                     pendingAction?.action === 'delete'
                         ? 'destructive'
                         : pendingAction?.action === 'cancel'
-                            ? 'secondary'
-                            : 'default'
+                          ? 'secondary'
+                          : 'default'
                 }
                 onConfirm={proceedPendingAction}
             />

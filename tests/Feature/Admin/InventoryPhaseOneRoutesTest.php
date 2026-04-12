@@ -39,4 +39,16 @@ class InventoryPhaseOneRoutesTest extends TestCase
                 ->assertOk();
         }
     }
+
+    public function test_it_renders_reservations_route_with_brand_and_category_filters(): void
+    {
+        $user = User::factory()->admin()->create();
+
+        $this->actingAs($user)
+            ->get(route('admin.inventory.reservations.index', [
+                'brand_id' => 1,
+                'category_id' => 1,
+            ]))
+            ->assertOk();
+    }
 }

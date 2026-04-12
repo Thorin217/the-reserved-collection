@@ -34,6 +34,7 @@ type FormData = {
     track_stock: boolean;
     has_serial_numbers: boolean;
     status: string;
+    image: File | null;
     variants: Array<{
         sku: string;
         cost: string;
@@ -53,6 +54,7 @@ export default function ProductCreate({ brands, categories }: Props) {
         track_stock: true,
         has_serial_numbers: true,
         status: 'draft',
+        image: null,
         variants: [
             {
                 sku: '',
@@ -97,7 +99,9 @@ export default function ProductCreate({ brands, categories }: Props) {
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        post(ProductController.store.url());
+        post(ProductController.store.url(), {
+            forceFormData: true,
+        });
     }
 
     return (
@@ -378,6 +382,37 @@ export default function ProductCreate({ brands, categories }: Props) {
                     </div>
 
                     <div className="space-y-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Image</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <div className="space-y-2">
+                                    <Label htmlFor="image">Product image</Label>
+                                    <Input
+                                        id="image"
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) =>
+                                            setData(
+                                                'image',
+                                                e.target.files?.[0] ?? null,
+                                            )
+                                        }
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        JPG, PNG or WEBP up to 5MB.
+                                    </p>
+                                    {data.image && (
+                                        <p className="text-xs text-foreground">
+                                            Selected: {data.image.name}
+                                        </p>
+                                    )}
+                                    <InputError message={errors.image} />
+                                </div>
+                            </CardContent>
+                        </Card>
+
                         <Card>
                             <CardHeader>
                                 <CardTitle>Status & type</CardTitle>
