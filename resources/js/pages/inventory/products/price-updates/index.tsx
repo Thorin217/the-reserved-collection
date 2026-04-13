@@ -44,6 +44,18 @@ type Props = {
         affected_variants_count: number;
         change_value: number;
     } | null;
+    recentFluctuations: Array<{
+        id: number;
+        name: string | null;
+        change_type: string;
+        change_value: string;
+        affected_variants_count: number;
+        items_count: number;
+        created_at: string;
+        creator_name: string | null;
+        affected_products_count: number;
+        affected_products: string[];
+    }>;
 };
 
 function toFilterInput(filter: Filter): Filter {
@@ -71,7 +83,14 @@ function formatCurrency(value: string | null): string {
     }).format(Number.isFinite(amount) ? amount : 0);
 }
 
-export default function ProductPriceUpdatesIndex({ attributes, filters, preview, execution }: Props) {
+function formatDate(value: string): string {
+    return new Intl.DateTimeFormat('es-GT', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(new Date(value));
+}
+
+export default function ProductPriceUpdatesIndex({ attributes, filters, preview, execution, recentFluctuations }: Props) {
     const { errors } = usePage<{ errors: Record<string, string> }>().props;
     const [selectedFilters, setSelectedFilters] = useState<Filter[]>(
         filters.length > 0 ? filters.map(toFilterInput) : [emptyFilter()],
@@ -87,6 +106,7 @@ export default function ProductPriceUpdatesIndex({ attributes, filters, preview,
     const isValidChangeValue = Number.isFinite(parsedChangeValue) && Math.abs(parsedChangeValue) > 0;
     const canApplyUpdate = selectedVariantIds.length > 0 && isValidChangeValue;
     const allSelected = variantIds.length > 0 && selectedVariantIds.length === variantIds.length;
+    const latestFluctuations = useMemo(() => recentFluctuations.slice(0, 3), [recentFluctuations]);
 
     function addFilter() {
         setSelectedFilters(previous => [...previous, emptyFilter()]);
@@ -216,6 +236,50 @@ export default function ProductPriceUpdatesIndex({ attributes, filters, preview,
                         View history
                     </Link>
                 </div>
+
+                <Card className="hidden lg:block">
+                    <CardHeader>
+                        <CardTitle>Recent price fluctuations</CardTitle>
+                        <CardDescription>
+                            Quick audit context for the most recent updates.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        {latestFluctuations.length === 0 && (
+                            <p className="text-sm text-muted-foreground">No previous price fluctuations recorded yet.</p>
+                        )}
+
+                        <div className="grid gap-3 lg:grid-cols-3">
+                            {latestFluctuations.map((fluctuation) => (
+                                <div key={fluctuation.id} className="rounded-md border p-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <p className="font-medium">
+                                            {fluctuation.name ?? 'Bulk update'}
+                                            {' '}
+                                            <span className={`text-sm ${Number(fluctuation.change_value) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                ({Number(fluctuation.change_value) > 0 ? '+' : ''}{fluctuation.change_value}%)
+                                            </span>
+                                        </p>
+                                        <Link href={`${PRODUCT_PRICE_UPDATES_HISTORY_URL}/${fluctuation.id}`} className="text-sm text-primary underline">
+                                            View detail
+                                        </Link>
+                                    </div>
+
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {fluctuation.affected_variants_count} variants • {fluctuation.affected_products_count} products • by {fluctuation.creator_name ?? 'System'} • {formatDate(fluctuation.created_at)}
+                                    </p>
+
+                                    {fluctuation.affected_products.length > 0 && (
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Affected products: {fluctuation.affected_products.join(', ')}
+                                            {fluctuation.affected_products_count > fluctuation.affected_products.length && '...'}
+                                        </p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
 
                 <Card>
                     <CardHeader>

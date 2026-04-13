@@ -27,6 +27,37 @@ it('shows product price updates page', function () {
         );
 });
 
+it('includes recent fluctuation audit summary in update products page', function () {
+    $product = Product::factory()->create();
+    $variant = ProductVariant::factory()->create([
+        'product_id' => $product->id,
+    ]);
+
+    $priceUpdate = PriceUpdate::query()->create([
+        'name' => 'Audit Update',
+        'change_type' => 'percentage',
+        'change_value' => 4.5,
+        'affected_variants_count' => 1,
+    ]);
+
+    PriceUpdateItem::query()->create([
+        'price_update_id' => $priceUpdate->id,
+        'product_id' => $product->id,
+        'product_variant_id' => $variant->id,
+        'old_price' => 100,
+        'new_price' => 104.5,
+        'delta_price' => 4.5,
+    ]);
+
+    get('/admin/products/price-updates')
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('inventory/products/price-updates/index')
+            ->where('recentFluctuations.0.id', $priceUpdate->id)
+            ->where('recentFluctuations.0.affected_products_count', 1)
+        );
+});
+
 it('previews variants using attribute filter with optional option', function () {
     $brand = Brand::factory()->create();
     $category = Category::factory()->create();

@@ -227,7 +227,49 @@ class ProductPriceUpdateController extends Controller
                 'variants' => $previewVariants,
             ],
             'execution' => $execution,
+            'recentFluctuations' => $this->recentFluctuations(),
         ]);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function recentFluctuations(): array
+    {
+        return PriceUpdate::query()
+            ->with(['creator:id,name', 'items.product:id,name'])
+            ->withCount('items')
+            ->latest('id')
+            ->limit(8)
+            ->get()
+            ->map(function (PriceUpdate $priceUpdate): array {
+                $affectedProducts = $priceUpdate->items
+                    ->filter(fn ($item) => $item->product?->name !== null)
+                    ->map(fn ($item): array => [
+                        'id' => $item->product_id,
+                        'name' => $item->product?->name,
+                    ])
+                    ->unique('id')
+                    ->values();
+
+                return [
+                    'id' => $priceUpdate->id,
+                    'name' => $priceUpdate->name,
+                    'change_type' => $priceUpdate->change_type,
+                    'change_value' => $priceUpdate->change_value,
+                    'affected_variants_count' => $priceUpdate->affected_variants_count,
+                    'items_count' => $priceUpdate->items_count,
+                    'created_at' => $priceUpdate->created_at,
+                    'creator_name' => $priceUpdate->creator?->name,
+                    'affected_products_count' => $affectedProducts->count(),
+                    'affected_products' => $affectedProducts
+                        ->take(3)
+                        ->pluck('name')
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->all();
     }
 
     /**
