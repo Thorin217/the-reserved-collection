@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\LeadInteractionController;
 use App\Http\Controllers\Admin\LeadProposalController;
 use App\Http\Controllers\Admin\NegotiationController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ProductPriceUpdateController;
 use App\Http\Controllers\Admin\ProductSerialController;
 use App\Http\Controllers\Admin\WarehouseController;
 use Illuminate\Support\Facades\Route;
@@ -23,11 +24,17 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     // Inventario - Productos
     Route::resource('products', ProductController::class)
         ->except(['show', 'create', 'store'])
-        ->only(['index', 'edit', 'update', 'destroy']);
+        ->only(['index', 'edit', 'update', 'destroy'])
+        ->whereNumber('product');
 
     Route::prefix('products')->name('products.')->group(function () {
         Route::get('create', [ProductController::class, 'create'])->name('create');
         Route::post('/', [ProductController::class, 'store'])->name('store');
+        Route::get('price-updates', [ProductPriceUpdateController::class, 'index'])->name('price-updates.index');
+        Route::post('price-updates/preview', [ProductPriceUpdateController::class, 'preview'])->name('price-updates.preview');
+        Route::post('price-updates', [ProductPriceUpdateController::class, 'store'])->name('price-updates.store');
+        Route::get('price-updates/history', [ProductPriceUpdateController::class, 'history'])->name('price-updates.history');
+        Route::get('price-updates/history/{priceUpdate}', [ProductPriceUpdateController::class, 'show'])->name('price-updates.show');
 
         // Seriales (trazabilidad)
         Route::prefix('{product}/serials')->name('serials.')->group(function () {

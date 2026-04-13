@@ -18,6 +18,7 @@ import { create as createProduct, index as productsIndex } from '@/routes/admin/
 import type { Brand, Category, PaginatedData, Product } from '@/types';
 
 const ALL = '_all';
+const PRODUCT_PRICE_UPDATES_URL = '/admin/products/price-updates';
 
 const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
     active: { label: 'Active', variant: 'default' },
@@ -80,12 +81,20 @@ export default function ProductsIndex({ products, brands, categories, filters }:
                         <h1 className="text-2xl font-bold">Products</h1>
                         <p className="text-sm text-muted-foreground">{products.meta.total} products in inventory</p>
                     </div>
-                    <Button asChild size="sm">
-                        <Link href={createProduct()}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            New product
-                        </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button asChild size="sm" variant="outline">
+                            <Link href={PRODUCT_PRICE_UPDATES_URL}>
+                                Update products
+                            </Link>
+                        </Button>
+
+                        <Button asChild size="sm">
+                            <Link href={createProduct()}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                New product
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
