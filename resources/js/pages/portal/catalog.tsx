@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Heart, Package, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import * as WishlistController from '@/actions/App/Http/Controllers/Portal/WishlistController';
+import { formatCurrency } from '@/lib/currency';
 import PortalLayout from '@/layouts/portal-layout';
 import { catalog } from '@/routes/portal';
 import type { PaginatedData } from '@/types';
@@ -33,11 +34,8 @@ function formatPrice(price: string | null): string {
     if (!price) {
         return 'Price on request';
     }
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 0,
-    }).format(Number(price));
+
+    return formatCurrency(price);
 }
 
 function ProductCard({
