@@ -78,6 +78,11 @@ class Warehouse extends Model implements HasMedia
         return $this->hasMany(InventoryTransfer::class, 'to_warehouse_id');
     }
 
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
+    }
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('warehouse');

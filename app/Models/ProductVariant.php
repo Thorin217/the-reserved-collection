@@ -82,6 +82,16 @@ class ProductVariant extends Model implements HasMedia
         return $this->hasMany(ProductAttributeValue::class);
     }
 
+    public function quoteItems(): HasMany
+    {
+        return $this->hasMany(QuoteItem::class);
+    }
+
+    public function saleItems(): HasMany
+    {
+        return $this->hasMany(SaleItem::class);
+    }
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('product-variant');

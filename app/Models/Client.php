@@ -38,4 +38,19 @@ class Client extends Model
     {
         return $this->hasMany(Lead::class);
     }
+
+    public function quotes(): HasMany
+    {
+        return $this->hasMany(Quote::class);
+    }
+
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
+    }
+
+    public function accountReceivables(): HasMany
+    {
+        return $this->hasMany(AccountReceivable::class);
+    }
 }

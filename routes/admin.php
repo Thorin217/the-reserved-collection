@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\AccountPayableController;
+use App\Http\Controllers\Admin\AccountReceivableController;
 use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\BrandController;
@@ -17,6 +19,8 @@ use App\Http\Controllers\Admin\NegotiationController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProductPriceUpdateController;
 use App\Http\Controllers\Admin\ProductSerialController;
+use App\Http\Controllers\Admin\QuoteController;
+use App\Http\Controllers\Admin\SaleController;
 use App\Http\Controllers\Admin\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
@@ -123,6 +127,19 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     // CRM — standalone index pages
     Route::get('proposals', [LeadProposalController::class, 'index'])->name('proposals.index');
     Route::get('negotiations', [NegotiationController::class, 'index'])->name('negotiations.index');
+
+    // Finance
+    Route::prefix('finance')->name('finance.')->group(function () {
+        Route::get('quotes', [QuoteController::class, 'index'])->name('quotes.index');
+        Route::get('quotes/create', [QuoteController::class, 'create'])->name('quotes.create');
+        Route::post('quotes', [QuoteController::class, 'store'])->name('quotes.store');
+        Route::get('quotes/{quote}/edit', [QuoteController::class, 'edit'])->name('quotes.edit');
+        Route::put('quotes/{quote}', [QuoteController::class, 'update'])->name('quotes.update');
+        Route::delete('quotes/{quote}', [QuoteController::class, 'destroy'])->name('quotes.destroy');
+        Route::get('sales', [SaleController::class, 'index'])->name('sales.index');
+        Route::get('receivables', [AccountReceivableController::class, 'index'])->name('receivables.index');
+        Route::get('payables', [AccountPayableController::class, 'index'])->name('payables.index');
+    });
 
     // CRM
     Route::prefix('clients')->name('clients.')->group(function () {

@@ -60,4 +60,14 @@ class Lead extends Model
     {
         return $this->hasMany(Negotiation::class);
     }
+
+    public function quotes(): HasMany
+    {
+        return $this->hasMany(Quote::class);
+    }
+
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
+    }
 }

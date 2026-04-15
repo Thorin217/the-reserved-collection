@@ -33,6 +33,10 @@ import { dashboard } from '@/routes';
 import { index as brandsIndex } from '@/routes/admin/brands';
 import { index as categoriesIndex } from '@/routes/admin/categories';
 import { index as clientsIndex } from '@/routes/admin/clients';
+import { index as payablesIndex } from '@/routes/admin/finance/payables';
+import { index as quotesIndex } from '@/routes/admin/finance/quotes';
+import { index as receivablesIndex } from '@/routes/admin/finance/receivables';
+import { index as salesIndex } from '@/routes/admin/finance/sales';
 import { index as leadsIndex } from '@/routes/admin/leads';
 import { index as negotiationsIndex } from '@/routes/admin/negotiations';
 import { index as productsIndex } from '@/routes/admin/products';
@@ -113,6 +117,29 @@ const crmNavItems: NavItem[] = [
     },
 ];
 
+const financeNavItems: NavItem[] = [
+    {
+        title: 'Quotes',
+        href: quotesIndex(),
+        icon: FileText,
+    },
+    {
+        title: 'Sales',
+        href: salesIndex(),
+        icon: TrendingUp,
+    },
+    {
+        title: 'Receivables',
+        href: receivablesIndex(),
+        icon: Tag,
+    },
+    {
+        title: 'Payables',
+        href: payablesIndex(),
+        icon: Building2,
+    },
+];
+
 const configurationNavItems: NavItem[] = [
     {
         title: 'Branches',
@@ -151,11 +178,25 @@ export function AppSidebar() {
             <SidebarContent>
                 <NavMain items={mainNavItems} label="General" />
                 <SidebarSeparator />
-                 <NavCollapsible label="Inventory" title="Inventory" items={inventoryNavItems} />
-                <SidebarSeparator />
-                <NavCollapsible label="Configuration" title="Configuration" items={configurationNavItems} />
+                <NavCollapsible
+                    label="Inventory"
+                    title="Inventory"
+                    items={inventoryNavItems}
+                />
                 <SidebarSeparator />
                 <NavCollapsible label="CRM" title="CRM" items={crmNavItems} />
+                <SidebarSeparator />
+                <NavCollapsible
+                    label="Finance"
+                    title="Finance"
+                    items={financeNavItems}
+                />
+                <SidebarSeparator />
+                <NavCollapsible
+                    label="Configuration"
+                    title="Configuration"
+                    items={configurationNavItems}
+                />
             </SidebarContent>
 
             <SidebarFooter>
