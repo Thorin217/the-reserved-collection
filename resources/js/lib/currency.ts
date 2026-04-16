@@ -1,7 +1,7 @@
 import numbro from 'numbro';
 
 type NumericValue = number | string | null | undefined;
-type SupportedCurrency = 'USD' | 'GTQ';
+type SupportedCurrency = 'USD';
 
 type CurrencyOptions = {
     currency?: SupportedCurrency;
@@ -11,12 +11,10 @@ type CurrencyOptions = {
 
 const currencySymbols: Record<SupportedCurrency, string> = {
     USD: '$',
-    GTQ: '$',
 };
 
 const currencyMantissas: Record<SupportedCurrency, number> = {
     USD: 0,
-    GTQ: 2,
 };
 
 function toNumber(value: NumericValue): number | null {

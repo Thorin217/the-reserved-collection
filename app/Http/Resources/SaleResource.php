@@ -41,6 +41,11 @@ class SaleResource extends JsonResource
             'user' => UserResource::make($this->whenLoaded('user')),
             'items' => SaleItemResource::collection($this->whenLoaded('items')),
             'receivables' => AccountReceivableResource::collection($this->whenLoaded('receivables')),
+            'can' => $this->when($request->user() !== null, fn (): array => [
+                'update' => $request->user()->can('update', $this->resource),
+                'confirm' => $request->user()->can('confirm', $this->resource),
+                'cancel' => $request->user()->can('cancel', $this->resource),
+            ]),
         ];
     }
 }

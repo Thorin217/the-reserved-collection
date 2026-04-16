@@ -30,6 +30,11 @@ class QuoteResource extends JsonResource
             'notes' => $this->notes,
             'approved_at' => $this->approved_at,
             'items_count' => $this->whenCounted('items'),
+            'linked_sale_id' => $this->whenLoaded('sales', function (): ?int {
+                return $this->sales
+                    ->sortByDesc('id')
+                    ->first()?->id;
+            }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
 
@@ -41,6 +46,7 @@ class QuoteResource extends JsonResource
             'can' => $this->when($request->user() !== null, fn (): array => [
                 'update' => $request->user()->can('update', $this->resource),
                 'delete' => $request->user()->can('delete', $this->resource),
+                'convert_to_sale' => $request->user()->can('convertToSale', $this->resource),
             ]),
         ];
     }

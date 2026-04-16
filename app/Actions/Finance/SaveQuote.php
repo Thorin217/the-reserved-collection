@@ -34,7 +34,7 @@ class SaveQuote
                 'negotiation_id' => null,
                 'user_id' => $quote->exists ? $quote->user_id : $user->id,
                 'status' => $status,
-                'currency' => $validated['currency'],
+                'currency' => $validated['currency'] ?? 'USD',
                 'issued_at' => $validated['issued_at'] ?? null,
                 'expires_at' => $validated['expires_at'] ?? null,
                 'subtotal' => $subtotal,

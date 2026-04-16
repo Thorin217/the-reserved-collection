@@ -89,7 +89,7 @@ function emptyFilter(): Filter {
 }
 
 function formatCurrency(value: string | null): string {
-    return formatMoney(value, { currency: 'GTQ', mantissa: 2 });
+    return formatMoney(value, { currency: 'USD', mantissa: 2 });
 }
 
 function formatDate(value: string): string {

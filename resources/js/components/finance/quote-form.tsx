@@ -46,7 +46,7 @@ type QuoteFormData = {
     client_id: string;
     lead_id: string;
     status: QuoteStatus;
-    currency: 'USD' | 'GTQ';
+    currency: 'USD';
     issued_at: string;
     expires_at: string;
     tax_total: string;
@@ -232,29 +232,35 @@ export default function QuoteForm({
         client_id: initialQuote?.client_id ? String(initialQuote.client_id) : '',
         lead_id: initialQuote?.lead_id ? String(initialQuote.lead_id) : '',
         status: initialQuote?.status ?? 'draft',
-        currency: initialQuote?.currency ?? 'USD',
+        currency: 'USD',
         issued_at: initialQuote?.issued_at?.slice(0, 10) ?? '',
         expires_at: initialQuote?.expires_at?.slice(0, 10) ?? '',
         tax_total: initialQuote?.tax_total ?? '0.00',
         discount_total: initialQuote?.discount_total ?? '0.00',
         notes: initialQuote?.notes ?? '',
-        items: (initialQuote?.items ?? []).map((item) => ({
-            id: item.id,
-            product_variant_id: item.product_variant_id
-                ? String(item.product_variant_id)
-                : '',
-            product_serial_id: item.product_serial_id
-                ? String(item.product_serial_id)
-                : '',
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            notes: item.notes ?? '',
-            _product_name: item.product_variant?.product?.name ??
-                item.description,
-            _variant_sku: item.product_variant?.sku ?? '',
-            _variant_summary: item.product_variant?.attribute_summary ?? '',
-        })),
+        items: (initialQuote?.items ?? []).map((item) => {
+            const variantWithProduct = item.product_variant as
+                | (ProductVariant & { product?: Product | null })
+                | undefined;
+
+            return {
+                id: item.id,
+                product_variant_id: item.product_variant_id
+                    ? String(item.product_variant_id)
+                    : '',
+                product_serial_id: item.product_serial_id
+                    ? String(item.product_serial_id)
+                    : '',
+                description: item.description,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+                notes: item.notes ?? '',
+                _product_name: variantWithProduct?.product?.name ??
+                    item.description,
+                _variant_sku: item.product_variant?.sku ?? '',
+                _variant_summary: item.product_variant?.attribute_summary ?? '',
+            };
+        }),
     });
 
     const filteredLeads = useMemo(() => {
@@ -332,7 +338,9 @@ export default function QuoteForm({
     }
 
     function getItemError(index: number, field: string): string | undefined {
-        return form.errors[`items.${index}.${field}`];
+        const itemErrors = form.errors as Record<string, string | undefined>;
+
+        return itemErrors[`items.${index}.${field}`];
     }
 
     function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -484,7 +492,7 @@ export default function QuoteForm({
                                 <Label>Currency *</Label>
                                 <Select
                                     value={form.data.currency}
-                                    onValueChange={(value: 'USD' | 'GTQ') =>
+                                    onValueChange={(value: 'USD') =>
                                         form.setData('currency', value)
                                     }
                                 >

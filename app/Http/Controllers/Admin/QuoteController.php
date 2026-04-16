@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Finance\CreateSaleFromQuote;
 use App\Actions\Finance\SaveQuote;
 use App\Enums\QuoteStatus;
 use App\Http\Controllers\Controller;
@@ -20,6 +21,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\QueryBuilder\AllowedFilter;
@@ -44,7 +46,7 @@ class QuoteController extends Controller
                 AllowedFilter::exact('user_id'),
             )
             ->withCount('items')
-            ->with(['client', 'lead.client', 'user', 'negotiation'])
+            ->with(['client', 'lead.client', 'user', 'negotiation', 'sales:id,quote_id'])
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -96,6 +98,7 @@ class QuoteController extends Controller
             'user',
             'items.productVariant.product.brand',
             'items.productSerial',
+            'sales:id,quote_id',
         ]);
 
         return Inertia::render('finance/quotes/edit', [
@@ -127,6 +130,31 @@ class QuoteController extends Controller
         return redirect()
             ->route('admin.finance.quotes.index')
             ->with('success', 'Quote deleted successfully.');
+    }
+
+    public function convertToSale(Request $request, Quote $quote, CreateSaleFromQuote $createSaleFromQuote): RedirectResponse
+    {
+        $this->authorize('convertToSale', $quote);
+
+        if ($quote->sales()->exists()) {
+            $sale = $quote->sales()->latest('id')->first();
+
+            if ($sale === null) {
+                throw ValidationException::withMessages([
+                    'quote' => 'The quote has already been converted.',
+                ]);
+            }
+
+            return redirect()
+                ->route('admin.finance.sales.edit', $sale)
+                ->with('success', 'Quote already has a related sale.');
+        }
+
+        $sale = $createSaleFromQuote->handle($quote, $request->user());
+
+        return redirect()
+            ->route('admin.finance.sales.edit', $sale)
+            ->with('success', 'Quote converted to sale successfully.');
     }
 
     /**
@@ -162,7 +190,6 @@ class QuoteController extends Controller
                 ->values(),
             'currencies' => [
                 ['value' => 'USD', 'label' => 'USD'],
-                ['value' => 'GTQ', 'label' => 'GTQ'],
             ],
         ];
     }

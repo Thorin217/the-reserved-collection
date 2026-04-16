@@ -4,6 +4,7 @@ use App\Http\Controllers\Portal\AuctionHouseController;
 use App\Http\Controllers\Portal\CartController;
 use App\Http\Controllers\Portal\CatalogController;
 use App\Http\Controllers\Portal\MyCollectionController;
+use App\Http\Controllers\Portal\OrderController;
 use App\Http\Controllers\Portal\PortalProfileController;
 use App\Http\Controllers\Portal\ProposalPreviewController;
 use App\Http\Controllers\Portal\WishlistController;
@@ -30,5 +31,9 @@ Route::name('portal.')->group(function () {
         Route::post('cart', [CartController::class, 'store'])->name('cart.store');
         Route::patch('cart/{cartItem}', [CartController::class, 'update'])->name('cart.update');
         Route::delete('cart/{cartItem}', [CartController::class, 'destroy'])->name('cart.destroy');
+        Route::post('cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
+
+        Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
+        Route::get('orders/{sale}', [OrderController::class, 'show'])->name('orders.show');
     });
 });

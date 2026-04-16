@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Actions\Finance\CreateSaleFromCart;
 use App\Http\Controllers\Controller;
 use App\Models\CartItem;
 use App\Models\ProductVariant;
@@ -77,5 +78,14 @@ class CartController extends Controller
         $cartItem->delete();
 
         return back()->with('success', 'Item removed from cart.');
+    }
+
+    public function checkout(Request $request, CreateSaleFromCart $createSaleFromCart): RedirectResponse
+    {
+        $sale = $createSaleFromCart->handle($request->user());
+
+        return redirect()
+            ->route('portal.orders.show', $sale)
+            ->with('success', 'Order created successfully. Our team will review it shortly.');
     }
 }

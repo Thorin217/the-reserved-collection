@@ -36,6 +36,15 @@ class QuotePolicy
         return ! $quote->sales()->exists();
     }
 
+    public function convertToSale(User $user, Quote $quote): bool
+    {
+        if (! $user->hasRole('admin')) {
+            return false;
+        }
+
+        return $quote->items()->exists();
+    }
+
     public function restore(User $user, Quote $quote): bool
     {
         return false;

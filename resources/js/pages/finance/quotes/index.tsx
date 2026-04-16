@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Edit, Plus, Search, Trash2 } from 'lucide-react';
+import { Edit, Eye, Plus, Search, ShoppingCart, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import * as QuoteController from '@/actions/App/Http/Controllers/Admin/QuoteController';
 import ConfirmationModal from '@/components/confirmation-modal';
@@ -27,6 +27,7 @@ import {
 import { formatCurrency } from '@/lib/currency';
 import AppLayout from '@/layouts/app-layout';
 import { create as createQuote, index as quotesIndex } from '@/routes/admin/finance/quotes';
+import { show as saleShow } from '@/routes/admin/finance/sales';
 import type { PaginatedData, Quote } from '@/types';
 
 const ALL = '_all';
@@ -79,6 +80,7 @@ export default function FinanceQuotesIndex({
     const active = filters.filter ?? {};
     const [search, setSearch] = useState(active.search ?? '');
     const [pendingDeleteQuote, setPendingDeleteQuote] = useState<Quote | null>(null);
+    const [pendingConvertQuote, setPendingConvertQuote] = useState<Quote | null>(null);
 
     function applyFilter(key: string, value: string) {
         const resolved = value === ALL ? undefined : value || undefined;
@@ -102,6 +104,15 @@ export default function FinanceQuotesIndex({
 
         router.delete(QuoteController.destroy.url(pendingDeleteQuote));
         setPendingDeleteQuote(null);
+    }
+
+    function confirmConvertQuote() {
+        if (!pendingConvertQuote) {
+            return;
+        }
+
+        router.post(QuoteController.convertToSale.url(pendingConvertQuote));
+        setPendingConvertQuote(null);
     }
 
     return (
@@ -303,6 +314,30 @@ export default function FinanceQuotesIndex({
                                                         </Button>
                                                     )}
 
+                                                    {quote.linked_sale_id ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title="View sale"
+                                                            asChild
+                                                        >
+                                                            <Link href={saleShow(quote.linked_sale_id)}>
+                                                                <Eye className="h-4 w-4" />
+                                                            </Link>
+                                                        </Button>
+                                                    ) : (
+                                                        quote.can?.convert_to_sale && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                title="Convert to sale"
+                                                                onClick={() => setPendingConvertQuote(quote)}
+                                                            >
+                                                                <ShoppingCart className="h-4 w-4" />
+                                                            </Button>
+                                                        )
+                                                    )}
+
                                                     {quote.can?.delete ? (
                                                         <Button
                                                             variant="ghost"
@@ -376,6 +411,21 @@ export default function FinanceQuotesIndex({
                 confirmLabel="Delete quote"
                 confirmVariant="destructive"
                 onConfirm={confirmDeleteQuote}
+            />
+
+            <ConfirmationModal
+                open={!!pendingConvertQuote}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingConvertQuote(null);
+                    }
+                }}
+                title="Convert quote to sale"
+                description={pendingConvertQuote
+                    ? `You are about to convert ${pendingConvertQuote.quote_number} into a sale draft.`
+                    : 'You are about to convert this quote into a sale draft.'}
+                confirmLabel="Convert to sale"
+                onConfirm={confirmConvertQuote}
             />
         </>
     );

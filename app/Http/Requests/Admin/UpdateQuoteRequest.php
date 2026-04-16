@@ -31,7 +31,7 @@ class UpdateQuoteRequest extends FormRequest
             'client_id' => ['required', 'integer', 'exists:clients,id'],
             'lead_id' => ['nullable', 'integer', 'exists:leads,id'],
             'status' => ['required', Rule::enum(QuoteStatus::class)],
-            'currency' => ['required', 'string', Rule::in(['USD', 'GTQ'])],
+            'currency' => ['required', 'string', Rule::in(['USD'])],
             'issued_at' => ['nullable', 'date'],
             'expires_at' => ['nullable', 'date', 'after_or_equal:issued_at'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],

@@ -135,8 +135,16 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         Route::post('quotes', [QuoteController::class, 'store'])->name('quotes.store');
         Route::get('quotes/{quote}/edit', [QuoteController::class, 'edit'])->name('quotes.edit');
         Route::put('quotes/{quote}', [QuoteController::class, 'update'])->name('quotes.update');
+        Route::post('quotes/{quote}/convert-to-sale', [QuoteController::class, 'convertToSale'])->name('quotes.convert-to-sale');
         Route::delete('quotes/{quote}', [QuoteController::class, 'destroy'])->name('quotes.destroy');
         Route::get('sales', [SaleController::class, 'index'])->name('sales.index');
+        Route::get('sales/create', [SaleController::class, 'create'])->name('sales.create');
+        Route::post('sales', [SaleController::class, 'store'])->name('sales.store');
+        Route::get('sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
+        Route::get('sales/{sale}/edit', [SaleController::class, 'edit'])->name('sales.edit');
+        Route::put('sales/{sale}', [SaleController::class, 'update'])->name('sales.update');
+        Route::post('sales/{sale}/confirm', [SaleController::class, 'confirm'])->name('sales.confirm');
+        Route::post('sales/{sale}/cancel', [SaleController::class, 'cancel'])->name('sales.cancel');
         Route::get('receivables', [AccountReceivableController::class, 'index'])->name('receivables.index');
         Route::get('payables', [AccountPayableController::class, 'index'])->name('payables.index');
     });

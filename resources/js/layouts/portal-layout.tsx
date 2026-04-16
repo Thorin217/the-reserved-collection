@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { auctionHouse, cart, catalog, home, myCollection, wishlist } from '@/routes/portal';
+import { index as ordersIndex } from '@/routes/portal/orders';
 import { edit as profileSettings } from '@/routes/profile';
 import type { Auth } from '@/types';
 
@@ -52,6 +53,7 @@ export default function PortalLayout({ children, wishlistCount = 0, cartCount = 
         })),
         { label: 'Auctions', href: auctionHouse() },
         { label: 'My Collection', href: isAuth ? myCollection() : '/login' },
+        { label: 'My Orders', href: isAuth ? ordersIndex() : '/login' },
         { label: 'Services', href: catalog() },
     ];
 

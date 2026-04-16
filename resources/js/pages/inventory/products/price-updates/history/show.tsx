@@ -71,11 +71,11 @@ function formatDate(value: string): string {
 }
 
 function formatCurrency(value: string): string {
-    return formatMoney(value, { currency: 'GTQ', mantissa: 2 });
+    return formatMoney(value, { currency: 'USD', mantissa: 2 });
 }
 
 function formatSignedCurrency(value: string): string {
-    return formatSignedMoney(value, { currency: 'GTQ', mantissa: 2 });
+    return formatSignedMoney(value, { currency: 'USD', mantissa: 2 });
 }
 
 export default function ProductPriceUpdatesHistoryShow({

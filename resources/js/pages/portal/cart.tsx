@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
 import PortalLayout from '@/layouts/portal-layout';
 import { catalog } from '@/routes/portal';
+import { index as ordersIndex } from '@/routes/portal/orders';
 
 type CartItemData = {
     id: number;
@@ -281,16 +282,27 @@ export default function PortalCart({ cartItems: initialItems }: Props) {
                                     </div>
                                 </div>
 
-                                <Button className="h-11 w-full rounded-none bg-gold text-[10px] tracking-[0.2em] text-primary-foreground uppercase hover:bg-gold-dark">
+                                <Button
+                                    className="h-11 w-full rounded-none bg-gold text-[10px] tracking-[0.2em] text-primary-foreground uppercase hover:bg-gold-dark"
+                                    onClick={() => router.post(CartController.checkout.url())}
+                                >
                                     Proceed to Checkout
                                 </Button>
 
-                                <Link
-                                    href={catalog()}
-                                    className="mt-4 block text-center text-[10px] tracking-[0.15em] text-muted-foreground uppercase transition-colors hover:text-gold"
-                                >
-                                    Continue Shopping
-                                </Link>
+                                <div className="mt-4 space-y-2">
+                                    <Link
+                                        href={ordersIndex()}
+                                        className="block text-center text-[10px] tracking-[0.15em] text-muted-foreground uppercase transition-colors hover:text-gold"
+                                    >
+                                        View My Orders
+                                    </Link>
+                                    <Link
+                                        href={catalog()}
+                                        className="block text-center text-[10px] tracking-[0.15em] text-muted-foreground uppercase transition-colors hover:text-gold"
+                                    >
+                                        Continue Shopping
+                                    </Link>
+                                </div>
                             </div>
 
                             <div className="mt-4 space-y-2 border border-border p-4">

@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useState } from 'react';
 import { FlashMessage } from '@/components/flash-message';
@@ -110,6 +110,12 @@ export default function FinanceSalesIndex({
                     <p className="text-sm text-muted-foreground">
                         Manual sales confirmations and outstanding balances.
                     </p>
+                </div>
+
+                <div className="flex justify-end">
+                    <Button asChild>
+                        <Link href="/admin/finance/sales/create">New sale</Link>
+                    </Button>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -228,6 +234,9 @@ export default function FinanceSalesIndex({
                                     <TableHead className="text-right">
                                         Balance due
                                     </TableHead>
+                                    <TableHead className="text-right">
+                                        Actions
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -267,6 +276,17 @@ export default function FinanceSalesIndex({
                                                     sale.balance_due,
                                                 )}
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button
+                                                    asChild
+                                                    size="sm"
+                                                    variant="outline"
+                                                >
+                                                    <Link href={`/admin/finance/sales/${sale.id}`}>
+                                                        View
+                                                    </Link>
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     );
                                 })}
@@ -274,7 +294,7 @@ export default function FinanceSalesIndex({
                                 {sales.data.length === 0 && (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={7}
+                                            colSpan={8}
                                             className="py-8 text-center text-muted-foreground"
                                         >
                                             No sales registered yet.
