@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, CheckCircle2, HandshakeIcon, Heart, Package, Share2, Shield, ShieldCheck, X, ZoomIn } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -160,6 +160,9 @@ function NegotiationDialog({ product, onClose }: NegotiationDialogProps) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ProductShow({ product, inWishlist: initialWishlist, related }: Props) {
+    const { auth } = usePage<{ auth: { user: unknown } }>().props;
+    const isAuth = !!auth?.user;
+
     const [wishlistState, setWishlistState] = useState(initialWishlist);
     const [selectedVariant, setSelectedVariant] = useState<Variant | null>(
         product.variants?.find((v) => v.is_active) ?? null,
@@ -193,6 +196,10 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
     const backHref = product.category?.slug ? catalog({ query: { category_slug: product.category.slug } }) : catalog();
 
     function toggleWishlist() {
+        if (!isAuth) {
+            router.visit('/login');
+            return;
+        }
         router.post(
             WishlistController.toggle.url({ product: product.id }),
             {},
@@ -202,6 +209,10 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
 
     function addToCart() {
         if (!selectedVariant) {
+            return;
+        }
+        if (!isAuth) {
+            router.visit('/login');
             return;
         }
         setAddingToCart(true);

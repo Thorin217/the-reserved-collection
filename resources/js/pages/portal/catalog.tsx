@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { Heart, Package, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
@@ -172,6 +172,9 @@ export default function PortalCatalog({
     attributeFilters,
     filters,
 }: Props) {
+    const { auth } = usePage<{ auth: { user: unknown } }>().props;
+    const isAuth = !!auth?.user;
+
     const [localWishlist, setLocalWishlist] = useState<number[]>(wishlistIds);
     const activeAttrs = filters.attrs ?? {};
     const activeAttrCount = Object.values(activeAttrs).filter(Boolean).length;
@@ -204,6 +207,10 @@ export default function PortalCatalog({
     }
 
     function toggleWishlist(productId: number) {
+        if (!isAuth) {
+            router.visit('/login');
+            return;
+        }
         router.post(
             WishlistController.toggle.url({ product: productId }),
             {},
