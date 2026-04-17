@@ -162,6 +162,11 @@ const configurationNavItems: NavItem[] = [
         href: '/admin/attributes',
         icon: SlidersHorizontal,
     },
+    {
+        title: 'Imports',
+        href: '/admin/imports',
+        icon: FileText,
+    },
 ];
 
 const footerNavItems: NavItem[] = [];
