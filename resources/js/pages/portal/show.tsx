@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, CheckCircle2, HandshakeIcon, Heart, Package, Share2, Shield, ShieldCheck, X, ZoomIn } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import * as CartController from '@/actions/App/Http/Controllers/Portal/CartController';
 import * as WishlistController from '@/actions/App/Http/Controllers/Portal/WishlistController';
 import { formatCurrency } from '@/lib/currency';
@@ -207,7 +208,15 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
         router.post(
             CartController.store.url(),
             { product_variant_id: selectedVariant.id, quantity: 1 },
-            { preserveScroll: true, onFinish: () => setAddingToCart(false) },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success('Added to cart', {
+                        description: product.name,
+                    });
+                },
+                onFinish: () => setAddingToCart(false),
+            },
         );
     }
 

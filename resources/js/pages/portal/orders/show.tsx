@@ -1,4 +1,6 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { useEffect } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
 import PortalLayout from '@/layouts/portal-layout';
@@ -42,6 +44,14 @@ const STATUS_LABELS: Record<OrderData['status'], string> = {
 };
 
 export default function PortalOrderShow({ order: { data: order } }: Props) {
+    const { flash } = usePage<{ flash: { success?: string } }>().props;
+
+    useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+    }, [flash?.success]);
+
     return (
         <>
             <Head title={`${order.sale_number} — The Reserved Collection`} />

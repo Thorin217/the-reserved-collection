@@ -7,6 +7,7 @@ use App\Http\Controllers\Portal\MyCollectionController;
 use App\Http\Controllers\Portal\OrderController;
 use App\Http\Controllers\Portal\PortalProfileController;
 use App\Http\Controllers\Portal\ProposalPreviewController;
+use App\Http\Controllers\Portal\SearchController;
 use App\Http\Controllers\Portal\WishlistController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,7 @@ Route::name('portal.')->group(function () {
     Route::get('catalog', [CatalogController::class, 'index'])->name('catalog');
     Route::get('products/{product:slug}', [CatalogController::class, 'show'])->name('products.show');
     Route::get('auction-house', [AuctionHouseController::class, 'index'])->name('auction-house');
+    Route::get('search', SearchController::class)->name('search');
 
     // Authenticated routes
     Route::middleware(['auth', 'verified'])->group(function () {

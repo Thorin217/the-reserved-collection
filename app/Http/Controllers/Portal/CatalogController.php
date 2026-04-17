@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\Wishlist;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,11 +20,50 @@ class CatalogController extends Controller
     {
         $userId = $request->user()?->id;
 
+        // Base constraints shared by both the product query and the attribute filter query.
+        $baseConstraints = function ($q) use ($request): void {
+            $q->where('status', ProductStatus::Active)
+                ->when($request->string('search')->isNotEmpty(), fn ($q) => $q->where('name', 'like', '%'.$request->string('search').'%'))
+                ->when($request->filled('brand_id'), fn ($q) => $q->where('brand_id', $request->integer('brand_id')))
+                ->when($request->filled('category_slug'), fn ($q) => $q->whereHas('category', fn ($sq) => $sq->where('slug', $request->input('category_slug'))));
+        };
+
+        // Product IDs matching base filters (used as subquery for attribute filter options).
+        $baseProductIds = Product::query()->tap($baseConstraints)->select('id');
+
+        // Filterable attributes with their distinct values for products in the current scope.
+        $attributeFilters = DB::table('product_attribute_values as pav')
+            ->join('attributes as a', 'a.id', '=', 'pav.attribute_id')
+            ->whereIn('pav.product_id', $baseProductIds)
+            ->where('a.is_filterable', true)
+            ->where('a.is_active', true)
+            ->whereNotNull('pav.value_text')
+            ->select('a.code', 'a.name', 'a.sort_order', 'pav.value_text')
+            ->distinct()
+            ->orderBy('a.sort_order')
+            ->orderBy('pav.value_text')
+            ->get()
+            ->groupBy('code')
+            ->map(fn ($group) => [
+                'code' => $group->first()->code,
+                'name' => $group->first()->name,
+                'values' => $group->pluck('value_text')->values(),
+            ])
+            ->values();
+
+        // Full product query including optional attribute value filters.
         $products = Product::with(['brand', 'category', 'variants' => fn ($q) => $q->where('is_active', true)->orderBy('price')])
-            ->where('status', ProductStatus::Active)
-            ->when($request->string('search')->isNotEmpty(), fn ($q) => $q->where('name', 'like', '%'.$request->string('search').'%'))
-            ->when($request->filled('brand_id'), fn ($q) => $q->where('brand_id', $request->integer('brand_id')))
-            ->when($request->filled('category_slug'), fn ($q) => $q->whereHas('category', fn ($sq) => $sq->where('slug', $request->input('category_slug'))))
+            ->tap($baseConstraints)
+            ->when($request->filled('attrs'), function ($q) use ($request): void {
+                foreach ($request->input('attrs', []) as $code => $value) {
+                    if ($value) {
+                        $q->whereHas('attributeValues', fn ($sq) => $sq
+                            ->whereHas('attribute', fn ($a) => $a->where('code', $code))
+                            ->where('value_text', $value)
+                        );
+                    }
+                }
+            })
             ->latest()
             ->paginate(16)
             ->withQueryString();
@@ -37,7 +77,8 @@ class CatalogController extends Controller
             'brands' => Brand::where('is_active', true)->orderBy('name')->get(['id', 'name', 'slug']),
             'categories' => Category::where('is_active', true)->orderBy('name')->get(['id', 'name', 'slug']),
             'wishlistIds' => $wishlistIds,
-            'filters' => $request->only(['search', 'brand_id', 'category_slug']),
+            'attributeFilters' => $attributeFilters,
+            'filters' => $request->only(['search', 'brand_id', 'category_slug', 'attrs']),
         ]);
     }
 

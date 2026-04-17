@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Portal\PortalProductResource;
 use App\Models\Product;
 use App\Models\Wishlist;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,7 +29,7 @@ class WishlistController extends Controller
         ]);
     }
 
-    public function toggle(Request $request, Product $product): JsonResponse
+    public function toggle(Request $request, Product $product): RedirectResponse
     {
         $userId = $request->user()->id;
 
@@ -39,12 +39,10 @@ class WishlistController extends Controller
 
         if ($existing) {
             $existing->delete();
-            $inWishlist = false;
         } else {
             Wishlist::create(['user_id' => $userId, 'product_id' => $product->id]);
-            $inWishlist = true;
         }
 
-        return response()->json(['in_wishlist' => $inWishlist]);
+        return back();
     }
 }

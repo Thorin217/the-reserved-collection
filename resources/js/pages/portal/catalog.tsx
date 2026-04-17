@@ -22,12 +22,20 @@ type PortalProduct = {
 
 type SimpleModel = { id: number; name: string; slug: string };
 
+type AttributeFilter = { code: string; name: string; values: string[] };
+
 type Props = {
     products: PaginatedData<PortalProduct>;
     brands: SimpleModel[];
     categories: SimpleModel[];
     wishlistIds: number[];
-    filters: { search?: string; brand_id?: string; category_slug?: string };
+    attributeFilters: AttributeFilter[];
+    filters: {
+        search?: string;
+        brand_id?: string;
+        category_slug?: string;
+        attrs?: Record<string, string>;
+    };
 };
 
 function formatPrice(price: string | null): string {
@@ -79,7 +87,7 @@ function ProductCard({
                         e.preventDefault();
                         onToggle(product.id);
                     }}
-                    className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100 ${inWishlist ? 'bg-gold/80 text-white' : 'bg-background/60 text-muted-foreground hover:text-destructive'}`}
+                    className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center backdrop-blur-sm transition-all ${inWishlist ? 'bg-gold/80 text-white opacity-100' : 'bg-background/60 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive'}`}
                     aria-label={
                         inWishlist ? 'Remove from wishlist' : 'Add to wishlist'
                     }
@@ -117,22 +125,80 @@ function ProductCard({
     );
 }
 
+function FilterGroup({
+    label,
+    code,
+    options,
+    activeValue,
+    onSelect,
+}: {
+    label: string;
+    code: string;
+    options: string[];
+    activeValue: string | undefined;
+    onSelect: (code: string, value: string | undefined) => void;
+}) {
+    return (
+        <div>
+            <p className="mb-2 font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">
+                {label}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+                {options.map((opt) => (
+                    <button
+                        key={opt}
+                        onClick={() =>
+                            onSelect(code, activeValue === opt ? undefined : opt)
+                        }
+                        className={`border px-2.5 py-1 font-body text-[9px] tracking-wider transition-all ${
+                            activeValue === opt
+                                ? 'border-gold bg-gold/10 text-gold'
+                                : 'border-border text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        {opt}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export default function PortalCatalog({
     products,
     brands,
     categories,
     wishlistIds,
+    attributeFilters,
     filters,
 }: Props) {
     const [localWishlist, setLocalWishlist] = useState<number[]>(wishlistIds);
-    const [showFilters, setShowFilters] = useState(false);
+    const activeAttrs = filters.attrs ?? {};
+    const activeAttrCount = Object.values(activeAttrs).filter(Boolean).length;
+    const [showFilters, setShowFilters] = useState(
+        activeAttrCount > 0 || !!filters.search,
+    );
 
     const selectedCategory = filters.category_slug ?? '';
 
     function applyFilter(key: string, value: string | undefined) {
+        // Clear attribute filters when changing category
+        const extra = key === 'category_slug' ? { attrs: undefined } : {};
         router.get(
             catalog(),
-            { ...filters, [key]: value },
+            { ...filters, ...extra, [key]: value },
+            { preserveState: true, replace: true },
+        );
+    }
+
+    function applyAttrFilter(code: string, value: string | undefined) {
+        const newAttrs = { ...activeAttrs, [code]: value };
+        if (!value) {
+            delete newAttrs[code];
+        }
+        router.get(
+            catalog(),
+            { ...filters, attrs: Object.keys(newAttrs).length ? newAttrs : undefined },
             { preserveState: true, replace: true },
         );
     }
@@ -240,13 +306,18 @@ export default function PortalCatalog({
                         ))}
                     </div>
 
-                    {/* Search toggle */}
+                    {/* Filter toggle */}
                     <button
                         onClick={() => setShowFilters(!showFilters)}
                         className="mb-4 flex items-center gap-2 font-body text-[10px] font-medium tracking-[0.15em] text-muted-foreground uppercase transition-colors hover:text-gold"
                     >
                         <SlidersHorizontal className="h-3.5 w-3.5" />
-                        {showFilters ? 'Hide' : 'Show'} Search
+                        {showFilters ? 'Hide' : 'Show'} Filters
+                        {activeAttrCount > 0 && (
+                            <span className="flex h-4 w-4 items-center justify-center bg-gold font-body text-[8px] font-semibold text-background">
+                                {activeAttrCount}
+                            </span>
+                        )}
                     </button>
 
                     {showFilters && (
@@ -255,22 +326,39 @@ export default function PortalCatalog({
                             animate={{ height: 'auto', opacity: 1 }}
                             className="mb-8 overflow-hidden border border-border bg-card p-4"
                         >
-                            <input
-                                autoFocus
-                                type="text"
-                                defaultValue={filters.search ?? ''}
-                                placeholder="Search pieces by name…"
-                                className="w-full max-w-sm border-b border-border bg-transparent pb-1 font-body text-sm tracking-wide text-foreground transition-colors outline-none placeholder:text-muted-foreground/50 focus:border-gold"
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        applyFilter(
-                                            'search',
-                                            (e.target as HTMLInputElement)
-                                                .value || undefined,
-                                        );
-                                    }
-                                }}
-                            />
+                            <div className="mb-4">
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    defaultValue={filters.search ?? ''}
+                                    placeholder="Search pieces by name…"
+                                    className="w-full max-w-sm border-b border-border bg-transparent pb-1 font-body text-sm tracking-wide text-foreground transition-colors outline-none placeholder:text-muted-foreground/50 focus:border-gold"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            applyFilter(
+                                                'search',
+                                                (e.target as HTMLInputElement)
+                                                    .value || undefined,
+                                            );
+                                        }
+                                    }}
+                                />
+                            </div>
+
+                            {attributeFilters.length > 0 && (
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                    {attributeFilters.map((filter) => (
+                                        <FilterGroup
+                                            key={filter.code}
+                                            label={filter.name}
+                                            code={filter.code}
+                                            options={filter.values}
+                                            activeValue={activeAttrs[filter.code]}
+                                            onSelect={applyAttrFilter}
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </motion.div>
                     )}
 

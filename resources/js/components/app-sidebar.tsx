@@ -93,6 +93,16 @@ const inventoryNavItems: NavItem[] = [
         href: categoriesIndex(),
         icon: FolderOpen,
     },
+    {
+        title: 'Warehouses',
+        href: '/admin/warehouses',
+        icon: Warehouse,
+    },
+    {
+        title: 'Attributes',
+        href: '/admin/attributes',
+        icon: SlidersHorizontal,
+    },
 ];
 
 const crmNavItems: NavItem[] = [
@@ -118,7 +128,7 @@ const crmNavItems: NavItem[] = [
     },
 ];
 
-const financeNavItems: NavItem[] = [
+const commercialNavItems: NavItem[] = [
     {
         title: 'Quotes',
         href: quotesIndex(),
@@ -129,6 +139,9 @@ const financeNavItems: NavItem[] = [
         href: salesIndex(),
         icon: TrendingUp,
     },
+];
+
+const financeNavItems: NavItem[] = [
     {
         title: 'Receivables',
         href: receivablesIndex(),
@@ -151,16 +164,6 @@ const configurationNavItems: NavItem[] = [
         title: 'Branches',
         href: '/admin/branches',
         icon: Building2,
-    },
-    {
-        title: 'Warehouses',
-        href: '/admin/warehouses',
-        icon: Warehouse,
-    },
-    {
-        title: 'Attributes',
-        href: '/admin/attributes',
-        icon: SlidersHorizontal,
     },
     {
         title: 'Imports',
@@ -196,6 +199,12 @@ export function AppSidebar() {
                 />
                 <SidebarSeparator />
                 <NavCollapsible label="CRM" title="CRM" items={crmNavItems} />
+                <SidebarSeparator />
+                <NavCollapsible
+                    label="Commercial"
+                    title="Commercial"
+                    items={commercialNavItems}
+                />
                 <SidebarSeparator />
                 <NavCollapsible
                     label="Finance"

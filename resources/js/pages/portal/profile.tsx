@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     AlertCircle,
@@ -10,7 +10,6 @@ import {
     Package,
     Pencil,
     Plus,
-    Settings,
     Shield,
     Star,
     Trash2,
@@ -21,13 +20,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import PortalLayout from '@/layouts/portal-layout';
 import { cart, catalog, myCollection, wishlist } from '@/routes/portal';
+import { index as ordersIndex } from '@/routes/portal/orders';
 import type { Auth } from '@/types';
-
-type Props = {
-    auth: Auth;
-    wishlistCount: number;
-    cartCount: number;
-};
 
 type PaymentMethod = {
     id: string;
@@ -40,10 +34,9 @@ type PaymentMethod = {
 };
 
 const menuItems = [
-    { icon: Package, label: 'My Orders', desc: 'Track purchases and deliveries', href: '#' },
+    { icon: Package, label: 'My Orders', desc: 'Track purchases and deliveries', href: ordersIndex() },
     { icon: Heart, label: 'My Wishlist', desc: 'Your saved pieces', href: wishlist() },
     { icon: Clock, label: 'My Collection', desc: 'Track your portfolio value', href: myCollection() },
-    { icon: Settings, label: 'Account Settings', desc: 'Manage profile and security', href: '/settings/profile' },
 ];
 
 function cardBrandIcon(brand?: string) {
@@ -106,7 +99,12 @@ function PaymentMethodRow({ method, onSetDefault, onRemove }: { method: PaymentM
     );
 }
 
-export default function PortalProfile({ auth, wishlistCount, cartCount }: Props) {
+export default function PortalProfile() {
+    const { auth, cartCount = 0, wishlistCount = 0 } = usePage<{
+        auth: Auth;
+        cartCount: number;
+        wishlistCount: number;
+    }>().props;
     const user = auth?.user;
     const [showAddPayment, setShowAddPayment] = useState(false);
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);

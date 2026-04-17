@@ -230,7 +230,7 @@ function ProductCard({
                         e.preventDefault();
                         onToggleWishlist(product.id);
                     }}
-                    className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100 ${inWishlist ? 'bg-gold/80 text-white' : 'bg-background/60 text-muted-foreground hover:text-destructive'}`}
+                    className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center backdrop-blur-sm transition-all ${inWishlist ? 'bg-gold/80 text-white opacity-100' : 'bg-background/60 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive'}`}
                     aria-label={
                         inWishlist ? 'Remove from wishlist' : 'Add to wishlist'
                     }

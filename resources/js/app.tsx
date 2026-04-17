@@ -1,4 +1,5 @@
 import { createInertiaApp } from '@inertiajs/react';
+import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
@@ -25,7 +26,12 @@ createInertiaApp({
     },
     strictMode: true,
     withApp(app) {
-        return <TooltipProvider delayDuration={0}>{app}</TooltipProvider>;
+        return (
+            <TooltipProvider delayDuration={0}>
+                {app}
+                <Toaster position="bottom-right" richColors closeButton />
+            </TooltipProvider>
+        );
     },
     progress: {
         color: '#4B5563',

@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\CartItem;
 use App\Models\Category;
+use App\Models\Wishlist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
@@ -55,6 +57,12 @@ class HandleInertiaRequests extends Middleware
                 ->orderByRaw("FIELD(slug, 'timepieces', 'jewelry', 'the-vault')")
                 ->get(['id', 'name', 'slug'])
                 ->toArray()),
+            'cartCount' => $request->user()
+                ? CartItem::where('user_id', $request->user()->id)->sum('quantity')
+                : 0,
+            'wishlistCount' => $request->user()
+                ? Wishlist::where('user_id', $request->user()->id)->count()
+                : 0,
         ];
     }
 }
