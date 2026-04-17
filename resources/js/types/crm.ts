@@ -12,6 +12,10 @@ export type Client = {
     notes: string | null;
     is_active: boolean;
     leads_count?: number;
+    quotes_count?: number;
+    sales_count?: number;
+    user?: { id: number; name: string; email: string } | null;
+    leads?: Array<{ id: number; title: string; status: LeadStatus; source: LeadSource; created_at: string }>;
     created_at: string;
     updated_at: string;
 };

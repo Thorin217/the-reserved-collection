@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\ProductPriceUpdateController;
 use App\Http\Controllers\Admin\ProductSerialController;
 use App\Http\Controllers\Admin\QuoteController;
 use App\Http\Controllers\Admin\SaleController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
@@ -153,9 +154,16 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Route::prefix('clients')->name('clients.')->group(function () {
         Route::get('/', [ClientController::class, 'index'])->name('index');
         Route::post('/', [ClientController::class, 'store'])->name('store');
+        Route::get('{client}', [ClientController::class, 'show'])->name('show');
         Route::get('{client}/edit', [ClientController::class, 'edit'])->name('edit');
         Route::put('{client}', [ClientController::class, 'update'])->name('update');
         Route::delete('{client}', [ClientController::class, 'destroy'])->name('destroy');
+    });
+
+    // Admin Users
+    Route::prefix('users')->name('users.')->group(function () {
+        Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::put('{user}', [UserController::class, 'update'])->name('update');
     });
 
     Route::prefix('leads')->name('leads.')->group(function () {

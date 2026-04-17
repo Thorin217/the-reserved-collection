@@ -41,6 +41,7 @@ import { index as leadsIndex } from '@/routes/admin/leads';
 import { index as negotiationsIndex } from '@/routes/admin/negotiations';
 import { index as productsIndex } from '@/routes/admin/products';
 import { index as proposalsIndex } from '@/routes/admin/proposals';
+import { index as usersIndex } from '@/routes/admin/users';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -141,6 +142,11 @@ const financeNavItems: NavItem[] = [
 ];
 
 const configurationNavItems: NavItem[] = [
+    {
+        title: 'Users',
+        href: usersIndex(),
+        icon: Users,
+    },
     {
         title: 'Branches',
         href: '/admin/branches',

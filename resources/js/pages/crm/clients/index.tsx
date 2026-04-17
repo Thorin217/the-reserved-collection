@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Edit, Plus, Search, Trash2, UserCheck, UserX } from 'lucide-react';
+import { Edit, ExternalLink, Plus, Search, Trash2, UserCheck, UserX } from 'lucide-react';
 import { useState } from 'react';
 import * as ClientController from '@/actions/App/Http/Controllers/Admin/ClientController';
 import ConfirmationModal from '@/components/confirmation-modal';
@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { index as clientsIndex } from '@/routes/admin/clients';
+import { index as usersIndex } from '@/routes/admin/users';
 import type { Client, PaginatedData } from '@/types';
 
 const ALL = '_all';
@@ -228,6 +229,7 @@ export default function ClientsIndex({ clients, filters }: Props) {
                                     <TableHead>Phone</TableHead>
                                     <TableHead>Document</TableHead>
                                     <TableHead className="text-center">Leads</TableHead>
+                                    <TableHead>User account</TableHead>
                                     <TableHead className="text-center">Status</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
@@ -235,7 +237,14 @@ export default function ClientsIndex({ clients, filters }: Props) {
                             <TableBody>
                                 {clients.data.map((client) => (
                                     <TableRow key={client.id}>
-                                        <TableCell className="font-medium">{client.name}</TableCell>
+                                        <TableCell className="font-medium">
+                                            <Link
+                                                href={ClientController.show.url(client)}
+                                                className="font-medium hover:underline"
+                                            >
+                                                {client.name}
+                                            </Link>
+                                        </TableCell>
                                         <TableCell className="text-muted-foreground">{client.email ?? '—'}</TableCell>
                                         <TableCell className="text-muted-foreground">{client.phone ?? '—'}</TableCell>
                                         <TableCell className="text-xs text-muted-foreground">
@@ -244,6 +253,19 @@ export default function ClientsIndex({ clients, filters }: Props) {
                                                 : '—'}
                                         </TableCell>
                                         <TableCell className="text-center">{client.leads_count ?? 0}</TableCell>
+                                        <TableCell>
+                                            {client.user ? (
+                                                <Link
+                                                    href={usersIndex.url({ query: { search: client.user.name } })}
+                                                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                                                >
+                                                    {client.user.name}
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </Link>
+                                            ) : (
+                                                <span className="text-sm text-muted-foreground">—</span>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="text-center">
                                             {client.is_active ? (
                                                 <Badge variant="default" className="gap-1">
@@ -292,7 +314,7 @@ export default function ClientsIndex({ clients, filters }: Props) {
                                 ))}
                                 {clients.data.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                                        <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                                             No clients registered.
                                         </TableCell>
                                     </TableRow>

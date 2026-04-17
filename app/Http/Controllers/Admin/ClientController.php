@@ -17,6 +17,7 @@ class ClientController extends Controller
     public function index(Request $request): Response
     {
         $clients = Client::withCount('leads')
+            ->with('user')
             ->when($request->search, fn ($q, $search) => $q->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%"))
             ->when($request->status === 'active', fn ($q) => $q->where('is_active', true))
             ->when($request->status === 'inactive', fn ($q) => $q->where('is_active', false))
@@ -27,6 +28,15 @@ class ClientController extends Controller
         return Inertia::render('crm/clients/index', [
             'clients' => ClientResource::collection($clients),
             'filters' => $request->only(['search', 'status']),
+        ]);
+    }
+
+    public function show(Client $client): Response
+    {
+        $client->loadCount(['leads', 'quotes', 'sales'])->load('user', 'leads');
+
+        return Inertia::render('crm/clients/show', [
+            'client' => ClientResource::make($client),
         ]);
     }
 

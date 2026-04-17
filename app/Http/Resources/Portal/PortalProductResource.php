@@ -8,6 +8,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class PortalProductResource extends JsonResource
 {
+    public static $wrap = null;
+
     public function toArray(Request $request): array
     {
         /** @var Product $this */
@@ -45,6 +47,22 @@ class PortalProductResource extends JsonResource
             ])
             ),
             'image_url' => $this->getFirstMediaUrl('product'),
+            'attribute_values' => $this->whenLoaded('attributeValues', fn () => $this->attributeValues
+                ->filter(fn ($v) => $v->attribute !== null)
+                ->map(fn ($v) => [
+                    'label' => $v->attribute->name,
+                    'value' => $v->value_text
+                        ?? $v->value_textarea
+                        ?? ($v->value_number !== null ? (string) $v->value_number : null)
+                        ?? ($v->value_decimal !== null ? number_format((float) $v->value_decimal, 2) : null)
+                        ?? ($v->value_boolean !== null ? ($v->value_boolean ? 'Yes' : 'No') : null)
+                        ?? ($v->value_date !== null ? $v->value_date->format('Y') : null),
+                    'sort_order' => $v->attribute->sort_order,
+                ])
+                ->filter(fn ($item) => $item['value'] !== null)
+                ->sortBy('sort_order')
+                ->values(),
+            ),
             'in_wishlist' => $this->whenAppended('in_wishlist'),
         ];
     }

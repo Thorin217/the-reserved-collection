@@ -5,11 +5,13 @@ namespace Database\Seeders;
 use App\Enums\InventoryMovementType;
 use App\Enums\ProductStatus;
 use App\Enums\ProductType;
+use App\Models\Attribute;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Product;
+use App\Models\ProductAttributeValue;
 use App\Models\ProductVariant;
 use App\Models\Warehouse;
 use Illuminate\Database\Seeder;
@@ -174,16 +176,22 @@ class PortalSeeder extends Seeder
 
         $warehouse = Warehouse::query()->where('name', 'Almacén Principal San Isidro')->first();
 
-        $this->seedProducts($watchProducts, $timepieces, $brandMap, $warehouse);
-        $this->seedProducts($jewelryProducts, $jewelry, $brandMap, $warehouse);
-        $this->seedProducts($vaultProducts, $vault, $brandMap, $warehouse);
+        // ── Attribute definitions ─────────────────────────────────────────────
+        $watchAttrs = $this->createTimepieceAttributes();
+        $jewelryAttrs = $this->createJewelryAttributes();
+        $vaultAttrs = $this->createVaultAttributes();
+
+        $this->seedProducts($watchProducts, $timepieces, $brandMap, $warehouse, $watchAttrs, 'timepiece');
+        $this->seedProducts($jewelryProducts, $jewelry, $brandMap, $warehouse, $jewelryAttrs, 'jewelry');
+        $this->seedProducts($vaultProducts, $vault, $brandMap, $warehouse, $vaultAttrs, 'vault');
     }
 
     /**
      * @param  array<int, array<string, mixed>>  $products
      * @param  Collection<string, Brand>  $brandMap
+     * @param  array<string, Attribute>  $attrs
      */
-    private function seedProducts(array $products, Category $category, $brandMap, ?Warehouse $warehouse): void
+    private function seedProducts(array $products, Category $category, $brandMap, ?Warehouse $warehouse, array $attrs = [], string $categoryType = 'timepiece'): void
     {
         $imageMap = [
             'watch' => public_path('images/product-watch1.jpg'),
@@ -195,90 +203,271 @@ class PortalSeeder extends Seeder
             'bracelet' => public_path('images/product-bracelet.jpg'),
         ];
 
-        foreach ($products as $data) {
+        foreach ($products as $idx => $data) {
             $brand = $brandMap->get($data['brand']);
 
             if (! $brand) {
                 continue;
             }
 
-            $existing = Product::where('sku', $data['sku'])->first();
+            $product = Product::where('sku', $data['sku'])->first();
 
-            if ($existing) {
+            if (! $product) {
+                $slug = Str::slug($data['name']);
+                $uniqueSlug = $slug;
+                $counter = 1;
+                while (Product::where('slug', $uniqueSlug)->exists()) {
+                    $uniqueSlug = "{$slug}-{$counter}";
+                    $counter++;
+                }
+
+                $product = Product::create([
+                    'name' => $data['name'],
+                    'sku' => $data['sku'],
+                    'slug' => $uniqueSlug,
+                    'category_id' => $category->id,
+                    'brand_id' => $brand->id,
+                    'product_type' => ProductType::Simple,
+                    'status' => ProductStatus::Active,
+                    'has_serial_numbers' => false,
+                    'track_stock' => true,
+                    'description' => "Authenticated {$data['name']} from {$data['brand']}. Every piece verified by our specialist team.",
+                ]);
+
+                $variant = ProductVariant::create([
+                    'product_id' => $product->id,
+                    'sku' => $data['sku'].'-V1',
+                    'cost' => (int) round($data['price'] * 0.65),
+                    'price' => $data['price'],
+                    'compare_price' => $data['compare'],
+                    'is_active' => true,
+                    'attribute_summary' => null,
+                ]);
+
+                $imagePath = $imageMap[$data['img']] ?? $imageMap['watch'];
+
+                if (file_exists($imagePath)) {
+                    $product->addMedia($imagePath)
+                        ->preservingOriginal()
+                        ->toMediaCollection('product');
+                }
+
+                if ($warehouse) {
+                    $quantity = match (true) {
+                        $data['price'] >= 50000 => 1,
+                        $data['price'] >= 10000 => 2,
+                        $data['price'] >= 5000 => 3,
+                        default => 5,
+                    };
+
+                    InventoryStock::create([
+                        'warehouse_id' => $warehouse->id,
+                        'product_variant_id' => $variant->id,
+                        'quantity' => $quantity,
+                        'reserved_quantity' => 0,
+                        'available_quantity' => $quantity,
+                        'average_cost' => $variant->cost,
+                    ]);
+
+                    InventoryMovement::create([
+                        'movement_type' => InventoryMovementType::Opening,
+                        'reference_type' => Product::class,
+                        'reference_id' => $product->id,
+                        'warehouse_id' => $warehouse->id,
+                        'branch_id' => $warehouse->branch_id,
+                        'product_variant_id' => $variant->id,
+                        'serial_id' => null,
+                        'quantity' => $quantity,
+                        'unit_cost' => $variant->cost,
+                        'balance_after_movement' => $quantity,
+                        'notes' => "Apertura de stock · {$data['name']}",
+                        'user_id' => null,
+                    ]);
+                }
+            }
+
+            // Always ensure attribute values exist (idempotent)
+            if (! empty($attrs)) {
+                $specs = $this->generateSpecs($categoryType, $idx, $data);
+                $this->seedAttributeValues($product, $specs, $attrs);
+            }
+        }
+    }
+
+    /** @param  array<string, Attribute>  $attrs */
+    private function seedAttributeValues(Product $product, array $specs, array $attrs): void
+    {
+        foreach ($specs as $code => $value) {
+            if (! isset($attrs[$code]) || $value === null || $value === '') {
                 continue;
             }
 
-            $slug = Str::slug($data['name']);
-            $uniqueSlug = $slug;
-            $counter = 1;
-            while (Product::where('slug', $uniqueSlug)->exists()) {
-                $uniqueSlug = "{$slug}-{$counter}";
-                $counter++;
-            }
-
-            $product = Product::create([
-                'name' => $data['name'],
-                'sku' => $data['sku'],
-                'slug' => $uniqueSlug,
-                'category_id' => $category->id,
-                'brand_id' => $brand->id,
-                'product_type' => ProductType::Simple,
-                'status' => ProductStatus::Active,
-                'has_serial_numbers' => false,
-                'track_stock' => true,
-                'description' => "Authenticated {$data['name']} from {$data['brand']}. Every piece verified by our specialist team.",
-            ]);
-
-            $variant = ProductVariant::create([
-                'product_id' => $product->id,
-                'sku' => $data['sku'].'-V1',
-                'cost' => (int) round($data['price'] * 0.65),
-                'price' => $data['price'],
-                'compare_price' => $data['compare'],
-                'is_active' => true,
-                'attribute_summary' => null,
-            ]);
-
-            $imagePath = $imageMap[$data['img']] ?? $imageMap['watch'];
-
-            if (file_exists($imagePath)) {
-                $product->addMedia($imagePath)
-                    ->preservingOriginal()
-                    ->toMediaCollection('product');
-            }
-
-            if ($warehouse) {
-                $quantity = match (true) {
-                    $data['price'] >= 50000 => 1,
-                    $data['price'] >= 10000 => 2,
-                    $data['price'] >= 5000 => 3,
-                    default => 5,
-                };
-
-                InventoryStock::create([
-                    'warehouse_id' => $warehouse->id,
-                    'product_variant_id' => $variant->id,
-                    'quantity' => $quantity,
-                    'reserved_quantity' => 0,
-                    'available_quantity' => $quantity,
-                    'average_cost' => $variant->cost,
-                ]);
-
-                InventoryMovement::create([
-                    'movement_type' => InventoryMovementType::Opening,
-                    'reference_type' => Product::class,
-                    'reference_id' => $product->id,
-                    'warehouse_id' => $warehouse->id,
-                    'branch_id' => $warehouse->branch_id,
-                    'product_variant_id' => $variant->id,
-                    'serial_id' => null,
-                    'quantity' => $quantity,
-                    'unit_cost' => $variant->cost,
-                    'balance_after_movement' => $quantity,
-                    'notes' => "Apertura de stock · {$data['name']}",
-                    'user_id' => null,
-                ]);
-            }
+            ProductAttributeValue::firstOrCreate(
+                [
+                    'product_id' => $product->id,
+                    'attribute_id' => $attrs[$code]->id,
+                    'product_variant_id' => null,
+                    'product_serial_id' => null,
+                ],
+                ['value_text' => $value],
+            );
         }
+    }
+
+    /** @return array<string, string|null> */
+    private function generateSpecs(string $categoryType, int $idx, array $data): array
+    {
+        return match ($categoryType) {
+            'timepiece' => $this->timepieceSpecs($idx, $data),
+            'jewelry' => $this->jewelrySpecs($idx, $data),
+            'vault' => $this->vaultSpecs($idx, $data),
+            default => [],
+        };
+    }
+
+    /** @return array<string, string> */
+    private function timepieceSpecs(int $idx, array $data): array
+    {
+        $movements = ['Automatic', 'Self-winding', 'Manual Winding', 'Co-Axial Automatic', 'Perpetual Movement'];
+        $sizes = ['36mm', '38mm', '39mm', '40mm', '41mm', '42mm', '43mm', '44mm'];
+        $materials = ['Oystersteel', '18K Yellow Gold', '18K White Gold', '18K Rose Gold', 'Platinum', 'Titanium'];
+        $dials = ['Black', 'Blue', 'White', 'Silver', 'Green', 'Champagne', 'Grey', 'Brown'];
+        $waterRes = ['50m', '100m', '200m', '300m', '600m', '1000m'];
+        $conditions = ['Mint', 'Excellent', 'Very Good'];
+        $years = ['2018', '2019', '2020', '2021', '2022', '2023', '2024'];
+
+        return [
+            'movement' => $movements[$idx % count($movements)],
+            'case_size' => $sizes[$idx % count($sizes)],
+            'case_material' => $materials[$idx % count($materials)],
+            'dial_color' => $dials[$idx % count($dials)],
+            'water_resistance' => $waterRes[$idx % count($waterRes)],
+            'year' => $years[$idx % count($years)],
+            'condition' => $conditions[$idx % count($conditions)],
+        ];
+    }
+
+    /** @return array<string, string> */
+    private function jewelrySpecs(int $idx, array $data): array
+    {
+        $metals = ['18K Yellow Gold', '18K White Gold', '18K Rose Gold', 'Platinum', 'Sterling Silver'];
+        $gemstones = ['Diamond', 'Ruby', 'Emerald', 'Sapphire', 'Pearl', 'Amethyst'];
+        $carats = ['0.50ct', '0.75ct', '1.00ct', '1.20ct', '1.50ct', '2.00ct', '2.50ct', '3.00ct'];
+        $clarities = ['FL', 'IF', 'VVS1', 'VVS2', 'VS1', 'VS2'];
+        $conditions = ['Mint', 'Excellent', 'Very Good'];
+        $years = ['2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023'];
+        $certs = ['GIA', 'IGI', 'HRD', 'GIA', 'IGI'];
+
+        return [
+            'metal' => $metals[$idx % count($metals)],
+            'gemstone' => $gemstones[$idx % count($gemstones)],
+            'carat_weight' => $carats[$idx % count($carats)],
+            'clarity' => $clarities[$idx % count($clarities)],
+            'condition' => $conditions[$idx % count($conditions)],
+            'year' => $years[$idx % count($years)],
+            'certification' => $certs[$idx % count($certs)],
+        ];
+    }
+
+    /** @return array<string, string> */
+    private function vaultSpecs(int $idx, array $data): array
+    {
+        $materials = ['Togo Leather', 'Epsom Leather', 'Caviar Leather', 'Lambskin', 'Monogram Canvas', 'Epi Leather'];
+        $colors = ['Black', 'Beige', 'Tan', 'Brown', 'Red', 'Navy', 'Gold', 'Craie'];
+        $hardwares = ['Gold', 'Palladium', 'Silver', 'Rose Gold', 'Black'];
+        $conditions = ['Mint', 'Excellent', 'Very Good'];
+        $years = ['2010', '2012', '2014', '2016', '2018', '2019', '2020', '2021', '2022'];
+        $includes = ['Box & Dust Bag', 'Dust Bag Only', 'Box, Dust Bag & Certificate', 'Full Set', 'Dust Bag & Strap'];
+
+        $name = strtolower($data['name'] ?? '');
+        $color = match (true) {
+            str_contains($name, 'black') || str_contains($name, 'noir') => 'Black',
+            str_contains($name, 'beige') || str_contains($name, 'craie') => 'Beige',
+            str_contains($name, 'gold') || str_contains($name, 'yellow') => 'Gold',
+            str_contains($name, 'white') => 'White',
+            str_contains($name, 'blue') || str_contains($name, 'navy') => 'Navy',
+            default => $colors[$idx % count($colors)],
+        };
+
+        return [
+            'material' => $materials[$idx % count($materials)],
+            'color' => $color,
+            'hardware' => $hardwares[$idx % count($hardwares)],
+            'condition' => $conditions[$idx % count($conditions)],
+            'year' => $years[$idx % count($years)],
+            'includes' => $includes[$idx % count($includes)],
+        ];
+    }
+
+    /** @return array<string, Attribute> */
+    private function createTimepieceAttributes(): array
+    {
+        $defs = [
+            ['code' => 'movement',         'name' => 'Movement',          'sort_order' => 1],
+            ['code' => 'case_size',        'name' => 'Case Size',         'sort_order' => 2],
+            ['code' => 'case_material',    'name' => 'Case Material',     'sort_order' => 3],
+            ['code' => 'dial_color',       'name' => 'Dial Color',        'sort_order' => 4],
+            ['code' => 'water_resistance', 'name' => 'Water Resistance',  'sort_order' => 5],
+            ['code' => 'year',             'name' => 'Year',              'sort_order' => 6],
+            ['code' => 'condition',        'name' => 'Condition',         'sort_order' => 7],
+        ];
+
+        return $this->buildAttributeMap($defs);
+    }
+
+    /** @return array<string, Attribute> */
+    private function createJewelryAttributes(): array
+    {
+        $defs = [
+            ['code' => 'metal',         'name' => 'Metal',         'sort_order' => 1],
+            ['code' => 'gemstone',      'name' => 'Gemstone',      'sort_order' => 2],
+            ['code' => 'carat_weight',  'name' => 'Carat Weight',  'sort_order' => 3],
+            ['code' => 'clarity',       'name' => 'Clarity',       'sort_order' => 4],
+            ['code' => 'condition',     'name' => 'Condition',     'sort_order' => 5],
+            ['code' => 'year',          'name' => 'Year',          'sort_order' => 6],
+            ['code' => 'certification', 'name' => 'Certification', 'sort_order' => 7],
+        ];
+
+        return $this->buildAttributeMap($defs);
+    }
+
+    /** @return array<string, Attribute> */
+    private function createVaultAttributes(): array
+    {
+        $defs = [
+            ['code' => 'material',  'name' => 'Material',   'sort_order' => 1],
+            ['code' => 'color',     'name' => 'Color',      'sort_order' => 2],
+            ['code' => 'hardware',  'name' => 'Hardware',   'sort_order' => 3],
+            ['code' => 'condition', 'name' => 'Condition',  'sort_order' => 4],
+            ['code' => 'year',      'name' => 'Year',       'sort_order' => 5],
+            ['code' => 'includes',  'name' => 'Includes',   'sort_order' => 6],
+        ];
+
+        return $this->buildAttributeMap($defs);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $defs
+     * @return array<string, Attribute>
+     */
+    private function buildAttributeMap(array $defs): array
+    {
+        $map = [];
+        foreach ($defs as $def) {
+            $map[$def['code']] = Attribute::firstOrCreate(
+                ['code' => $def['code']],
+                [
+                    'name' => $def['name'],
+                    'entity_level' => 'product',
+                    'data_type' => 'text',
+                    'is_filterable' => true,
+                    'is_required' => false,
+                    'sort_order' => $def['sort_order'],
+                    'is_active' => true,
+                ],
+            );
+        }
+
+        return $map;
     }
 }

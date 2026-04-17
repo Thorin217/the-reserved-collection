@@ -45,7 +45,7 @@ class CatalogController extends Controller
     {
         abort_if($product->status !== ProductStatus::Active, 404);
 
-        $product->load(['brand', 'category', 'variants' => fn ($q) => $q->where('is_active', true)->orderBy('price')]);
+        $product->load(['brand', 'category', 'attributeValues.attribute', 'variants' => fn ($q) => $q->where('is_active', true)->orderBy('price')]);
 
         $userId = request()->user()?->id;
         $inWishlist = $userId
@@ -62,7 +62,7 @@ class CatalogController extends Controller
         return Inertia::render('portal/show', [
             'product' => PortalProductResource::make($product),
             'inWishlist' => $inWishlist,
-            'related' => PortalProductResource::collection($related),
+            'related' => PortalProductResource::collection($related)->resolve(),
         ]);
     }
 
@@ -81,7 +81,7 @@ class CatalogController extends Controller
             ->get(['id', 'name', 'slug']);
 
         return Inertia::render('portal/index', [
-            'featured' => PortalProductResource::collection($featured),
+            'featured' => PortalProductResource::collection($featured)->resolve(),
             'brands' => $brands,
         ]);
     }

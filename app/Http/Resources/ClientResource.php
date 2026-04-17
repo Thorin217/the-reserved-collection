@@ -23,6 +23,20 @@ class ClientResource extends JsonResource
             'notes' => $this->notes,
             'is_active' => $this->is_active,
             'leads_count' => $this->whenCounted('leads'),
+            'quotes_count' => $this->whenCounted('quotes'),
+            'sales_count' => $this->whenCounted('sales'),
+            'user' => $this->whenLoaded('user', fn () => $this->user ? [
+                'id' => $this->user->id,
+                'name' => $this->user->name,
+                'email' => $this->user->email,
+            ] : null),
+            'leads' => $this->whenLoaded('leads', fn () => $this->leads->map(fn ($lead) => [
+                'id' => $lead->id,
+                'title' => $lead->title,
+                'status' => $lead->status,
+                'source' => $lead->source,
+                'created_at' => $lead->created_at,
+            ])),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

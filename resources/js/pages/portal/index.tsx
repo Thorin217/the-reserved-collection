@@ -44,7 +44,7 @@ type Brand = {
 };
 
 type Props = {
-    featured: { data: PortalProduct[] };
+    featured: PortalProduct[];
     brands: Brand[];
     wishlistIds?: number[];
 };
@@ -582,7 +582,7 @@ export default function PortalHome({
                         </div>
                     </div>
 
-                    {featured.data.length === 0 ? (
+                    {featured.length === 0 ? (
                         <div className="py-16 text-center">
                             <Package
                                 className="mx-auto mb-4 h-12 w-12 text-muted-foreground/20"
@@ -602,7 +602,7 @@ export default function PortalHome({
                                 msOverflowStyle: 'none',
                             }}
                         >
-                            {featured.data.map((product, i) => (
+                            {featured.map((product, i) => (
                                 <motion.div
                                     key={product.id}
                                     initial={{ opacity: 0, y: 12 }}
