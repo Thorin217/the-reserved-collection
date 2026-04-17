@@ -125,9 +125,6 @@ class AttributeConfigurationTest extends TestCase
             'is_filterable' => true,
             'is_required' => false,
             'is_active' => true,
-            'options' => [
-                ['value' => 'steel', 'label' => 'Steel'],
-            ],
         ])
             ->assertCreated()
             ->assertJsonPath('data.code', 'case_material')

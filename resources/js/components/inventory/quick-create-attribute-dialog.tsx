@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -69,8 +69,6 @@ export default function QuickCreateAttributeDialog({ open, onOpenChange, default
     const [isRequired, setIsRequired] = useState(false);
     const [isFilterable, setIsFilterable] = useState(false);
     const [isActive, setIsActive] = useState(true);
-    const [optionValue, setOptionValue] = useState('');
-    const [options, setOptions] = useState<string[]>([]);
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -87,13 +85,9 @@ export default function QuickCreateAttributeDialog({ open, onOpenChange, default
         setIsRequired(false);
         setIsFilterable(false);
         setIsActive(true);
-        setOptionValue('');
-        setOptions([]);
         setProcessing(false);
         setErrors({});
     }, [defaultLevels, open]);
-
-    const normalizedOptions = useMemo(() => options.map((value) => ({ value, label: value })), [options]);
 
     function toggleEntityLevel(level: AttributeLevel, enabled: boolean): void {
         if (enabled) {
@@ -106,17 +100,6 @@ export default function QuickCreateAttributeDialog({ open, onOpenChange, default
 
         const nextLevels = entityLevels.filter((item) => item !== level);
         setEntityLevels(nextLevels);
-    }
-
-    function addOption(): void {
-        const nextValue = optionValue.trim();
-
-        if (nextValue === '' || options.includes(nextValue)) {
-            return;
-        }
-
-        setOptions([...options, nextValue]);
-        setOptionValue('');
     }
 
     async function submit(): Promise<void> {
@@ -137,7 +120,6 @@ export default function QuickCreateAttributeDialog({ open, onOpenChange, default
             is_required: isRequired,
             is_filterable: isFilterable,
             is_active: isActive,
-            options: dataType === 'select' ? normalizedOptions : [{ value: 'default', label: 'Default' }],
         };
 
         setProcessing(true);
@@ -247,31 +229,6 @@ export default function QuickCreateAttributeDialog({ open, onOpenChange, default
                             <Label htmlFor="quick-attribute-filterable">Available as filter</Label>
                         </div>
                     </div>
-
-                    {dataType === 'select' && (
-                        <div className="space-y-2 rounded-md border p-3">
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    value={optionValue}
-                                    onChange={(event) => setOptionValue(event.target.value)}
-                                    placeholder="Option value"
-                                />
-                                <Button type="button" variant="outline" onClick={addOption}>Add</Button>
-                            </div>
-                            {options.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                    {options.map((value) => (
-                                        <span key={value} className="rounded-md border px-2 py-1 text-xs">
-                                            {value}
-                                        </span>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-xs text-muted-foreground">Add at least one option for select attributes.</p>
-                            )}
-                            <InputError message={errors.options || errors['options.0.value']} />
-                        </div>
-                    )}
                 </div>
 
                 <DialogFooter>

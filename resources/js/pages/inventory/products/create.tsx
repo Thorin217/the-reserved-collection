@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -86,6 +85,7 @@ type FormData = {
 const MAX_VARIANT_ATTRIBUTES_PREVIEW = 3;
 
 export default function ProductCreate({ brands, categories, attributes, variantAttributes }: Props) {
+    const [isProductAttributesManageOpen, setIsProductAttributesManageOpen] = useState(false);
     const [activeVariantAttributesIndex, setActiveVariantAttributesIndex] = useState<number | null>(null);
     const [isQuickCreateAttributeOpen, setIsQuickCreateAttributeOpen] = useState(false);
     const [isQuickCreateAttributeOptionOpen, setIsQuickCreateAttributeOptionOpen] = useState(false);
@@ -140,15 +140,6 @@ export default function ProductCreate({ brands, categories, attributes, variantA
 
     const attributesById = useMemo(
         () => new Map(productAttributes.map((attribute) => [attribute.id.toString(), attribute])),
-        [productAttributes],
-    );
-
-    const attributeSelectorOptions = useMemo(
-        () => productAttributes.map((attribute) => ({
-            value: attribute.id.toString(),
-            label: attribute.name,
-            keywords: `${attribute.name} ${attribute.code}`,
-        })),
         [productAttributes],
     );
 
@@ -428,10 +419,6 @@ export default function ProductCreate({ brands, categories, attributes, variantA
         setData('attributes', nextAttributes);
     }
 
-    function clearAttributes(): void {
-        setData('attributes', []);
-    }
-
     function addVariantAttributeRow(variantIndex: number): void {
         const nextVariants = [...data.variants];
         nextVariants[variantIndex] = {
@@ -617,145 +604,65 @@ export default function ProductCreate({ brands, categories, attributes, variantA
                                             {completedRequiredCount}/{requiredAttributeCount}
                                         </p>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => {
-                                                setQuickCreateDefaultLevels(['product']);
-                                                setQuickCreateContext({ scope: 'product', variantIndex: null });
-                                                setIsQuickCreateAttributeOpen(true);
-                                            }}
-                                        >
-                                            New attribute
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            disabled={productAttributes.length === 0}
-                                            onClick={() => {
-                                                if (data.attributes.length === 0) {
-                                                    addAttributeRow();
-                                                }
-                                            }}
-                                        >
-                                            Manage
-                                        </Button>
-                                        <Button type="button" size="sm" variant="outline" onClick={clearAttributes}>
-                                            Clear values
-                                        </Button>
-                                        <Button type="button" size="sm" variant="outline" onClick={addAttributeRow}>
-                                            Add attribute
-                                        </Button>
-                                    </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                {productAttributes.length === 0 && (
-                                    <p className="text-sm text-muted-foreground">
-                                        No product attributes configured yet. Create them in Configuration → Attributes.
-                                    </p>
-                                )}
+                            <CardContent>
+                                <div className="space-y-2 rounded-md border border-dashed p-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-medium text-muted-foreground">Product attributes</p>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setQuickCreateDefaultLevels(['product']);
+                                                    setQuickCreateContext({ scope: 'product', variantIndex: null });
+                                                    setIsQuickCreateAttributeOpen(true);
+                                                }}
+                                            >
+                                                New attribute
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setIsProductAttributesManageOpen(true)}
+                                                disabled={productAttributes.length === 0}
+                                            >
+                                                Manage
+                                            </Button>
+                                        </div>
+                                    </div>
 
-                                {productAttributes.length > 0 && (
-                                    <>
-                                    {data.attributes.map((attributeRow, index) => {
-                                        const fieldKey = `attributes.${index}`;
-                                        const selectedAttribute = attributesById.get(attributeRow.attribute_id);
-                                        const usedAttributeIds = data.attributes
-                                            .filter((_, itemIndex) => itemIndex !== index)
-                                            .map((item) => item.attribute_id)
-                                            .filter((item) => item !== '');
+                                    {productAttributes.length === 0 ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            No product attributes configured yet. Create them in Configuration → Attributes.
+                                        </p>
+                                    ) : data.attributes.length === 0 ? (
+                                        <p className="text-xs text-muted-foreground">No attributes assigned.</p>
+                                    ) : (
+                                        <div className="space-y-1 text-xs">
+                                            {data.attributes.slice(0, MAX_VARIANT_ATTRIBUTES_PREVIEW).map((item, itemIndex) => {
+                                                const attribute = productAttributes.find((candidate) => candidate.id.toString() === item.attribute_id);
+                                                const option = attribute?.attribute_options?.find((candidate) => candidate.id.toString() === item.attribute_option_id);
 
-                                        const attributeOptions = attributeSelectorOptions.filter(
-                                            (option) => option.value === attributeRow.attribute_id || !usedAttributeIds.includes(option.value),
-                                        );
+                                                return (
+                                                    <p key={`product-attr-preview-${itemIndex}`}>
+                                                        <span className="font-medium">{attribute?.name ?? 'Attribute'}:</span>{' '}
+                                                        <span className="text-muted-foreground">{option?.label ?? option?.value ?? '—'}</span>
+                                                    </p>
+                                                );
+                                            })}
 
-                                        const optionList = (selectedAttribute?.attribute_options ?? []).map((option) => ({
-                                            value: option.id.toString(),
-                                            label: option.label ?? option.value,
-                                            keywords: `${option.label ?? ''} ${option.value}`,
-                                        }));
-
-                                        return (
-                                            <div key={`attribute-row-${index}`} className="space-y-2 rounded-md border p-3">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <Label>Attribute</Label>
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="text-destructive hover:text-destructive"
-                                                        onClick={() => removeAttributeRow(index)}
-                                                    >
-                                                        Remove
-                                                    </Button>
-                                                </div>
-
-                                                <SearchableSelect
-                                                    value={attributeRow.attribute_id}
-                                                    onValueChange={(value) => updateAttributeSelection(index, value)}
-                                                    options={attributeOptions}
-                                                    placeholder="Select attribute"
-                                                    searchPlaceholder="Search attribute"
-                                                />
-
-                                                <InputError message={formErrors[`${fieldKey}.attribute_id`]} />
-
-                                                {selectedAttribute && (
-                                                    <>
-                                                        <div className="flex items-center gap-2">
-                                                            {selectedAttribute.is_required && (
-                                                                <span className="text-xs font-medium text-destructive">Required</span>
-                                                            )}
-                                                            {selectedAttribute.is_filterable && (
-                                                                <span className="text-xs text-muted-foreground">Filterable</span>
-                                                            )}
-                                                        </div>
-
-                                                        <SearchableSelect
-                                                            value={attributeRow.attribute_option_id}
-                                                            onValueChange={(value) => updateAttributeValue(index, 'attribute_option_id', value)}
-                                                            options={optionList}
-                                                            placeholder={`Select ${selectedAttribute.name} value`}
-                                                            searchPlaceholder={`Search ${selectedAttribute.name} value`}
-                                                        />
-
-                                                        <div className="flex justify-end">
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => {
-                                                                    setQuickCreateOptionContext({
-                                                                        scope: 'product',
-                                                                        attributeId: selectedAttribute.id.toString(),
-                                                                        attributeName: selectedAttribute.name,
-                                                                        productAttributeIndex: index,
-                                                                        variantIndex: null,
-                                                                        variantAttributeRowIndex: null,
-                                                                    });
-                                                                    setIsQuickCreateAttributeOptionOpen(true);
-                                                                }}
-                                                            >
-                                                                New value
-                                                            </Button>
-                                                        </div>
-
-                                                        <InputError message={formErrors[`${fieldKey}.value`] || formErrors[`${fieldKey}.attribute_option_id`]} />
-                                                    </>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-
-                                    {data.attributes.length === 0 && (
-                                        <p className="text-sm text-muted-foreground">Add one or more attributes to link them to this product.</p>
+                                            {data.attributes.length > MAX_VARIANT_ATTRIBUTES_PREVIEW && (
+                                                <button type="button" className="text-primary underline" onClick={() => setIsProductAttributesManageOpen(true)}>
+                                                    View all
+                                                </button>
+                                            )}
+                                        </div>
                                     )}
-                                    </>
-                                )}
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -1092,6 +999,103 @@ export default function ProductCreate({ brands, categories, attributes, variantA
                     </div>
                 </form>
             </div>
+
+            <Dialog open={isProductAttributesManageOpen} onOpenChange={setIsProductAttributesManageOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Product attributes</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Label>Attributes</Label>
+                            <Button type="button" size="sm" variant="outline" onClick={addAttributeRow} disabled={productAttributes.length === 0}>
+                                Add attribute
+                            </Button>
+                        </div>
+
+                        {data.attributes.map((attributeRow, rowIndex) => {
+                            const selectedAttribute = productAttributes.find((attribute) => attribute.id.toString() === attributeRow.attribute_id);
+                            const usedAttributeIds = data.attributes
+                                .filter((_, itemIndex) => itemIndex !== rowIndex)
+                                .map((item) => item.attribute_id)
+                                .filter((item) => item !== '');
+
+                            const availableAttributes = productAttributes.filter(
+                                (attribute) => attribute.id.toString() === attributeRow.attribute_id || !usedAttributeIds.includes(attribute.id.toString()),
+                            );
+
+                            return (
+                                <div key={`product-modal-${rowIndex}`} className="space-y-2 rounded-md border p-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label>Attribute</Label>
+                                        <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => removeAttributeRow(rowIndex)}>
+                                            Remove
+                                        </Button>
+                                    </div>
+
+                                    <Select value={attributeRow.attribute_id} onValueChange={(value) => updateAttributeSelection(rowIndex, value)}>
+                                        <SelectTrigger><SelectValue placeholder="Select attribute" /></SelectTrigger>
+                                        <SelectContent>
+                                            {availableAttributes.map((attribute) => (
+                                                <SelectItem key={attribute.id} value={attribute.id.toString()}>
+                                                    {attribute.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+
+                                    {selectedAttribute && (
+                                        <>
+                                            <Select
+                                                value={attributeRow.attribute_option_id}
+                                                onValueChange={(value) => updateAttributeValue(rowIndex, 'attribute_option_id', value)}
+                                            >
+                                                <SelectTrigger><SelectValue placeholder={`Select ${selectedAttribute.name} value`} /></SelectTrigger>
+                                                <SelectContent>
+                                                    {(selectedAttribute.attribute_options ?? []).map((option) => (
+                                                        <SelectItem key={option.id} value={option.id.toString()}>
+                                                            {option.label ?? option.value}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+
+                                            <div className="flex justify-end">
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        setQuickCreateOptionContext({
+                                                            scope: 'product',
+                                                            attributeId: selectedAttribute.id.toString(),
+                                                            attributeName: selectedAttribute.name,
+                                                            productAttributeIndex: rowIndex,
+                                                            variantIndex: null,
+                                                            variantAttributeRowIndex: null,
+                                                        });
+                                                        setIsQuickCreateAttributeOptionOpen(true);
+                                                    }}
+                                                >
+                                                    New value
+                                                </Button>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    <InputError message={formErrors[`attributes.${rowIndex}.attribute_id`]} />
+                                    <InputError message={formErrors[`attributes.${rowIndex}.attribute_option_id`]} />
+                                </div>
+                            );
+                        })}
+
+                        {data.attributes.length === 0 && (
+                            <p className="text-xs text-muted-foreground">No attributes assigned.</p>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={activeVariantAttributesIndex !== null} onOpenChange={() => setActiveVariantAttributesIndex(null)}>
                 <DialogContent>

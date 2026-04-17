@@ -7,6 +7,7 @@ use App\Enums\AttributeEntityLevel;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreAttributeOptionRequest;
 use App\Http\Requests\Admin\StoreAttributeRequest;
+use App\Http\Requests\Admin\StoreInlineAttributeRequest;
 use App\Http\Requests\Admin\UpdateAttributeRequest;
 use App\Http\Resources\AttributeOptionResource;
 use App\Http\Resources\AttributeResource;
@@ -49,7 +50,7 @@ class AttributeController extends Controller
         return redirect()->route('admin.attributes.index')->with('success', 'Attribute created successfully.');
     }
 
-    public function inlineStore(StoreAttributeRequest $request): JsonResponse
+    public function inlineStore(StoreInlineAttributeRequest $request): JsonResponse
     {
         $payload = $request->validated();
 
