@@ -2,6 +2,10 @@ import { Head, useForm } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import * as ProductController from '@/actions/App/Http/Controllers/Admin/ProductController';
 import InputError from '@/components/input-error';
+import QuickCreateAttributeDialog from '@/components/inventory/quick-create-attribute-dialog';
+import type { QuickCreatedAttribute } from '@/components/inventory/quick-create-attribute-dialog';
+import QuickCreateAttributeOptionDialog from '@/components/inventory/quick-create-attribute-option-dialog';
+import type { QuickCreatedAttributeOption } from '@/components/inventory/quick-create-attribute-option-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -83,6 +87,30 @@ const MAX_VARIANT_ATTRIBUTES_PREVIEW = 3;
 
 export default function ProductCreate({ brands, categories, attributes, variantAttributes }: Props) {
     const [activeVariantAttributesIndex, setActiveVariantAttributesIndex] = useState<number | null>(null);
+    const [isQuickCreateAttributeOpen, setIsQuickCreateAttributeOpen] = useState(false);
+    const [isQuickCreateAttributeOptionOpen, setIsQuickCreateAttributeOptionOpen] = useState(false);
+    const [quickCreateDefaultLevels, setQuickCreateDefaultLevels] = useState<Array<'product' | 'variant' | 'serial'>>(['product']);
+    const [quickCreateContext, setQuickCreateContext] = useState<{ scope: 'product' | 'variant'; variantIndex: number | null }>({
+        scope: 'product',
+        variantIndex: null,
+    });
+    const [quickCreateOptionContext, setQuickCreateOptionContext] = useState<{
+        scope: 'product' | 'variant';
+        attributeId: string;
+        attributeName: string;
+        productAttributeIndex: number | null;
+        variantIndex: number | null;
+        variantAttributeRowIndex: number | null;
+    }>({
+        scope: 'product',
+        attributeId: '',
+        attributeName: '',
+        productAttributeIndex: null,
+        variantIndex: null,
+        variantAttributeRowIndex: null,
+    });
+    const [productAttributes, setProductAttributes] = useState(attributes.data);
+    const [variantLevelAttributes, setVariantLevelAttributes] = useState(variantAttributes.data);
     const initialAttributes: FormData['attributes'] = [];
 
     const { data, setData, transform, post, processing, errors } = useForm<FormData>({
@@ -111,18 +139,164 @@ export default function ProductCreate({ brands, categories, attributes, variantA
     const formErrors = errors as Record<string, string | undefined>;
 
     const attributesById = useMemo(
-        () => new Map(attributes.data.map((attribute) => [attribute.id.toString(), attribute])),
-        [attributes.data],
+        () => new Map(productAttributes.map((attribute) => [attribute.id.toString(), attribute])),
+        [productAttributes],
     );
 
     const attributeSelectorOptions = useMemo(
-        () => attributes.data.map((attribute) => ({
+        () => productAttributes.map((attribute) => ({
             value: attribute.id.toString(),
             label: attribute.name,
             keywords: `${attribute.name} ${attribute.code}`,
         })),
-        [attributes.data],
+        [productAttributes],
     );
+
+    function applyCreatedAttributeSelection(attributeId: string): void {
+        if (quickCreateContext.scope === 'product') {
+            const nextAttributes = [...data.attributes];
+            const targetIndex = nextAttributes.findIndex((row) => row.attribute_id === '');
+
+            if (targetIndex >= 0) {
+                nextAttributes[targetIndex] = {
+                    attribute_id: attributeId,
+                    value: '',
+                    attribute_option_id: '',
+                };
+            } else {
+                nextAttributes.push({
+                    attribute_id: attributeId,
+                    value: '',
+                    attribute_option_id: '',
+                });
+            }
+
+            setData('attributes', nextAttributes);
+
+            return;
+        }
+
+        if (quickCreateContext.variantIndex === null) {
+            return;
+        }
+
+        const nextVariants = [...data.variants];
+        const currentVariant = nextVariants[quickCreateContext.variantIndex];
+
+        if (!currentVariant) {
+            return;
+        }
+
+        const nextAttributes = [...(currentVariant.attributes ?? [])];
+        const targetIndex = nextAttributes.findIndex((row) => row.attribute_id === '');
+
+        if (targetIndex >= 0) {
+            nextAttributes[targetIndex] = {
+                attribute_id: attributeId,
+                attribute_option_id: '',
+            };
+        } else {
+            nextAttributes.push({
+                attribute_id: attributeId,
+                attribute_option_id: '',
+            });
+        }
+
+        nextVariants[quickCreateContext.variantIndex] = {
+            ...currentVariant,
+            attributes: nextAttributes,
+        };
+
+        setData('variants', nextVariants);
+        setActiveVariantAttributesIndex(quickCreateContext.variantIndex);
+    }
+
+    function handleQuickAttributeCreated(attribute: QuickCreatedAttribute): void {
+        const levels = new Set(attribute.entity_levels ?? [attribute.entity_level]);
+
+        if (levels.has('product')) {
+            setProductAttributes((previous) => {
+                if (previous.some((item) => item.id === attribute.id)) {
+                    return previous;
+                }
+
+                return [...previous, attribute];
+            });
+        }
+
+        if (levels.has('variant')) {
+            setVariantLevelAttributes((previous) => {
+                if (previous.some((item) => item.id === attribute.id)) {
+                    return previous;
+                }
+
+                return [...previous, attribute];
+            });
+        }
+
+        if ((quickCreateContext.scope === 'product' && levels.has('product')) || (quickCreateContext.scope === 'variant' && levels.has('variant'))) {
+            applyCreatedAttributeSelection(attribute.id.toString());
+        }
+    }
+
+    function updateAttributeOptionsInCollection(
+        collection: Props['attributes']['data'],
+        attributeId: number,
+        option: QuickCreatedAttributeOption,
+    ): Props['attributes']['data'] {
+        return collection.map((attribute) => {
+            if (attribute.id !== attributeId) {
+                return attribute;
+            }
+
+            if ((attribute.attribute_options ?? []).some((existingOption) => existingOption.id === option.id)) {
+                return attribute;
+            }
+
+            return {
+                ...attribute,
+                attribute_options: [
+                    ...(attribute.attribute_options ?? []),
+                    {
+                        id: option.id,
+                        value: option.value,
+                        label: option.label,
+                    },
+                ],
+            };
+        });
+    }
+
+    function handleQuickAttributeOptionCreated(option: QuickCreatedAttributeOption): void {
+        setProductAttributes((previous) => updateAttributeOptionsInCollection(previous, option.attribute_id, option));
+        setVariantLevelAttributes((previous) => updateAttributeOptionsInCollection(previous, option.attribute_id, option));
+
+        const optionId = option.id.toString();
+        const optionAttributeId = option.attribute_id.toString();
+
+        if (quickCreateOptionContext.scope === 'product' && quickCreateOptionContext.productAttributeIndex !== null) {
+            const row = data.attributes[quickCreateOptionContext.productAttributeIndex];
+
+            if (row && row.attribute_id === optionAttributeId) {
+                updateAttributeValue(quickCreateOptionContext.productAttributeIndex, 'attribute_option_id', optionId);
+            }
+
+            return;
+        }
+
+        if (
+            quickCreateOptionContext.scope === 'variant'
+            && quickCreateOptionContext.variantIndex !== null
+            && quickCreateOptionContext.variantAttributeRowIndex !== null
+        ) {
+            const variantRow = data.variants[quickCreateOptionContext.variantIndex];
+            const attributeRow = variantRow?.attributes?.[quickCreateOptionContext.variantAttributeRowIndex];
+
+            if (attributeRow && attributeRow.attribute_id === optionAttributeId) {
+                updateVariantAttributeOption(quickCreateOptionContext.variantIndex, quickCreateOptionContext.variantAttributeRowIndex, optionId);
+            }
+        }
+    }
 
     const completedRequiredCount = useMemo(
         () => data.attributes.filter((current) => {
@@ -433,28 +607,60 @@ export default function ProductCreate({ brands, categories, attributes, variantA
                             </CardContent>
                         </Card>
 
-                        {attributes.data.length > 0 && (
-                            <Card>
-                                <CardHeader>
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div>
-                                            <CardTitle>Attributes</CardTitle>
-                                            <p className="text-xs text-muted-foreground">
-                                                Filled: {filledAttributeCount}/{data.attributes.length} · Required:{' '}
-                                                {completedRequiredCount}/{requiredAttributeCount}
-                                            </p>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Button type="button" size="sm" variant="outline" onClick={clearAttributes}>
-                                                Clear values
-                                            </Button>
-                                            <Button type="button" size="sm" variant="outline" onClick={addAttributeRow}>
-                                                Add attribute
-                                            </Button>
-                                        </div>
+                        <Card>
+                            <CardHeader>
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <CardTitle>Attributes</CardTitle>
+                                        <p className="text-xs text-muted-foreground">
+                                            Filled: {filledAttributeCount}/{data.attributes.length} · Required:{' '}
+                                            {completedRequiredCount}/{requiredAttributeCount}
+                                        </p>
                                     </div>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                setQuickCreateDefaultLevels(['product']);
+                                                setQuickCreateContext({ scope: 'product', variantIndex: null });
+                                                setIsQuickCreateAttributeOpen(true);
+                                            }}
+                                        >
+                                            New attribute
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={productAttributes.length === 0}
+                                            onClick={() => {
+                                                if (data.attributes.length === 0) {
+                                                    addAttributeRow();
+                                                }
+                                            }}
+                                        >
+                                            Manage
+                                        </Button>
+                                        <Button type="button" size="sm" variant="outline" onClick={clearAttributes}>
+                                            Clear values
+                                        </Button>
+                                        <Button type="button" size="sm" variant="outline" onClick={addAttributeRow}>
+                                            Add attribute
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {productAttributes.length === 0 && (
+                                    <p className="text-sm text-muted-foreground">
+                                        No product attributes configured yet. Create them in Configuration → Attributes.
+                                    </p>
+                                )}
+
+                                {productAttributes.length > 0 && (
+                                    <>
                                     {data.attributes.map((attributeRow, index) => {
                                         const fieldKey = `attributes.${index}`;
                                         const selectedAttribute = attributesById.get(attributeRow.attribute_id);
@@ -517,6 +723,27 @@ export default function ProductCreate({ brands, categories, attributes, variantA
                                                             searchPlaceholder={`Search ${selectedAttribute.name} value`}
                                                         />
 
+                                                        <div className="flex justify-end">
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    setQuickCreateOptionContext({
+                                                                        scope: 'product',
+                                                                        attributeId: selectedAttribute.id.toString(),
+                                                                        attributeName: selectedAttribute.name,
+                                                                        productAttributeIndex: index,
+                                                                        variantIndex: null,
+                                                                        variantAttributeRowIndex: null,
+                                                                    });
+                                                                    setIsQuickCreateAttributeOptionOpen(true);
+                                                                }}
+                                                            >
+                                                                New value
+                                                            </Button>
+                                                        </div>
+
                                                         <InputError message={formErrors[`${fieldKey}.value`] || formErrors[`${fieldKey}.attribute_option_id`]} />
                                                     </>
                                                 )}
@@ -527,9 +754,10 @@ export default function ProductCreate({ brands, categories, attributes, variantA
                                     {data.attributes.length === 0 && (
                                         <p className="text-sm text-muted-foreground">Add one or more attributes to link them to this product.</p>
                                     )}
-                                </CardContent>
-                            </Card>
-                        )}
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
 
                         <Card>
                             <CardHeader>
@@ -684,18 +912,32 @@ export default function ProductCreate({ brands, categories, attributes, variantA
                                         <div className="space-y-2 rounded-md border border-dashed p-3">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-xs font-medium text-muted-foreground">Variant attributes</p>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => setActiveVariantAttributesIndex(index)}
-                                                    disabled={variantAttributes.data.length === 0}
-                                                >
-                                                    Manage
-                                                </Button>
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            setQuickCreateDefaultLevels(['variant']);
+                                                            setQuickCreateContext({ scope: 'variant', variantIndex: index });
+                                                            setIsQuickCreateAttributeOpen(true);
+                                                        }}
+                                                    >
+                                                        New attribute
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => setActiveVariantAttributesIndex(index)}
+                                                        disabled={variantLevelAttributes.length === 0}
+                                                    >
+                                                        Manage
+                                                    </Button>
+                                                </div>
                                             </div>
 
-                                            {variantAttributes.data.length === 0 ? (
+                                            {variantLevelAttributes.length === 0 ? (
                                                 <p className="text-xs text-muted-foreground">
                                                     No variant attributes configured yet. Create them in Configuration → Attributes.
                                                 </p>
@@ -704,7 +946,7 @@ export default function ProductCreate({ brands, categories, attributes, variantA
                                             ) : (
                                                 <div className="space-y-1 text-xs">
                                                     {(variant.attributes ?? []).slice(0, MAX_VARIANT_ATTRIBUTES_PREVIEW).map((item, itemIndex) => {
-                                                        const attribute = variantAttributes.data.find((candidate) => candidate.id.toString() === item.attribute_id);
+                                                        const attribute = variantLevelAttributes.find((candidate) => candidate.id.toString() === item.attribute_id);
                                                         const option = attribute?.attribute_options?.find((candidate) => candidate.id.toString() === item.attribute_option_id);
 
                                                         return (
@@ -869,13 +1111,13 @@ export default function ProductCreate({ brands, categories, attributes, variantA
                             </div>
 
                             {(data.variants[activeVariantAttributesIndex]?.attributes ?? []).map((attributeRow, rowIndex) => {
-                                const selectedAttribute = variantAttributes.data.find((attribute) => attribute.id.toString() === attributeRow.attribute_id);
+                                const selectedAttribute = variantLevelAttributes.find((attribute) => attribute.id.toString() === attributeRow.attribute_id);
                                 const usedAttributeIds = (data.variants[activeVariantAttributesIndex]?.attributes ?? [])
                                     .filter((_, itemIndex) => itemIndex !== rowIndex)
                                     .map((item) => item.attribute_id)
                                     .filter((item) => item !== '');
 
-                                const availableAttributes = variantAttributes.data.filter(
+                                const availableAttributes = variantLevelAttributes.filter(
                                     (attribute) => attribute.id.toString() === attributeRow.attribute_id || !usedAttributeIds.includes(attribute.id.toString()),
                                 );
 
@@ -903,19 +1145,42 @@ export default function ProductCreate({ brands, categories, attributes, variantA
                                         </Select>
 
                                         {selectedAttribute && (
-                                            <Select
-                                                value={attributeRow.attribute_option_id}
-                                                onValueChange={(value) => updateVariantAttributeOption(activeVariantAttributesIndex, rowIndex, value)}
-                                            >
-                                                <SelectTrigger><SelectValue placeholder={`Select ${selectedAttribute.name} value`} /></SelectTrigger>
-                                                <SelectContent>
-                                                    {(selectedAttribute.attribute_options ?? []).map((option) => (
-                                                        <SelectItem key={option.id} value={option.id.toString()}>
-                                                            {option.label ?? option.value}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <>
+                                                <Select
+                                                    value={attributeRow.attribute_option_id}
+                                                    onValueChange={(value) => updateVariantAttributeOption(activeVariantAttributesIndex, rowIndex, value)}
+                                                >
+                                                    <SelectTrigger><SelectValue placeholder={`Select ${selectedAttribute.name} value`} /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {(selectedAttribute.attribute_options ?? []).map((option) => (
+                                                            <SelectItem key={option.id} value={option.id.toString()}>
+                                                                {option.label ?? option.value}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+
+                                                <div className="flex justify-end">
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            setQuickCreateOptionContext({
+                                                                scope: 'variant',
+                                                                attributeId: selectedAttribute.id.toString(),
+                                                                attributeName: selectedAttribute.name,
+                                                                productAttributeIndex: null,
+                                                                variantIndex: activeVariantAttributesIndex,
+                                                                variantAttributeRowIndex: rowIndex,
+                                                            });
+                                                            setIsQuickCreateAttributeOptionOpen(true);
+                                                        }}
+                                                    >
+                                                        New value
+                                                    </Button>
+                                                </div>
+                                            </>
                                         )}
 
                                         <InputError message={formErrors[`variants.${activeVariantAttributesIndex}.attributes.${rowIndex}.attribute_id`]} />
@@ -927,6 +1192,21 @@ export default function ProductCreate({ brands, categories, attributes, variantA
                     )}
                 </DialogContent>
             </Dialog>
+
+            <QuickCreateAttributeDialog
+                open={isQuickCreateAttributeOpen}
+                onOpenChange={setIsQuickCreateAttributeOpen}
+                defaultLevels={quickCreateDefaultLevels}
+                onCreated={handleQuickAttributeCreated}
+            />
+
+            <QuickCreateAttributeOptionDialog
+                open={isQuickCreateAttributeOptionOpen}
+                onOpenChange={setIsQuickCreateAttributeOptionOpen}
+                attributeId={quickCreateOptionContext.attributeId === '' ? null : Number(quickCreateOptionContext.attributeId)}
+                attributeName={quickCreateOptionContext.attributeName}
+                onCreated={handleQuickAttributeOptionCreated}
+            />
         </>
     );
 }

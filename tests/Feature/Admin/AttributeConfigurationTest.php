@@ -17,6 +17,8 @@ class AttributeConfigurationTest extends TestCase
     {
         parent::setUp();
 
+        config(['app.key' => 'base64:'.base64_encode(random_bytes(32))]);
+
         $this->actingAs(User::factory()->admin()->create());
     }
 
@@ -110,6 +112,57 @@ class AttributeConfigurationTest extends TestCase
         $this->assertDatabaseHas('attribute_options', [
             'attribute_id' => $attribute->id,
             'value' => 'green',
+        ]);
+    }
+
+    public function test_it_creates_attribute_from_inline_endpoint(): void
+    {
+        $this->postJson('/admin/attributes/inline', [
+            'code' => 'case_material',
+            'name' => 'Case Material',
+            'entity_levels' => ['product', 'variant'],
+            'data_type' => 'select',
+            'is_filterable' => true,
+            'is_required' => false,
+            'is_active' => true,
+            'options' => [
+                ['value' => 'steel', 'label' => 'Steel'],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.code', 'case_material')
+            ->assertJsonPath('data.entity_levels.0', 'product');
+
+        $attribute = Attribute::query()->where('code', 'case_material')->firstOrFail();
+
+        $this->assertDatabaseHas('attribute_entity_levels', [
+            'attribute_id' => $attribute->id,
+            'entity_level' => 'variant',
+        ]);
+    }
+
+    public function test_it_creates_attribute_option_from_inline_endpoint(): void
+    {
+        $attribute = Attribute::query()->create([
+            'code' => 'bezel_material',
+            'name' => 'Bezel Material',
+            'entity_level' => 'product',
+            'data_type' => 'select',
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/admin/attributes/'.$attribute->id.'/options/inline', [
+            'value' => 'ceramic',
+            'label' => 'Ceramic',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.attribute_id', $attribute->id)
+            ->assertJsonPath('data.value', 'ceramic');
+
+        $this->assertDatabaseHas('attribute_options', [
+            'attribute_id' => $attribute->id,
+            'value' => 'ceramic',
+            'label' => 'Ceramic',
         ]);
     }
 }

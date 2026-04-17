@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AttributeDataType;
 use App\Enums\AttributeEntityLevel;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreAttributeOptionRequest;
 use App\Http\Requests\Admin\StoreAttributeRequest;
 use App\Http\Requests\Admin\UpdateAttributeRequest;
+use App\Http\Resources\AttributeOptionResource;
 use App\Http\Resources\AttributeResource;
 use App\Models\Attribute;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -40,26 +43,45 @@ class AttributeController extends Controller
         $payload = $request->validated();
 
         DB::transaction(function () use ($payload): void {
-            $entityLevels = collect($payload['entity_levels'])->map(fn (string $level): string => $level)->unique()->values();
-
-            $attribute = Attribute::query()->create([
-                'code' => $payload['code'],
-                'name' => $payload['name'],
-                'entity_level' => (string) ($entityLevels->first() ?? AttributeEntityLevel::Product->value),
-                'data_type' => $payload['data_type'],
-                'unit' => $payload['unit'] ?? null,
-                'is_filterable' => $payload['is_filterable'] ?? false,
-                'is_required' => $payload['is_required'] ?? false,
-                'sort_order' => $payload['sort_order'] ?? 0,
-                'is_active' => $payload['is_active'] ?? true,
-            ]);
-
-            $this->syncEntityLevels($attribute, $entityLevels->all());
-
-            $this->syncOptions($attribute, $payload['options'] ?? []);
+            $this->createAttributeFromPayload($payload);
         });
 
         return redirect()->route('admin.attributes.index')->with('success', 'Attribute created successfully.');
+    }
+
+    public function inlineStore(StoreAttributeRequest $request): JsonResponse
+    {
+        $payload = $request->validated();
+
+        $attribute = DB::transaction(function () use ($payload): Attribute {
+            return $this->createAttributeFromPayload($payload);
+        });
+
+        $attribute->load([
+            'attributeOptions' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
+            'entityLevels',
+        ]);
+
+        return response()->json([
+            'data' => AttributeResource::make($attribute),
+        ], 201);
+    }
+
+    public function inlineStoreOption(StoreAttributeOptionRequest $request, Attribute $attribute): JsonResponse
+    {
+        $payload = $request->validated();
+
+        $option = $attribute->attributeOptions()->create([
+            'value' => trim((string) $payload['value']),
+            'label' => isset($payload['label']) && trim((string) $payload['label']) !== ''
+                ? trim((string) $payload['label'])
+                : null,
+            'sort_order' => ((int) ($attribute->attributeOptions()->max('sort_order') ?? 0)) + 1,
+        ]);
+
+        return response()->json([
+            'data' => AttributeOptionResource::make($option),
+        ], 201);
     }
 
     public function update(UpdateAttributeRequest $request, Attribute $attribute): RedirectResponse
@@ -145,6 +167,34 @@ class AttributeController extends Controller
         }
 
         $attribute->attributeOptions()->delete();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function createAttributeFromPayload(array $payload): Attribute
+    {
+        $entityLevels = collect($payload['entity_levels'] ?? [])
+            ->map(fn (string $level): string => $level)
+            ->unique()
+            ->values();
+
+        $attribute = Attribute::query()->create([
+            'code' => $payload['code'],
+            'name' => $payload['name'],
+            'entity_level' => (string) ($entityLevels->first() ?? AttributeEntityLevel::Product->value),
+            'data_type' => $payload['data_type'],
+            'unit' => $payload['unit'] ?? null,
+            'is_filterable' => $payload['is_filterable'] ?? false,
+            'is_required' => $payload['is_required'] ?? false,
+            'sort_order' => $payload['sort_order'] ?? 0,
+            'is_active' => $payload['is_active'] ?? true,
+        ]);
+
+        $this->syncEntityLevels($attribute, $entityLevels->all());
+        $this->syncOptions($attribute, $payload['options'] ?? []);
+
+        return $attribute;
     }
 
     /**

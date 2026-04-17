@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ClientController;
+use App\Http\Controllers\Admin\ImportHistoryController;
 use App\Http\Controllers\Admin\InventoryAdjustmentController;
 use App\Http\Controllers\Admin\InventoryMovementController;
 use App\Http\Controllers\Admin\InventoryReservationController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Admin\LeadInteractionController;
 use App\Http\Controllers\Admin\LeadProposalController;
 use App\Http\Controllers\Admin\NegotiationController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ProductImportController;
 use App\Http\Controllers\Admin\ProductPriceUpdateController;
 use App\Http\Controllers\Admin\ProductSerialController;
 use App\Http\Controllers\Admin\QuoteController;
@@ -34,6 +36,9 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Route::prefix('products')->name('products.')->group(function () {
         Route::get('create', [ProductController::class, 'create'])->name('create');
         Route::post('/', [ProductController::class, 'store'])->name('store');
+        Route::get('import/template', [ProductImportController::class, 'template'])->name('import.template');
+        Route::post('import', [ProductImportController::class, 'store'])->name('import.store');
+        Route::get('import/{importRun}', [ProductImportController::class, 'show'])->whereNumber('importRun')->name('import.show');
         Route::get('price-updates', [ProductPriceUpdateController::class, 'index'])->name('price-updates.index');
         Route::post('price-updates/preview', [ProductPriceUpdateController::class, 'preview'])->name('price-updates.preview');
         Route::post('price-updates', [ProductPriceUpdateController::class, 'store'])->name('price-updates.store');
@@ -119,9 +124,17 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
 
     Route::prefix('attributes')->name('attributes.')->group(function () {
         Route::get('/', [AttributeController::class, 'index'])->name('index');
+        Route::post('inline', [AttributeController::class, 'inlineStore'])->name('inline-store');
+        Route::post('{attribute}/options/inline', [AttributeController::class, 'inlineStoreOption'])->name('options.inline-store');
         Route::post('/', [AttributeController::class, 'store'])->name('store');
         Route::put('{attribute}', [AttributeController::class, 'update'])->name('update');
         Route::delete('{attribute}', [AttributeController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::prefix('imports')->name('imports.')->group(function () {
+        Route::get('/', [ImportHistoryController::class, 'index'])->name('index');
+        Route::get('{importRun}/download', [ImportHistoryController::class, 'download'])->whereNumber('importRun')->name('download');
+        Route::get('{importRun}/errors-export', [ImportHistoryController::class, 'exportErrors'])->whereNumber('importRun')->name('errors-export');
     });
 
     // CRM — standalone index pages

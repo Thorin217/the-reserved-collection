@@ -48,6 +48,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
+                'import_run_id' => $request->session()->get('import_run_id'),
             ],
             'portalCategories' => Cache::remember('portal_categories', 300, fn () => Category::where('is_active', true)
                 ->whereIn('slug', ['timepieces', 'jewelry', 'the-vault'])

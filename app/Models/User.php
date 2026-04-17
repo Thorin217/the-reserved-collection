@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -39,6 +40,11 @@ class User extends Authenticatable implements HasMedia
     public function client(): HasOne
     {
         return $this->hasOne(Client::class);
+    }
+
+    public function imports(): HasMany
+    {
+        return $this->hasMany(Import::class);
     }
 
     public function registerMediaCollections(): void
