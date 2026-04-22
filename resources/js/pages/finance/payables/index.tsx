@@ -1,5 +1,5 @@
-import { Head, router } from '@inertiajs/react';
-import { Search } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { FlashMessage } from '@/components/flash-message';
 import TablePagination from '@/components/table-pagination';
@@ -24,7 +24,11 @@ import {
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/currency';
 import AppLayout from '@/layouts/app-layout';
-import { index as payablesIndex } from '@/routes/admin/finance/payables';
+import {
+    create as createPayable,
+    index as payablesIndex,
+    show as payableShow,
+} from '@/routes/admin/finance/payables';
 import type { PaginatedData } from '@/types';
 
 const ALL = '_all';
@@ -103,11 +107,19 @@ export default function FinancePayablesIndex({
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <FlashMessage />
 
-                <div>
-                    <h1 className="text-2xl font-bold">Accounts Payable</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Vendor obligations and outgoing payment control.
-                    </p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl font-bold">Accounts Payable</h1>
+                        <p className="text-sm text-muted-foreground">
+                            Vendor obligations and outgoing payment control.
+                        </p>
+                    </div>
+                    <Button asChild>
+                        <Link href={createPayable()}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            New payable
+                        </Link>
+                    </Button>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -216,9 +228,19 @@ export default function FinancePayablesIndex({
                                         STATUS_CONFIG.pending;
 
                                     return (
-                                        <TableRow key={payable.id}>
+                                        <TableRow
+                                            key={payable.id}
+                                            className="cursor-pointer"
+                                            onClick={() => router.visit(payableShow.url(payable.id))}
+                                        >
                                             <TableCell className="font-medium">
-                                                {payable.vendor_name}
+                                                <Link
+                                                    href={payableShow.url(payable.id)}
+                                                    className="hover:underline"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {payable.vendor_name}
+                                                </Link>
                                             </TableCell>
                                             <TableCell>
                                                 {payable.reference ?? '—'}

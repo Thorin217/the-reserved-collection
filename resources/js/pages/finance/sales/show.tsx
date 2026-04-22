@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/currency';
 import AppLayout from '@/layouts/app-layout';
-import { index as salesIndex } from '@/routes/admin/finance/sales';
+import { index as salesIndex, invoice as saleInvoice } from '@/routes/admin/finance/sales';
 
 type SaleItemData = {
     id: number;
@@ -90,6 +90,13 @@ export default function FinanceSalesShow({ sale: { data: sale }, can }: Props) {
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
+                        {sale.status === 'confirmed' && (
+                            <Button asChild variant="outline">
+                                <Link href={saleInvoice.url(sale.id)}>
+                                    View invoice
+                                </Link>
+                            </Button>
+                        )}
                         {can.update && sale.status !== 'confirmed' && (
                             <Button asChild variant="outline">
                                 <Link href={`/admin/finance/sales/${sale.id}/edit`}>

@@ -26,6 +26,7 @@ class AccountReceivableResource extends JsonResource
             'notes' => $this->notes,
             'client' => ClientResource::make($this->whenLoaded('client')),
             'sale' => SaleResource::make($this->whenLoaded('sale')),
+            'payments' => ReceivablePaymentResource::collection($this->whenLoaded('payments')),
         ];
     }
 }

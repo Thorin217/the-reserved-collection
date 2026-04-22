@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\PaymentStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -37,6 +38,18 @@ class ClientResource extends JsonResource
                 'source' => $lead->source,
                 'created_at' => $lead->created_at,
             ])),
+            'receivables' => $this->whenLoaded('accountReceivables', fn () => $this->accountReceivables->map(fn ($r) => [
+                'id' => $r->id,
+                'reference' => $r->reference,
+                'status' => $r->status,
+                'due_date' => $r->due_date,
+                'amount' => $r->amount,
+                'paid_amount' => $r->paid_amount,
+                'balance_due' => $r->balance_due,
+            ])),
+            'receivables_balance' => $this->whenLoaded('accountReceivables', fn () => (float) $this->accountReceivables
+                ->whereNotIn('status', [PaymentStatus::Paid, PaymentStatus::Cancelled])
+                ->sum('balance_due')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

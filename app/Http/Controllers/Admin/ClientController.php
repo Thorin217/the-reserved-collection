@@ -33,7 +33,13 @@ class ClientController extends Controller
 
     public function show(Client $client): Response
     {
-        $client->loadCount(['leads', 'quotes', 'sales'])->load('user', 'leads');
+        $client
+            ->loadCount(['leads', 'quotes', 'sales'])
+            ->load([
+                'user',
+                'leads',
+                'accountReceivables' => fn ($query) => $query->latest('id'),
+            ]);
 
         return Inertia::render('crm/clients/show', [
             'client' => ClientResource::make($client),

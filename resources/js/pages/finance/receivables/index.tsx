@@ -1,5 +1,5 @@
-import { Head, router } from '@inertiajs/react';
-import { Search } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { FlashMessage } from '@/components/flash-message';
 import TablePagination from '@/components/table-pagination';
@@ -24,7 +24,11 @@ import {
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/currency';
 import AppLayout from '@/layouts/app-layout';
-import { index as receivablesIndex } from '@/routes/admin/finance/receivables';
+import {
+    create as createReceivable,
+    index as receivablesIndex,
+    show as receivableShow,
+} from '@/routes/admin/finance/receivables';
 import type { PaginatedData } from '@/types';
 
 const ALL = '_all';
@@ -102,12 +106,19 @@ export default function FinanceReceivablesIndex({
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <FlashMessage />
 
-                <div>
-                    <h1 className="text-2xl font-bold">Accounts Receivable</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Open balances and collection follow-up for confirmed
-                        sales.
-                    </p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl font-bold">Accounts Receivable</h1>
+                        <p className="text-sm text-muted-foreground">
+                            Open balances and collection follow-up.
+                        </p>
+                    </div>
+                    <Button asChild>
+                        <Link href={createReceivable()}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            New receivable
+                        </Link>
+                    </Button>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -216,9 +227,19 @@ export default function FinanceReceivablesIndex({
                                         STATUS_CONFIG.pending;
 
                                     return (
-                                        <TableRow key={receivable.id}>
+                                        <TableRow
+                                            key={receivable.id}
+                                            className="cursor-pointer"
+                                            onClick={() => router.visit(receivableShow.url(receivable.id))}
+                                        >
                                             <TableCell className="font-medium">
-                                                {receivable.reference ?? '—'}
+                                                <Link
+                                                    href={receivableShow.url(receivable.id)}
+                                                    className="hover:underline"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {receivable.reference ?? `#${receivable.id}`}
+                                                </Link>
                                             </TableCell>
                                             <TableCell>
                                                 {receivable.client?.name ?? '—'}

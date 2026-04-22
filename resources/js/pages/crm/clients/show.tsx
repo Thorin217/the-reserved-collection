@@ -7,11 +7,13 @@ import {
     Mail,
     MapPin,
     Phone,
+    Plus,
     ShoppingCart,
     TrendingUp,
     User as UserIcon,
     UserCheck,
     UserX,
+    Wallet,
 } from 'lucide-react';
 import { useState } from 'react';
 import * as ClientController from '@/actions/App/Http/Controllers/Admin/ClientController';
@@ -33,8 +35,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import AppLayout from '@/layouts/app-layout';
+import { formatCurrency } from '@/lib/currency';
 import { index as clientsIndex } from '@/routes/admin/clients';
 import { index as leadsIndex } from '@/routes/admin/leads';
+import { create as createReceivable, show as receivableShow } from '@/routes/admin/finance/receivables';
 import { index as usersIndex } from '@/routes/admin/users';
 import type { Client } from '@/types';
 
@@ -267,6 +271,56 @@ export default function ClientShow({ client: { data: client } }: Props) {
                             </CardContent>
                         </Card>
 
+                        {/* Receivables */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between pb-3">
+                                <CardTitle className="text-base">
+                                    Receivables ({client.receivables?.length ?? 0})
+                                </CardTitle>
+                                <Button asChild size="sm" variant="outline">
+                                    <Link href={createReceivable({ query: { client_id: client.id } })}>
+                                        <Plus className="mr-1 h-3 w-3" />
+                                        New
+                                    </Link>
+                                </Button>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                {client.receivables && client.receivables.length > 0 ? (
+                                    <div className="divide-y">
+                                        {client.receivables.map((receivable) => (
+                                            <div key={receivable.id} className="flex items-center justify-between px-6 py-3">
+                                                <div>
+                                                    <Link
+                                                        href={receivableShow.url(receivable.id)}
+                                                        className="text-sm font-medium hover:underline"
+                                                    >
+                                                        {receivable.reference ?? `#${receivable.id}`}
+                                                    </Link>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {receivable.due_date
+                                                            ? `Due ${new Date(receivable.due_date).toLocaleDateString()}`
+                                                            : 'No due date'}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-mono text-sm font-medium">
+                                                        {formatCurrency(receivable.balance_due)}
+                                                    </p>
+                                                    <p className="text-xs capitalize text-muted-foreground">
+                                                        {receivable.status}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="px-6 py-4 text-sm text-muted-foreground">
+                                        No receivables registered for this client.
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
+
                         {/* Leads list */}
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -330,6 +384,20 @@ export default function ClientShow({ client: { data: client } }: Props) {
                                     </div>
                                     <span className="font-semibold">{client.sales_count ?? 0}</span>
                                 </div>
+                                {(client.receivables_balance ?? 0) > 0 && (
+                                    <>
+                                        <div className="border-t" />
+                                        <div className="flex items-center justify-between text-sm">
+                                            <div className="flex items-center gap-2 text-muted-foreground">
+                                                <Wallet className="h-4 w-4" />
+                                                Outstanding
+                                            </div>
+                                            <span className="font-semibold text-destructive">
+                                                {formatCurrency(client.receivables_balance ?? 0)}
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
                             </CardContent>
                         </Card>
 

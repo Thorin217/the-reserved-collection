@@ -27,6 +27,8 @@ class AccountPayableResource extends JsonResource
             'notes' => $this->notes,
             'sale' => SaleResource::make($this->whenLoaded('sale')),
             'user' => UserResource::make($this->whenLoaded('user')),
+            'vendor' => VendorResource::make($this->whenLoaded('vendor')),
+            'payments' => PayablePaymentResource::collection($this->whenLoaded('payments')),
         ];
     }
 }

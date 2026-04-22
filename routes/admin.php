@@ -24,6 +24,7 @@ use App\Http\Controllers\Admin\ProductSerialController;
 use App\Http\Controllers\Admin\QuoteController;
 use App\Http\Controllers\Admin\SaleController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\VendorController;
 use App\Http\Controllers\Admin\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
@@ -159,8 +160,24 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         Route::put('sales/{sale}', [SaleController::class, 'update'])->name('sales.update');
         Route::post('sales/{sale}/confirm', [SaleController::class, 'confirm'])->name('sales.confirm');
         Route::post('sales/{sale}/cancel', [SaleController::class, 'cancel'])->name('sales.cancel');
+        Route::get('sales/{sale}/invoice', [SaleController::class, 'invoice'])->name('sales.invoice');
         Route::get('receivables', [AccountReceivableController::class, 'index'])->name('receivables.index');
+        Route::get('receivables/create', [AccountReceivableController::class, 'create'])->name('receivables.create');
+        Route::post('receivables', [AccountReceivableController::class, 'store'])->name('receivables.store');
+        Route::get('receivables/{receivable}', [AccountReceivableController::class, 'show'])->name('receivables.show');
+        Route::post('receivables/{receivable}/payments', [AccountReceivableController::class, 'storePayment'])->name('receivables.payments.store');
+        Route::get('vendors', [VendorController::class, 'index'])->name('vendors.index');
+        Route::get('vendors/create', [VendorController::class, 'create'])->name('vendors.create');
+        Route::post('vendors', [VendorController::class, 'store'])->name('vendors.store');
+        Route::get('vendors/{vendor}', [VendorController::class, 'show'])->name('vendors.show');
+        Route::get('vendors/{vendor}/edit', [VendorController::class, 'edit'])->name('vendors.edit');
+        Route::put('vendors/{vendor}', [VendorController::class, 'update'])->name('vendors.update');
+        Route::delete('vendors/{vendor}', [VendorController::class, 'destroy'])->name('vendors.destroy');
         Route::get('payables', [AccountPayableController::class, 'index'])->name('payables.index');
+        Route::get('payables/create', [AccountPayableController::class, 'create'])->name('payables.create');
+        Route::post('payables', [AccountPayableController::class, 'store'])->name('payables.store');
+        Route::get('payables/{payable}', [AccountPayableController::class, 'show'])->name('payables.show');
+        Route::post('payables/{payable}/payments', [AccountPayableController::class, 'storePayment'])->name('payables.payments.store');
     });
 
     // CRM

@@ -7,6 +7,7 @@ use Database\Factories\AccountPayableFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AccountPayable extends Model
 {
@@ -16,6 +17,7 @@ class AccountPayable extends Model
     protected $fillable = [
         'sale_id',
         'user_id',
+        'vendor_id',
         'vendor_name',
         'reference',
         'status',
@@ -30,6 +32,7 @@ class AccountPayable extends Model
     protected $casts = [
         'sale_id' => 'integer',
         'user_id' => 'integer',
+        'vendor_id' => 'integer',
         'status' => PaymentStatus::class,
         'due_date' => 'date',
         'amount' => 'decimal:2',
@@ -46,5 +49,20 @@ class AccountPayable extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(PayablePayment::class);
+    }
+
+    public function resolvedVendorName(): string
+    {
+        return $this->vendor?->name ?? $this->vendor_name ?? '—';
     }
 }

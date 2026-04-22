@@ -159,6 +159,22 @@ class SaleController extends Controller
             ->with('success', 'Sale confirmed successfully.');
     }
 
+    public function invoice(Sale $sale): Response
+    {
+        $this->authorize('view', $sale);
+
+        $sale->load([
+            'client',
+            'warehouse',
+            'user',
+            'items.productVariant.product.brand',
+        ]);
+
+        return Inertia::render('finance/sales/invoice', [
+            'sale' => SaleResource::make($sale),
+        ]);
+    }
+
     public function cancel(Sale $sale): RedirectResponse
     {
         $this->authorize('cancel', $sale);

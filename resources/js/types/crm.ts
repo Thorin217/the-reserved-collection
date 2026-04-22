@@ -16,6 +16,16 @@ export type Client = {
     sales_count?: number;
     user?: { id: number; name: string; email: string } | null;
     leads?: Array<{ id: number; title: string; status: LeadStatus; source: LeadSource; created_at: string }>;
+    receivables?: Array<{
+        id: number;
+        reference: string | null;
+        status: string;
+        due_date: string | null;
+        amount: string;
+        paid_amount: string;
+        balance_due: string;
+    }>;
+    receivables_balance?: number;
     created_at: string;
     updated_at: string;
 };
