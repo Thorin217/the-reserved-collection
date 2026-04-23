@@ -16,6 +16,7 @@ class AccountPayable extends Model
 
     protected $fillable = [
         'sale_id',
+        'purchase_id',
         'user_id',
         'vendor_id',
         'vendor_name',
@@ -31,6 +32,7 @@ class AccountPayable extends Model
 
     protected $casts = [
         'sale_id' => 'integer',
+        'purchase_id' => 'integer',
         'user_id' => 'integer',
         'vendor_id' => 'integer',
         'status' => PaymentStatus::class,
@@ -44,6 +46,11 @@ class AccountPayable extends Model
     public function sale(): BelongsTo
     {
         return $this->belongsTo(Sale::class);
+    }
+
+    public function purchase(): BelongsTo
+    {
+        return $this->belongsTo(Purchase::class);
     }
 
     public function user(): BelongsTo

@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProductImportController;
 use App\Http\Controllers\Admin\ProductPriceUpdateController;
 use App\Http\Controllers\Admin\ProductSerialController;
+use App\Http\Controllers\Admin\PurchaseController;
 use App\Http\Controllers\Admin\QuoteController;
 use App\Http\Controllers\Admin\SaleController;
 use App\Http\Controllers\Admin\UserController;
@@ -178,6 +179,14 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         Route::post('payables', [AccountPayableController::class, 'store'])->name('payables.store');
         Route::get('payables/{payable}', [AccountPayableController::class, 'show'])->name('payables.show');
         Route::post('payables/{payable}/payments', [AccountPayableController::class, 'storePayment'])->name('payables.payments.store');
+        Route::get('purchases', [PurchaseController::class, 'index'])->name('purchases.index');
+        Route::get('purchases/create', [PurchaseController::class, 'create'])->name('purchases.create');
+        Route::post('purchases', [PurchaseController::class, 'store'])->name('purchases.store');
+        Route::get('purchases/{purchase}', [PurchaseController::class, 'show'])->name('purchases.show');
+        Route::get('purchases/{purchase}/edit', [PurchaseController::class, 'edit'])->name('purchases.edit');
+        Route::put('purchases/{purchase}', [PurchaseController::class, 'update'])->name('purchases.update');
+        Route::post('purchases/{purchase}/confirm', [PurchaseController::class, 'confirm'])->name('purchases.confirm');
+        Route::post('purchases/{purchase}/cancel', [PurchaseController::class, 'cancel'])->name('purchases.cancel');
     });
 
     // CRM

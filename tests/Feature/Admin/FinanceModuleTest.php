@@ -13,6 +13,7 @@ it('renders the finance module index pages for admins', function () {
         '/admin/finance/sales' => 'finance/sales/index',
         '/admin/finance/receivables' => 'finance/receivables/index',
         '/admin/finance/payables' => 'finance/payables/index',
+        '/admin/finance/purchases' => 'finance/purchases/index',
     ];
 
     foreach ($pages as $url => $component) {
