@@ -54,7 +54,7 @@ class AccountPayableController extends Controller
 
         $amount = (float) $data['amount'];
 
-        $payable = AccountPayable::create([
+        AccountPayable::create([
             'vendor_id' => $data['vendor_id'] ?? null,
             'vendor_name' => $vendorName,
             'user_id' => $request->user()?->id,
@@ -68,7 +68,7 @@ class AccountPayableController extends Controller
         ]);
 
         return redirect()
-            ->route('admin.finance.payables.show', $payable)
+            ->route('admin.finance.payables.index')
             ->with('success', 'Payable registered successfully.');
     }
 

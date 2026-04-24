@@ -35,7 +35,7 @@ class AccountReceivableController extends Controller
     {
         $validated = $request->validated();
 
-        $receivable = AccountReceivable::create([
+        AccountReceivable::create([
             'client_id' => $validated['client_id'],
             'reference' => $validated['reference'] ?? null,
             'amount' => $validated['amount'],
@@ -47,7 +47,7 @@ class AccountReceivableController extends Controller
         ]);
 
         return redirect()
-            ->route('admin.finance.receivables.show', $receivable)
+            ->route('admin.finance.receivables.index')
             ->with('success', 'Receivable registered successfully.');
     }
 

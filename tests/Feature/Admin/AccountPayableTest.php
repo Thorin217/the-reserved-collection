@@ -2,6 +2,7 @@
 
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\AccountPayable;
 use App\Models\User;
 use App\Models\Vendor;
@@ -9,6 +10,9 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->user = User::factory()->admin()->create();
+    $this->withoutMiddleware([
+        HandleInertiaRequests::class,
+    ]);
 });
 
 it('renders the vendors index', function () {
@@ -62,7 +66,7 @@ it('creates a payable linked to a vendor', function () {
             'amount' => 2500.00,
             'due_date' => now()->addDays(30)->toDateString(),
         ])
-        ->assertRedirect();
+        ->assertRedirect(route('admin.finance.payables.index'));
 
     expect(AccountPayable::where('vendor_id', $vendor->id)->exists())->toBeTrue();
 });
@@ -73,7 +77,7 @@ it('creates a payable with a free-text vendor name', function () {
             'vendor_name' => 'Local Supplier',
             'amount' => 800.00,
         ])
-        ->assertRedirect();
+        ->assertRedirect(route('admin.finance.payables.index'));
 
     expect(AccountPayable::where('vendor_name', 'Local Supplier')->exists())->toBeTrue();
 });

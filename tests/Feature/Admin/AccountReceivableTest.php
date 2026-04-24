@@ -2,12 +2,17 @@
 
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\AccountReceivable;
+use App\Models\Client;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->user = User::factory()->admin()->create();
+    $this->withoutMiddleware([
+        HandleInertiaRequests::class,
+    ]);
 });
 
 it('renders the receivable show page', function () {
@@ -21,6 +26,22 @@ it('renders the receivable show page', function () {
             ->has('receivable.data')
             ->has('payment_methods')
         );
+});
+
+it('creates a receivable and redirects back to the index', function () {
+    $client = Client::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/finance/receivables', [
+            'client_id' => $client->id,
+            'reference' => 'REC-001',
+            'amount' => 1200.00,
+            'due_date' => now()->addDays(15)->toDateString(),
+            'notes' => 'Manual receivable',
+        ])
+        ->assertRedirect(route('admin.finance.receivables.index'));
+
+    expect(AccountReceivable::query()->where('reference', 'REC-001')->exists())->toBeTrue();
 });
 
 it('records a payment against a receivable', function () {
