@@ -22,6 +22,8 @@ class DatabaseSeeder extends Seeder
 
         DB::table('negotiation_offers')->truncate();
         DB::table('negotiations')->truncate();
+        DB::table('auction_bids')->truncate();
+        DB::table('auctions')->truncate();
         DB::table('lead_proposal_items')->truncate();
         DB::table('lead_proposals')->truncate();
         DB::table('lead_interactions')->truncate();
@@ -79,6 +81,7 @@ class DatabaseSeeder extends Seeder
             PhaseOneInventorySeeder::class,
             PhaseOneInventoryWorkflowSeeder::class,
             PortalSeeder::class,
+            AuctionSeeder::class,
             CrmSeeder::class,
         ]);
     }

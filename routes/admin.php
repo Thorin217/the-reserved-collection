@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AccountPayableController;
 use App\Http\Controllers\Admin\AccountReceivableController;
 use App\Http\Controllers\Admin\AttributeController;
+use App\Http\Controllers\Admin\AuctionController;
 use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\CategoryController;
@@ -138,6 +139,16 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         Route::get('/', [ImportHistoryController::class, 'index'])->name('index');
         Route::get('{importRun}/download', [ImportHistoryController::class, 'download'])->whereNumber('importRun')->name('download');
         Route::get('{importRun}/errors-export', [ImportHistoryController::class, 'exportErrors'])->whereNumber('importRun')->name('errors-export');
+    });
+
+    Route::prefix('auctions')->name('auctions.')->group(function () {
+        Route::get('/', [AuctionController::class, 'index'])->name('index');
+        Route::get('create', [AuctionController::class, 'create'])->name('create');
+        Route::post('/', [AuctionController::class, 'store'])->name('store');
+        Route::get('{auction}', [AuctionController::class, 'show'])->name('show');
+        Route::post('{auction}/publish', [AuctionController::class, 'publish'])->name('publish');
+        Route::post('{auction}/close', [AuctionController::class, 'close'])->name('close');
+        Route::post('{auction}/cancel', [AuctionController::class, 'cancel'])->name('cancel');
     });
 
     // CRM — standalone index pages

@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     AlertCircle,
+    Gavel,
     CheckCircle,
     Clock,
     CreditCard,
@@ -21,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import PortalLayout from '@/layouts/portal-layout';
 import { cart, catalog, myCollection, wishlist } from '@/routes/portal';
 import { index as ordersIndex } from '@/routes/portal/orders';
+import { auctions as profileAuctions } from '@/routes/portal/profile';
 import type { Auth } from '@/types';
 
 type PaymentMethod = {
@@ -35,6 +37,7 @@ type PaymentMethod = {
 
 const menuItems = [
     { icon: Package, label: 'My Orders', desc: 'Track purchases and deliveries', href: ordersIndex() },
+    { icon: Gavel, label: 'My Auctions', desc: 'Review bids, wins and closed results', href: profileAuctions() },
     { icon: Heart, label: 'My Wishlist', desc: 'Your saved pieces', href: wishlist() },
     { icon: Clock, label: 'My Collection', desc: 'Track your portfolio value', href: myCollection() },
 ];
@@ -100,10 +103,11 @@ function PaymentMethodRow({ method, onSetDefault, onRemove }: { method: PaymentM
 }
 
 export default function PortalProfile() {
-    const { auth, cartCount = 0, wishlistCount = 0 } = usePage<{
+    const { auth, cartCount = 0, wishlistCount = 0, auctionParticipationCount = 0 } = usePage<{
         auth: Auth;
         cartCount: number;
         wishlistCount: number;
+        auctionParticipationCount: number;
     }>().props;
     const user = auth?.user;
     const [showAddPayment, setShowAddPayment] = useState(false);
@@ -290,11 +294,16 @@ export default function PortalProfile() {
                 </div>
 
                 {/* Stats: wishlist + cart */}
-                <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="grid grid-cols-3 gap-3 mb-3">
                     <Link href={wishlist()} className="bg-card border border-border p-4 hover:border-gold/30 transition-all group">
                         <Heart className="w-5 h-5 text-muted-foreground group-hover:text-gold mb-2 transition-colors" strokeWidth={1.5} />
                         <p className="font-display text-xl text-foreground">{wishlistCount}</p>
                         <p className="text-[10px] text-muted-foreground tracking-wider font-body">Saved Pieces</p>
+                    </Link>
+                    <Link href={profileAuctions()} className="bg-card border border-border p-4 hover:border-gold/30 transition-all group">
+                        <Gavel className="w-5 h-5 text-muted-foreground group-hover:text-gold mb-2 transition-colors" strokeWidth={1.5} />
+                        <p className="font-display text-xl text-foreground">{auctionParticipationCount}</p>
+                        <p className="text-[10px] text-muted-foreground tracking-wider font-body">Auction Entries</p>
                     </Link>
                     <Link href={cart()} className="bg-card border border-border p-4 hover:border-gold/30 transition-all group">
                         <Package className="w-5 h-5 text-muted-foreground group-hover:text-gold mb-2 transition-colors" strokeWidth={1.5} />

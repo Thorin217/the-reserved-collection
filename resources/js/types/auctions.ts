@@ -1,0 +1,65 @@
+export type AuctionBid = {
+    id: number;
+    auction_id: number;
+    user_id: number;
+    amount: string;
+    placed_at: string;
+    is_winning: boolean;
+    user?: {
+        id: number;
+        name: string;
+    } | null;
+};
+
+export type Auction = {
+    id: number;
+    title: string;
+    slug: string;
+    description: string | null;
+    status: 'draft' | 'scheduled' | 'live' | 'closed' | 'cancelled';
+    closure_result: 'sold' | 'reserve_not_met' | 'unsold' | null;
+    product_id: number;
+    product_variant_id: number;
+    product_serial_id: number | null;
+    inventory_source_type: string;
+    lot_number: string;
+    starting_price: string;
+    reserve_price: string | null;
+    minimum_increment: string;
+    current_bid_amount: string | null;
+    current_bid_user_id: number | null;
+    winning_bid_id: number | null;
+    winner_user_id: number | null;
+    hammer_price: string | null;
+    total_due: string | null;
+    starts_at: string;
+    ends_at: string;
+    closed_at: string | null;
+    is_manually_closed: boolean;
+    inventory_snapshot: {
+        product_name?: string;
+        product_slug?: string;
+        brand_name?: string | null;
+        category_name?: string | null;
+        product_sku?: string | null;
+        variant_sku?: string | null;
+        serial_number?: string | null;
+        image_url?: string | null;
+        price_reference?: string | number | null;
+        product_type?: string | null;
+        has_serial_numbers?: boolean;
+        attribute_summary?: string | null;
+    } | null;
+    notes: string | null;
+    minimum_allowed_bid: number;
+    bids_count?: number;
+    user_has_bid?: boolean;
+    user_bid_count?: number;
+    user_max_bid_amount?: string | null;
+    participation_result?: 'leading' | 'outbid' | 'scheduled' | 'won' | 'lost' | 'reserve_not_met' | null;
+    creator?: { id: number; name: string } | null;
+    closer?: { id: number; name: string } | null;
+    current_bid_user?: { id: number; name: string } | null;
+    winner?: { id: number; name: string } | null;
+    bids?: AuctionBid[];
+};
