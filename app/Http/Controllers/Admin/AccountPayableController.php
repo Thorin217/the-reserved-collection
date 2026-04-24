@@ -122,6 +122,8 @@ class AccountPayableController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        Inertia::encryptHistory();
+
         return Inertia::render('finance/payables/index', [
             'payables' => AccountPayableResource::collection($payables),
             'metrics' => [

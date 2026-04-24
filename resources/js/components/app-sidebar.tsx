@@ -43,6 +43,8 @@ import { index as negotiationsIndex } from '@/routes/admin/negotiations';
 import { index as productsIndex } from '@/routes/admin/products';
 import { index as proposalsIndex } from '@/routes/admin/proposals';
 import { index as usersIndex } from '@/routes/admin/users';
+import { index as collectorVerificationsIndex } from '@/routes/admin/collector-verifications';
+import { index as productNegotiationsIndex } from '@/routes/admin/product-negotiations';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -125,6 +127,16 @@ const crmNavItems: NavItem[] = [
     {
         title: 'Negotiations',
         href: negotiationsIndex(),
+        icon: Handshake,
+    },
+    {
+        title: 'Portal Negotiations',
+        href: productNegotiationsIndex(),
+        icon: Handshake,
+    },
+    {
+        title: 'Collector Verifications',
+        href: collectorVerificationsIndex(),
         icon: Handshake,
     },
 ];

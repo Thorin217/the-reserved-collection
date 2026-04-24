@@ -49,6 +49,8 @@ class SaleController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        Inertia::encryptHistory();
+
         return Inertia::render('finance/sales/index', [
             'sales' => SaleResource::collection($sales),
             'users' => UserResource::collection(User::query()->orderBy('name')->get()),

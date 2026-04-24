@@ -101,6 +101,8 @@ class AccountReceivableController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        Inertia::encryptHistory();
+
         return Inertia::render('finance/receivables/index', [
             'receivables' => AccountReceivableResource::collection($receivables),
             'metrics' => [

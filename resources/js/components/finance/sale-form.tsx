@@ -1,6 +1,6 @@
 import { Link, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -144,7 +144,7 @@ export default function SaleForm({
         sold_at: initialSale?.sold_at?.slice(0, 10) ?? '',
         tax_total: initialSale?.tax_total ?? '0',
         discount_total: initialSale?.discount_total ?? '0',
-        balance_due: initialSale?.balance_due ?? '0',
+        balance_due: initialSale?.balance_due ?? '',
         notes: initialSale?.notes ?? '',
         items: (initialSale?.items ?? []).map((item) => {
             const option = item.product_variant_id
@@ -179,6 +179,14 @@ export default function SaleForm({
 
         return Math.max(0, subtotal + taxTotal - discountTotal);
     }, [form.data.discount_total, form.data.tax_total, subtotal]);
+
+    // Keep balance_due in sync with total when it hasn't been manually set
+    useEffect(() => {
+        if (form.data.balance_due === '' || form.data.balance_due === String(total)) {
+            form.setData('balance_due', String(total));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [total]);
 
     function addItem() {
         form.setData('items', [
@@ -532,7 +540,11 @@ export default function SaleForm({
                                     step="0.01"
                                     value={form.data.balance_due}
                                     onChange={(event) => form.setData('balance_due', event.target.value)}
+                                    placeholder={String(total)}
                                 />
+                                <p className="text-[11px] text-muted-foreground">
+                                    Amount still owed. Set to 0 if paid in full at point of sale.
+                                </p>
                                 <InputError message={form.errors.balance_due} />
                             </div>
 

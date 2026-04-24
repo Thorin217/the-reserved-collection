@@ -1,13 +1,15 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     AlertCircle,
+    BadgeCheck,
     Gavel,
     CheckCircle,
     Clock,
     CreditCard,
     Heart,
     LogOut,
+    MessageSquare,
     Package,
     Pencil,
     Plus,
@@ -16,14 +18,18 @@ import {
     Trash2,
     User,
     Wallet,
+    X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import PortalLayout from '@/layouts/portal-layout';
 import { cart, catalog, myCollection, wishlist } from '@/routes/portal';
+import { show as negotiationShow } from '@/routes/portal/negotiations';
 import { index as ordersIndex } from '@/routes/portal/orders';
 import { auctions as profileAuctions } from '@/routes/portal/profile';
-import type { Auth } from '@/types';
+import { store as storeVerification } from '@/actions/App/Http/Controllers/Portal/CollectorVerificationController';
+import { formatCurrency } from '@/lib/currency';
+import type { Auth, CollectorVerificationRequest, ProductNegotiation } from '@/types';
 
 type PaymentMethod = {
     id: string;
@@ -102,12 +108,213 @@ function PaymentMethodRow({ method, onSetDefault, onRemove }: { method: PaymentM
     );
 }
 
+const NEGOTIATION_STATUS: Record<string, { label: string; color: string }> = {
+    pending: { label: 'Pending Review', color: 'text-gold' },
+    active: { label: 'In Negotiation', color: 'text-blue-400' },
+    agreed: { label: 'Agreed', color: 'text-green-500' },
+    rejected: { label: 'Declined', color: 'text-destructive' },
+    cancelled: { label: 'Cancelled', color: 'text-muted-foreground' },
+};
+
+function CollectorStatusCard({
+    user,
+    verification,
+}: {
+    user: Auth['user'];
+    verification: CollectorVerificationRequest | null;
+}) {
+    const [showForm, setShowForm] = useState(false);
+    const [message, setMessage] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    function submitRequest() {
+        setSubmitting(true);
+        router.post(storeVerification.url(), { message }, {
+            preserveScroll: true,
+            onSuccess: () => { setShowForm(false); setMessage(''); },
+            onFinish: () => setSubmitting(false),
+        });
+    }
+
+    if (user.is_collector_verified) {
+        return (
+            <div className="bg-card border border-gold/30 p-4 mb-3 flex items-center gap-3">
+                <BadgeCheck className="w-4 h-4 text-gold shrink-0" strokeWidth={1.5} />
+                <div className="flex-1">
+                    <h3 className="font-display text-sm text-foreground">Verified Collector</h3>
+                    <p className="text-[9px] text-muted-foreground font-body">
+                        You have access to live price negotiations on all pieces.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    if (verification?.status === 'pending') {
+        return (
+            <div className="bg-card border border-border p-4 mb-3 flex items-center gap-3">
+                <Clock className="w-4 h-4 text-gold shrink-0" strokeWidth={1.5} />
+                <div className="flex-1">
+                    <h3 className="font-display text-sm text-foreground">Verification Pending</h3>
+                    <p className="text-[9px] text-muted-foreground font-body">
+                        Your collector request is under review. We'll notify you within 24 hours.
+                    </p>
+                    <p className="text-[8px] text-muted-foreground/60 font-body mt-0.5">
+                        Submitted {new Date(verification.created_at).toLocaleDateString()}
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    if (verification?.status === 'rejected') {
+        return (
+            <div className="bg-card border border-border p-4 mb-3">
+                <div className="flex items-center gap-3 mb-2">
+                    <X className="w-4 h-4 text-destructive shrink-0" strokeWidth={1.5} />
+                    <div>
+                        <h3 className="font-display text-sm text-foreground">Verification Not Approved</h3>
+                        {verification.admin_notes && (
+                            <p className="text-[9px] text-muted-foreground font-body">{verification.admin_notes}</p>
+                        )}
+                    </div>
+                </div>
+                {!showForm ? (
+                    <button
+                        onClick={() => setShowForm(true)}
+                        className="text-[9px] text-gold font-body tracking-wider hover:text-gold-light transition-colors"
+                    >
+                        Submit a new request
+                    </button>
+                ) : (
+                    <div className="space-y-2 mt-2">
+                        <textarea
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            placeholder="Tell us more about your collection..."
+                            rows={3}
+                            className="w-full resize-none border border-border bg-background px-3 py-2 font-body text-xs text-foreground focus:border-gold focus:outline-none"
+                        />
+                        <div className="flex gap-2">
+                            <button
+                                onClick={submitRequest}
+                                disabled={submitting}
+                                className="flex-1 bg-gold py-1.5 font-body text-[9px] tracking-[0.15em] text-accent-foreground uppercase hover:bg-gold-dark disabled:opacity-60"
+                            >
+                                {submitting ? 'Submitting…' : 'Submit'}
+                            </button>
+                            <button
+                                onClick={() => setShowForm(false)}
+                                className="px-3 py-1.5 border border-border font-body text-[9px] text-muted-foreground hover:border-foreground/25"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-card border border-border p-4 mb-3">
+            <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-3">
+                    <BadgeCheck className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
+                    <h3 className="font-display text-sm text-foreground">Collector Access</h3>
+                </div>
+                {!showForm && (
+                    <button
+                        onClick={() => setShowForm(true)}
+                        className="text-[9px] text-gold font-body tracking-wider hover:text-gold-light transition-colors"
+                    >
+                        Request
+                    </button>
+                )}
+            </div>
+            <p className="text-[9px] text-muted-foreground font-body pl-7">
+                Verified collectors can negotiate prices directly with our specialists.
+            </p>
+            {showForm && (
+                <div className="space-y-2 mt-3">
+                    <textarea
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="Describe your collecting experience..."
+                        rows={3}
+                        className="w-full resize-none border border-border bg-background px-3 py-2 font-body text-xs text-foreground focus:border-gold focus:outline-none"
+                    />
+                    <div className="flex gap-2">
+                        <button
+                            onClick={submitRequest}
+                            disabled={submitting}
+                            className="flex-1 bg-gold py-1.5 font-body text-[9px] tracking-[0.15em] text-accent-foreground uppercase hover:bg-gold-dark disabled:opacity-60"
+                        >
+                            {submitting ? 'Submitting…' : 'Submit Request'}
+                        </button>
+                        <button
+                            onClick={() => setShowForm(false)}
+                            className="px-3 py-1.5 border border-border font-body text-[9px] text-muted-foreground hover:border-foreground/25"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function NegotiationsCard({ negotiations }: { negotiations: ProductNegotiation[] }) {
+    return (
+        <div className="bg-card border border-border p-4 mb-3">
+            <div className="flex items-center gap-2 mb-3">
+                <MessageSquare className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
+                <h3 className="font-display text-sm text-foreground">My Negotiations</h3>
+            </div>
+            <div className="space-y-2">
+                {negotiations.map((neg) => {
+                    const st = NEGOTIATION_STATUS[neg.status] ?? NEGOTIATION_STATUS.pending;
+                    return (
+                        <Link
+                            key={neg.id}
+                            href={negotiationShow.url(neg)}
+                            className="flex items-center justify-between p-2.5 border border-border hover:border-gold/25 transition-all group"
+                        >
+                            <div className="flex-1 min-w-0">
+                                {neg.product?.brand && (
+                                    <p className="text-[8px] text-muted-foreground/60 font-body tracking-wider uppercase">{neg.product.brand.name}</p>
+                                )}
+                                <p className="text-[10px] text-foreground font-body truncate group-hover:text-gold transition-colors">
+                                    {neg.product?.name ?? `Negotiation #${neg.id}`}
+                                </p>
+                            </div>
+                            <span className={`ml-3 shrink-0 font-body text-[8px] tracking-wider uppercase ${st.color}`}>
+                                {st.label}
+                            </span>
+                        </Link>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 export default function PortalProfile() {
-    const { auth, cartCount = 0, wishlistCount = 0, auctionParticipationCount = 0 } = usePage<{
+    const {
+        auth,
+        cartCount = 0,
+        wishlistCount = 0,
+        auctionParticipationCount = 0,
+        collectorVerification = null,
+        negotiations = { data: [] },
+    } = usePage<{
         auth: Auth;
         cartCount: number;
         wishlistCount: number;
         auctionParticipationCount: number;
+        collectorVerification: { data: CollectorVerificationRequest } | null;
+        negotiations: { data: ProductNegotiation[] };
     }>().props;
     const user = auth?.user;
     const [showAddPayment, setShowAddPayment] = useState(false);
@@ -203,6 +410,17 @@ export default function PortalProfile() {
                         </div>
                     </div>
                 </div>
+
+                {/* Collector Status */}
+                <CollectorStatusCard
+                    user={auth.user}
+                    verification={collectorVerification?.data ?? null}
+                />
+
+                {/* My Negotiations */}
+                {negotiations.data.length > 0 && (
+                    <NegotiationsCard negotiations={negotiations.data} />
+                )}
 
                 {/* Security */}
                 <div className="bg-card border border-border p-4 mb-3 flex items-center justify-between">

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Portal;
 use App\Enums\AuctionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AuctionResource;
+use App\Http\Resources\ProductNegotiationResource;
 use App\Models\Auction;
+use App\Models\ProductNegotiation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -42,10 +44,35 @@ class AuctionController extends Controller
                 ->find($selectedAuctionSummary->id)
             : null;
 
+        $isNegotiationView = $request->input('view') === 'negotiation' && $request->user();
+
+        $negotiations = $isNegotiationView
+            ? ProductNegotiationResource::collection(
+                ProductNegotiation::query()
+                    ->where('user_id', $request->user()->id)
+                    ->with('product.brand')
+                    ->withCount('messages')
+                    ->latest()
+                    ->get()
+            )
+            : null;
+
+        $selectedNegotiationId = $request->integer('negotiation');
+        $selectedNegotiation = $isNegotiationView && $selectedNegotiationId > 0
+            ? ProductNegotiationResource::make(
+                ProductNegotiation::query()
+                    ->where('user_id', $request->user()->id)
+                    ->with(['product.brand', 'messages.user'])
+                    ->findOrFail($selectedNegotiationId)
+            )
+            : null;
+
         return Inertia::render('portal/auction-house', [
             'auctions' => AuctionResource::collection($auctions),
             'selected_auction' => $selectedAuction ? AuctionResource::make($selectedAuction) : null,
-            'filters' => $request->only(['status', 'auction', 'view']),
+            'filters' => $request->only(['status', 'auction', 'view', 'negotiation']),
+            'negotiations' => $negotiations,
+            'selected_negotiation' => $selectedNegotiation,
         ]);
     }
 

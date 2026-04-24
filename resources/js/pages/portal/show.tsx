@@ -1,15 +1,15 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, CheckCircle2, HandshakeIcon, Heart, Package, Share2, Shield, ShieldCheck, X, ZoomIn } from 'lucide-react';
+import { AlertCircle, ArrowLeft, BadgeCheck, CheckCircle2, Clock, HandshakeIcon, Heart, Package, Share2, Shield, ShieldCheck, X, ZoomIn } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import * as CartController from '@/actions/App/Http/Controllers/Portal/CartController';
 import * as WishlistController from '@/actions/App/Http/Controllers/Portal/WishlistController';
+import { store as storeVerification } from '@/actions/App/Http/Controllers/Portal/CollectorVerificationController';
+import { store as storeNegotiation } from '@/routes/portal/product-negotiations';
 import { formatCurrency } from '@/lib/currency';
 import PortalLayout from '@/layouts/portal-layout';
-import { catalog } from '@/routes/portal';
-
-// WhatsApp business number (digits only, with country code)
-const WHATSAPP_NUMBER = '56900000000';
+import { auctionHouse, catalog } from '@/routes/portal';
+import type { Auth } from '@/types';
 
 type Variant = {
     id: number;
@@ -37,130 +37,281 @@ type PortalProduct = {
     attribute_values?: Array<{ label: string; value: string | null; sort_order: number }>;
 };
 
+type ActiveNegotiation = {
+    id: number;
+    status: 'pending' | 'active';
+    initial_offer: string | null;
+    created_at: string;
+};
+
 type Props = {
     product: PortalProduct;
     inWishlist: boolean;
     related: PortalProduct[];
+    collectorStatus: 'verified' | 'pending' | 'approved' | 'rejected' | 'none' | null;
+    activeNegotiation: ActiveNegotiation | null;
 };
 
 function formatPrice(price: string | null): string {
-    if (!price) {
-        return 'Price on request';
-    }
-
+    if (!price) return 'Price on request';
     return formatCurrency(price);
 }
 
-function formatProductType(type: string | null | undefined): string {
-    if (!type) {
-        return 'Standard';
-    }
-    switch (type) {
-        case 'serializable':
-            return 'Serializable';
-        case 'simple':
-            return 'Standard';
-        default:
-            return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    }
-}
 
-// ─── Negotiation Dialog ───────────────────────────────────────────────────────
+// ─── Verification Request Dialog ─────────────────────────────────────────────
 
-type NegotiationDialogProps = {
-    product: PortalProduct;
+type VerificationDialogProps = {
     onClose: () => void;
 };
 
-function NegotiationDialog({ product, onClose }: NegotiationDialogProps) {
-    const [submitted, setSubmitted] = useState(false);
+function VerificationDialog({ onClose }: VerificationDialogProps) {
     const [message, setMessage] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     function handleSubmit() {
-        const text = encodeURIComponent(
-            `Hi, I'm interested in negotiating the price for: ${product.brand?.name ? `${product.brand.name} — ` : ''}${product.name} (Ref. ${product.sku})${message ? `\n\n${message}` : ''}`,
+        setSubmitting(true);
+        router.post(
+            storeVerification.url(),
+            { message },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success('Verification request submitted');
+                    onClose();
+                },
+                onError: () => setSubmitting(false),
+                onFinish: () => setSubmitting(false),
+            },
         );
-        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank', 'noopener,noreferrer');
-        setSubmitted(true);
     }
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div
-                className="mx-4 w-full max-w-md border border-border bg-card p-6"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Header */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={onClose}>
+            <div className="mx-4 w-full max-w-md border border-border bg-card p-6" onClick={(e) => e.stopPropagation()}>
                 <div className="mb-5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <HandshakeIcon className="h-4 w-4 text-gold" />
-                        <h3 className="font-display text-lg text-foreground">Live Negotiation</h3>
+                        <BadgeCheck className="h-4 w-4 text-gold" />
+                        <h3 className="font-display text-lg text-foreground">Request Collector Access</h3>
                     </div>
                     <button onClick={onClose} className="text-muted-foreground transition-colors hover:text-foreground">
                         <X className="h-4 w-4" />
                     </button>
                 </div>
 
-                {submitted ? (
-                    <div className="py-4 text-center">
-                        <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-gold" />
-                        <p className="mb-1 font-body text-sm text-foreground">Request Sent</p>
-                        <p className="font-body text-[10px] text-muted-foreground">
-                            Our team will reach out to discuss this piece with you shortly.
-                        </p>
+                <div className="mb-4 border border-border bg-secondary/50 p-3">
+                    <div className="mb-1 flex items-center gap-2">
+                        <Shield className="h-3 w-3 text-gold" />
+                        <p className="font-body text-[9px] tracking-[0.2em] text-gold uppercase">Verified Collector Program</p>
                     </div>
-                ) : (
-                    <div>
-                        {/* Trust note */}
-                        <div className="mb-4 border border-border bg-secondary/50 p-3">
-                            <div className="mb-1 flex items-center gap-2">
-                                <Shield className="h-3 w-3 text-gold" />
-                                <p className="font-body text-[9px] tracking-[0.2em] text-gold uppercase">Concierge Service</p>
-                            </div>
-                            <p className="font-body text-[10px] leading-relaxed text-muted-foreground">
-                                Our specialists handle every negotiation personally. Submit your interest and we'll connect within 24 hours.
-                            </p>
-                        </div>
+                    <p className="font-body text-[10px] leading-relaxed text-muted-foreground">
+                        Live price negotiation is available to verified collectors. Our team will review your request within 24 hours.
+                    </p>
+                </div>
 
-                        {/* Piece info */}
-                        <div className="mb-3">
-                            <p className="mb-1 font-body text-[9px] tracking-wider text-muted-foreground uppercase">Requesting for</p>
-                            <p className="font-body text-xs text-foreground">
-                                {product.brand?.name ? `${product.brand.name} — ` : ''}
-                                {product.name}
-                            </p>
-                            <p className="font-body text-[10px] text-muted-foreground">Ref. {product.sku}</p>
-                        </div>
+                <div className="mb-3">
+                    <label className="mb-1.5 block font-body text-[9px] tracking-wider text-muted-foreground uppercase">
+                        Tell us about your collection (optional)
+                    </label>
+                    <textarea
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="Describe your collecting experience, areas of interest..."
+                        rows={4}
+                        className="w-full resize-none border border-border bg-background px-3 py-2 font-body text-xs text-foreground transition-colors focus:border-gold focus:outline-none"
+                    />
+                </div>
 
-                        {/* Message */}
-                        <textarea
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            placeholder="Tell us your offer or any questions about this piece..."
-                            rows={3}
-                            className="mb-4 w-full resize-none border border-border bg-background px-3 py-2 font-body text-xs text-foreground transition-colors focus:border-gold focus:outline-none"
-                        />
-
-                        <button
-                            onClick={handleSubmit}
-                            className="w-full bg-gold py-2.5 font-body text-[10px] font-medium tracking-[0.15em] text-accent-foreground uppercase transition-colors hover:bg-gold-dark"
-                        >
-                            Send via WhatsApp
-                        </button>
-                    </div>
-                )}
+                <button
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="w-full bg-gold py-2.5 font-body text-[10px] font-medium tracking-[0.15em] text-accent-foreground uppercase transition-colors hover:bg-gold-dark disabled:opacity-60"
+                >
+                    {submitting ? 'Submitting…' : 'Submit Request'}
+                </button>
             </div>
         </div>
     );
 }
 
+// ─── Negotiation Dialog ───────────────────────────────────────────────────────
+
+type NegotiationDialogProps = {
+    product: PortalProduct;
+    selectedVariant: Variant | null;
+    onClose: () => void;
+};
+
+function NegotiationDialog({ product, selectedVariant, onClose }: NegotiationDialogProps) {
+    const [offer, setOffer] = useState('');
+    const [message, setMessage] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    function handleSubmit() {
+        if (!offer) return;
+        setSubmitting(true);
+        router.post(
+            storeNegotiation.url(product),
+            {
+                initial_offer: offer,
+                message,
+                product_variant_id: selectedVariant?.id ?? null,
+            },
+            {
+                preserveScroll: true,
+                onError: () => setSubmitting(false),
+                onFinish: () => setSubmitting(false),
+            },
+        );
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={onClose}>
+            <div className="mx-4 w-full max-w-md border border-border bg-card p-6" onClick={(e) => e.stopPropagation()}>
+                <div className="mb-5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <BadgeCheck className="h-4 w-4 text-gold" />
+                        <h3 className="font-display text-lg text-foreground">Make an Offer</h3>
+                    </div>
+                    <button onClick={onClose} className="text-muted-foreground transition-colors hover:text-foreground">
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                <div className="mb-4">
+                    <p className="mb-0.5 font-body text-[9px] tracking-wider text-muted-foreground uppercase">Negotiating for</p>
+                    <p className="font-body text-xs text-foreground">
+                        {product.brand?.name ? `${product.brand.name} — ` : ''}
+                        {product.name}
+                    </p>
+                    <p className="font-body text-[10px] text-muted-foreground">Ref. {product.sku}</p>
+                </div>
+
+                <div className="mb-3">
+                    <label className="mb-1.5 block font-body text-[9px] tracking-wider text-muted-foreground uppercase">
+                        Your offer *
+                    </label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        value={offer}
+                        onChange={(e) => setOffer(e.target.value)}
+                        placeholder="Enter your offer amount..."
+                        className="w-full border border-border bg-background px-3 py-2 font-body text-sm text-foreground transition-colors focus:border-gold focus:outline-none"
+                    />
+                </div>
+
+                <div className="mb-4">
+                    <label className="mb-1.5 block font-body text-[9px] tracking-wider text-muted-foreground uppercase">
+                        Message (optional)
+                    </label>
+                    <textarea
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="Add any context or questions..."
+                        rows={3}
+                        className="w-full resize-none border border-border bg-background px-3 py-2 font-body text-xs text-foreground transition-colors focus:border-gold focus:outline-none"
+                    />
+                </div>
+
+                <button
+                    onClick={handleSubmit}
+                    disabled={submitting || !offer}
+                    className="w-full bg-gold py-2.5 font-body text-[10px] font-medium tracking-[0.15em] text-accent-foreground uppercase transition-colors hover:bg-gold-dark disabled:opacity-60"
+                >
+                    {submitting ? 'Submitting…' : 'Submit Offer'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── Negotiate Button ─────────────────────────────────────────────────────────
+
+type NegotiateButtonProps = {
+    isAuth: boolean;
+    collectorStatus: Props['collectorStatus'];
+    activeNegotiation: ActiveNegotiation | null;
+    product: PortalProduct;
+    selectedVariant: Variant | null;
+};
+
+function NegotiateButton({ isAuth, collectorStatus, activeNegotiation, product, selectedVariant }: NegotiateButtonProps) {
+    const [showVerification, setShowVerification] = useState(false);
+    const [showNegotiation, setShowNegotiation] = useState(false);
+
+    function handleClick() {
+        if (!isAuth) {
+            router.visit('/login');
+            return;
+        }
+
+        if (collectorStatus === 'verified') {
+            if (activeNegotiation) return; // handled inline
+            setShowNegotiation(true);
+            return;
+        }
+
+        if (collectorStatus === 'pending') return; // handled inline
+        setShowVerification(true);
+    }
+
+    if (collectorStatus === 'pending') {
+        return (
+            <div className="relative group">
+                <button
+                    className="flex h-full w-12 cursor-not-allowed items-center justify-center border border-border text-muted-foreground/40"
+                    title="Verification pending"
+                    aria-label="Verification pending"
+                >
+                    <HandshakeIcon className="h-4 w-4" strokeWidth={1.5} />
+                </button>
+                <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap border border-border bg-card px-2 py-1 font-body text-[9px] text-foreground opacity-0 transition-opacity group-hover:opacity-100">
+                    Verification pending
+                </span>
+            </div>
+        );
+    }
+
+    if (collectorStatus === 'verified' && activeNegotiation) {
+        return (
+            <Link
+                href={auctionHouse({ query: { view: 'negotiation', negotiation: activeNegotiation.id } }).url}
+                className="flex w-12 items-center justify-center border border-gold/50 text-gold"
+                title="View active negotiation"
+                aria-label="View active negotiation"
+            >
+                <HandshakeIcon className="h-4 w-4" strokeWidth={1.5} />
+            </Link>
+        );
+    }
+
+    return (
+        <>
+            <button
+                onClick={handleClick}
+                className="flex w-12 items-center justify-center border border-border text-muted-foreground transition-all hover:border-gold hover:text-gold"
+                title={collectorStatus === 'verified' ? 'Make an offer' : 'Request collector access'}
+                aria-label={collectorStatus === 'verified' ? 'Make an offer' : 'Request collector access'}
+            >
+                <HandshakeIcon className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+
+            {showVerification && <VerificationDialog onClose={() => setShowVerification(false)} />}
+            {showNegotiation && (
+                <NegotiationDialog
+                    product={product}
+                    selectedVariant={selectedVariant}
+                    onClose={() => setShowNegotiation(false)}
+                />
+            )}
+        </>
+    );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function ProductShow({ product, inWishlist: initialWishlist, related }: Props) {
-    const { auth } = usePage<{ auth: { user: unknown } }>().props;
+export default function ProductShow({ product, inWishlist: initialWishlist, related, collectorStatus, activeNegotiation }: Props) {
+    const { auth } = usePage<{ auth: Auth }>().props;
     const isAuth = !!auth?.user;
 
     const [wishlistState, setWishlistState] = useState(initialWishlist);
@@ -168,18 +319,13 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
         product.variants?.find((v) => v.is_active) ?? null,
     );
     const [addingToCart, setAddingToCart] = useState(false);
-    const [showNegotiation, setShowNegotiation] = useState(false);
     const [shareTooltip, setShareTooltip] = useState(false);
     const [lightboxOpen, setLightboxOpen] = useState(false);
 
     useEffect(() => {
-        if (!lightboxOpen) {
-            return;
-        }
+        if (!lightboxOpen) return;
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                setLightboxOpen(false);
-            }
+            if (e.key === 'Escape') setLightboxOpen(false);
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
@@ -196,10 +342,7 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
     const backHref = product.category?.slug ? catalog({ query: { category_slug: product.category.slug } }) : catalog();
 
     function toggleWishlist() {
-        if (!isAuth) {
-            router.visit('/login');
-            return;
-        }
+        if (!isAuth) { router.visit('/login'); return; }
         router.post(
             WishlistController.toggle.url({ product: product.id }),
             {},
@@ -208,24 +351,15 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
     }
 
     function addToCart() {
-        if (!selectedVariant) {
-            return;
-        }
-        if (!isAuth) {
-            router.visit('/login');
-            return;
-        }
+        if (!selectedVariant) return;
+        if (!isAuth) { router.visit('/login'); return; }
         setAddingToCart(true);
         router.post(
             CartController.store.url(),
             { product_variant_id: selectedVariant.id, quantity: 1 },
             {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.success('Added to cart', {
-                        description: product.name,
-                    });
-                },
+                onSuccess: () => { toast.success('Added to cart', { description: product.name }); },
                 onFinish: () => setAddingToCart(false),
             },
         );
@@ -320,9 +454,7 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
                             {/* Variant selector */}
                             {product.variants && product.variants.filter((v) => v.is_active).length > 1 && (
                                 <div className="mb-6">
-                                    <p className="mb-2 font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">
-                                        Options
-                                    </p>
+                                    <p className="mb-2 font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">Options</p>
                                     <div className="flex flex-wrap gap-2">
                                         {product.variants
                                             .filter((v) => v.is_active)
@@ -341,7 +473,7 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
                             )}
 
                             {/* Actions */}
-                            <div className="mb-8 flex gap-3">
+                            <div className="mb-6 flex gap-3">
                                 {selectedVariant ? (
                                     <button
                                         onClick={addToCart}
@@ -385,15 +517,55 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
                                 </div>
 
                                 {/* Negotiate */}
-                                <button
-                                    onClick={() => setShowNegotiation(true)}
-                                    className="flex w-12 items-center justify-center border border-border text-muted-foreground transition-all hover:border-gold hover:text-gold"
-                                    title="Request Live Negotiation"
-                                    aria-label="Request live negotiation"
-                                >
-                                    <HandshakeIcon className="h-4 w-4" strokeWidth={1.5} />
-                                </button>
+                                <NegotiateButton
+                                    isAuth={isAuth}
+                                    collectorStatus={collectorStatus}
+                                    activeNegotiation={activeNegotiation}
+                                    product={product}
+                                    selectedVariant={selectedVariant}
+                                />
                             </div>
+
+                            {/* Collector status notice */}
+                            {isAuth && collectorStatus === 'pending' && (
+                                <div className="mb-6 flex items-start gap-2 border border-gold/20 bg-gold/5 px-3 py-2">
+                                    <Clock className="mt-0.5 h-3 w-3 shrink-0 text-gold" strokeWidth={1.5} />
+                                    <p className="font-body text-[10px] leading-relaxed text-foreground/70">
+                                        Your collector verification request is under review. You'll be notified once approved.
+                                    </p>
+                                </div>
+                            )}
+
+                            {isAuth && collectorStatus === 'rejected' && (
+                                <div className="mb-6 flex items-start gap-2 border border-destructive/20 bg-destructive/5 px-3 py-2">
+                                    <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-destructive" strokeWidth={1.5} />
+                                    <p className="font-body text-[10px] leading-relaxed text-foreground/70">
+                                        Your previous collector request was not approved. You may submit a new request via the{' '}
+                                        <button
+                                            onClick={() => {}}
+                                            className="text-gold underline-offset-2 hover:underline"
+                                        >
+                                            negotiate button
+                                        </button>.
+                                    </p>
+                                </div>
+                            )}
+
+                            {isAuth && collectorStatus === 'verified' && activeNegotiation && (
+                                <div className="mb-6 flex items-start gap-2 border border-gold/20 bg-gold/5 px-3 py-2">
+                                    <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-gold" strokeWidth={1.5} />
+                                    <p className="font-body text-[10px] leading-relaxed text-foreground/70">
+                                        You have an{' '}
+                                        <Link
+                                            href={auctionHouse({ query: { view: 'negotiation', negotiation: activeNegotiation.id } }).url}
+                                            className="text-gold underline-offset-2 hover:underline"
+                                        >
+                                            active negotiation
+                                        </Link>{' '}
+                                        for this product.
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Trust line */}
                             <div className="mb-8 flex items-center gap-2 font-body text-[10px] text-muted-foreground">
@@ -404,9 +576,7 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
                             {/* Specs table */}
                             <div className="border border-border">
                                 <div className="border-b border-border p-4">
-                                    <p className="font-body text-[9px] font-medium tracking-[0.2em] text-gold uppercase">
-                                        Specifications
-                                    </p>
+                                    <p className="font-body text-[9px] font-medium tracking-[0.2em] text-gold uppercase">Specifications</p>
                                 </div>
                                 {specs.map((s, i) => (
                                     <div
@@ -480,9 +650,6 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
                 </div>
             </div>
 
-            {/* Negotiation Dialog */}
-            {showNegotiation && <NegotiationDialog product={product} onClose={() => setShowNegotiation(false)} />}
-
             {/* Lightbox */}
             {lightboxOpen && product.image_url && (
                 <div
@@ -508,4 +675,3 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
 }
 
 ProductShow.layout = (page: React.ReactNode) => <PortalLayout>{page}</PortalLayout>;
-

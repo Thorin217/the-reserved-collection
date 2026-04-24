@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ClientController;
+use App\Http\Controllers\Admin\CollectorVerificationController;
 use App\Http\Controllers\Admin\ImportHistoryController;
 use App\Http\Controllers\Admin\InventoryAdjustmentController;
 use App\Http\Controllers\Admin\InventoryMovementController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Admin\LeadProposalController;
 use App\Http\Controllers\Admin\NegotiationController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProductImportController;
+use App\Http\Controllers\Admin\ProductNegotiationController;
 use App\Http\Controllers\Admin\ProductPriceUpdateController;
 use App\Http\Controllers\Admin\ProductSerialController;
 use App\Http\Controllers\Admin\PurchaseController;
@@ -214,6 +216,21 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     Route::prefix('users')->name('users.')->group(function () {
         Route::get('/', [UserController::class, 'index'])->name('index');
         Route::put('{user}', [UserController::class, 'update'])->name('update');
+    });
+
+    // Collector Verifications
+    Route::prefix('collector-verifications')->name('collector-verifications.')->group(function () {
+        Route::get('/', [CollectorVerificationController::class, 'index'])->name('index');
+        Route::post('{collectorVerification}/approve', [CollectorVerificationController::class, 'approve'])->name('approve');
+        Route::post('{collectorVerification}/reject', [CollectorVerificationController::class, 'reject'])->name('reject');
+    });
+
+    // Portal Product Negotiations
+    Route::prefix('product-negotiations')->name('product-negotiations.')->group(function () {
+        Route::get('/', [ProductNegotiationController::class, 'index'])->name('index');
+        Route::get('{productNegotiation}', [ProductNegotiationController::class, 'show'])->name('show');
+        Route::put('{productNegotiation}', [ProductNegotiationController::class, 'update'])->name('update');
+        Route::post('{productNegotiation}/messages', [ProductNegotiationController::class, 'storeMessage'])->name('messages.store');
     });
 
     Route::prefix('leads')->name('leads.')->group(function () {

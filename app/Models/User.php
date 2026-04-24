@@ -16,7 +16,7 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'is_collector_verified'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements HasMedia
 {
@@ -34,6 +34,7 @@ class User extends Authenticatable implements HasMedia
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'is_collector_verified' => 'boolean',
         ];
     }
 
@@ -45,6 +46,21 @@ class User extends Authenticatable implements HasMedia
     public function imports(): HasMany
     {
         return $this->hasMany(Import::class);
+    }
+
+    public function collectorVerificationRequests(): HasMany
+    {
+        return $this->hasMany(CollectorVerificationRequest::class);
+    }
+
+    public function productNegotiations(): HasMany
+    {
+        return $this->hasMany(ProductNegotiation::class);
+    }
+
+    public function pendingCollectorVerification(): HasOne
+    {
+        return $this->hasOne(CollectorVerificationRequest::class)->where('status', 'pending')->latestOfMany();
     }
 
     public function registerMediaCollections(): void

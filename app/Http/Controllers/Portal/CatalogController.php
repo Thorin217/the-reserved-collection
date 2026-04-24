@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Enums\ProductNegotiationStatus;
 use App\Enums\ProductStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Portal\PortalProductResource;
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\CollectorVerificationRequest;
 use App\Models\Product;
+use App\Models\ProductNegotiation;
 use App\Models\Wishlist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -88,10 +91,41 @@ class CatalogController extends Controller
 
         $product->load(['brand', 'category', 'attributeValues.attribute', 'variants' => fn ($q) => $q->where('is_active', true)->orderBy('price')]);
 
-        $userId = request()->user()?->id;
+        $user = request()->user();
+        $userId = $user?->id;
+
         $inWishlist = $userId
             ? Wishlist::where('user_id', $userId)->where('product_id', $product->id)->exists()
             : false;
+
+        $collectorStatus = null;
+        $activeNegotiation = null;
+
+        if ($userId) {
+            if ($user->is_collector_verified) {
+                $collectorStatus = 'verified';
+
+                $openNegotiation = ProductNegotiation::where('user_id', $userId)
+                    ->where('product_id', $product->id)
+                    ->whereIn('status', [ProductNegotiationStatus::Pending, ProductNegotiationStatus::Active])
+                    ->first(['id', 'status', 'initial_offer', 'created_at']);
+
+                if ($openNegotiation) {
+                    $activeNegotiation = [
+                        'id' => $openNegotiation->id,
+                        'status' => $openNegotiation->status->value,
+                        'initial_offer' => $openNegotiation->initial_offer,
+                        'created_at' => $openNegotiation->created_at,
+                    ];
+                }
+            } else {
+                $latestRequest = CollectorVerificationRequest::where('user_id', $userId)
+                    ->latest()
+                    ->first(['status', 'admin_notes', 'reviewed_at']);
+
+                $collectorStatus = $latestRequest?->status->value ?? 'none';
+            }
+        }
 
         $related = Product::with(['brand', 'variants' => fn ($q) => $q->where('is_active', true)->orderBy('price')])
             ->where('status', 'active')
@@ -104,6 +138,8 @@ class CatalogController extends Controller
             'product' => PortalProductResource::make($product),
             'inWishlist' => $inWishlist,
             'related' => PortalProductResource::collection($related)->resolve(),
+            'collectorStatus' => $collectorStatus,
+            'activeNegotiation' => $activeNegotiation,
         ]);
     }
 

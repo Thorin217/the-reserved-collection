@@ -1,5 +1,5 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight, Clock3, Gavel, MessageSquareText, Radio, ScrollText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, DollarSign, Gavel, HandshakeIcon, MessageSquare, MessageSquareText, Radio, ScrollText, ShieldCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -8,14 +8,17 @@ import { formatCurrency } from '@/lib/currency';
 import { auctionHouse } from '@/routes/portal';
 import { store as storeAuctionBid } from '@/routes/portal/auctions/bids';
 import { show as showAuction } from '@/routes/portal/auctions';
+import { store as storeNegotiationMessage } from '@/routes/portal/negotiations/messages';
 import { auctions as profileAuctions } from '@/routes/portal/profile';
-import type { Auction, Auth } from '@/types';
+import type { Auction, Auth, ProductNegotiation, ProductNegotiationMessage } from '@/types';
 
 type Props = {
     auctions: Auction[];
     selectedAuction: Auction | null;
     mode?: string;
     useAuctionShowLinks?: boolean;
+    negotiations?: ProductNegotiation[] | null;
+    selectedNegotiation?: ProductNegotiation | null;
 };
 
 type RoomTab = 'history' | 'chat' | 'details';
@@ -121,7 +124,206 @@ function participationMessage(auction: Auction): { title: string; body: string; 
     return null;
 }
 
-export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction', useAuctionShowLinks = false }: Props) {
+const NEGOTIATION_STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
+    pending: { label: 'Pending Review', classes: 'border-gold/30 bg-gold/10 text-gold' },
+    active: { label: 'In Negotiation', classes: 'border-blue-500/30 bg-blue-500/10 text-blue-300' },
+    agreed: { label: 'Price Agreed', classes: 'border-green-500/30 bg-green-500/10 text-green-300' },
+    rejected: { label: 'Declined', classes: 'border-white/10 bg-white/5 text-foreground/60' },
+    cancelled: { label: 'Cancelled', classes: 'border-white/10 bg-white/5 text-foreground/60' },
+};
+
+function NegotiationMessageBubble({ msg, currentUserId }: { msg: ProductNegotiationMessage; currentUserId: number }) {
+    const isClient = msg.user_id === currentUserId;
+    const isCounterOffer = msg.type === 'counter_offer';
+    const isOffer = msg.type === 'offer' || msg.type === 'counter_offer';
+
+    return (
+        <div className={`flex gap-3 ${isClient ? 'flex-row-reverse' : ''}`}>
+            <div className={`flex h-7 w-7 shrink-0 items-center justify-center ${isOffer ? (isCounterOffer ? 'bg-gold/20 text-gold' : 'bg-secondary text-foreground/60') : 'bg-secondary text-foreground/40'}`}>
+                {isOffer ? <DollarSign className="h-3 w-3" strokeWidth={1.5} /> : <MessageSquare className="h-3 w-3" strokeWidth={1.5} />}
+            </div>
+            <div className={`max-w-[72%] space-y-1 ${isClient ? 'items-end text-right' : ''}`}>
+                <div className={`flex items-center gap-2 text-[9px] tracking-wider text-muted-foreground uppercase ${isClient ? 'flex-row-reverse' : ''}`}>
+                    <span>{isClient ? 'You' : 'The Reserved'}</span>
+                    <span>·</span>
+                    <span>{new Date(msg.created_at).toLocaleDateString()}</span>
+                </div>
+                <div className={`border px-4 py-3 ${isClient ? 'border-border bg-secondary/50' : isCounterOffer ? 'border-gold/30 bg-gold/5' : 'border-border bg-card'}`}>
+                    {msg.amount && (
+                        <p className={`font-display text-xl ${isCounterOffer ? 'text-gold' : 'text-foreground'}`}>
+                            {formatCurrency(msg.amount)}
+                        </p>
+                    )}
+                    {msg.message && (
+                        <p className="text-sm leading-relaxed text-foreground/80">{msg.message}</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+type NegTabKey = 'transcript' | 'messages' | 'terms';
+
+function NegotiationDetailPanel({ negotiation }: { negotiation: ProductNegotiation }) {
+    const [activeTab, setActiveTab] = useState<NegTabKey>('messages');
+    const { data, setData, post, processing, errors, reset } = useForm({ amount: '', message: '' });
+    const isOpen = negotiation.status === 'pending' || negotiation.status === 'active';
+
+    function submitMessage(e: React.FormEvent) {
+        e.preventDefault();
+        post(storeNegotiationMessage.url(negotiation), { preserveScroll: true, onSuccess: () => reset() });
+    }
+
+    const tabs: { key: NegTabKey; label: string; soon: boolean }[] = [
+        { key: 'transcript', label: 'AI Transcript', soon: true },
+        { key: 'messages', label: 'Messages', soon: false },
+        { key: 'terms', label: 'Terms', soon: true },
+    ];
+
+    return (
+        <div className="flex h-full flex-col">
+            {/* Header */}
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
+                <div>
+                    {negotiation.product?.brand && (
+                        <p className="text-[10px] tracking-[0.2em] text-foreground/40 uppercase">{negotiation.product.brand.name}</p>
+                    )}
+                    <h1 className="font-display text-2xl text-foreground">{negotiation.product?.name ?? `Negotiation #${negotiation.id}`}</h1>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 border border-green-500/30 bg-green-500/10 px-2 py-1 text-[9px] tracking-[0.14em] text-green-400 uppercase">
+                        <ShieldCheck className="h-3 w-3" />
+                        Escrow Protected
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 border border-border bg-secondary/40 px-2 py-1 text-[9px] tracking-[0.14em] text-muted-foreground/50 uppercase">
+                        AI Monitoring — Soon
+                    </span>
+                </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="grid grid-cols-3 border-b border-border">
+                {tabs.map(({ key, label, soon }) => (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => !soon && setActiveTab(key)}
+                        disabled={soon}
+                        className={`flex items-center justify-center gap-1.5 px-3 py-3.5 text-[10px] tracking-[0.18em] uppercase transition-colors disabled:cursor-not-allowed ${
+                            activeTab === key
+                                ? 'border-b border-gold text-gold'
+                                : soon
+                                  ? 'text-foreground/25'
+                                  : 'text-foreground/45 hover:text-foreground/75'
+                        }`}
+                    >
+                        {label}
+                        {soon && <span className="text-[8px] tracking-normal text-muted-foreground/40 normal-case">soon</span>}
+                    </button>
+                ))}
+            </div>
+
+            {/* Tab content */}
+            <div className="min-h-[280px] flex-1 overflow-y-auto px-5 py-4">
+                {activeTab === 'messages' && (
+                    <div className="space-y-4">
+                        {!negotiation.messages || negotiation.messages.length === 0 ? (
+                            <div className="border border-dashed border-border py-10 text-center">
+                                <p className="text-[10px] tracking-wider text-muted-foreground uppercase">Waiting for our team to respond</p>
+                            </div>
+                        ) : (
+                            negotiation.messages.map((msg) => (
+                                <NegotiationMessageBubble key={msg.id} msg={msg} currentUserId={negotiation.user_id} />
+                            ))
+                        )}
+                    </div>
+                )}
+
+                {(activeTab === 'transcript' || activeTab === 'terms') && (
+                    <div className="flex min-h-[280px] items-center justify-center text-center">
+                        <div>
+                            <p className="text-[10px] tracking-[0.22em] text-gold uppercase">Coming Soon</p>
+                            <h2 className="mt-2 font-display text-xl text-foreground">
+                                {activeTab === 'transcript' ? 'AI Transcript' : 'Terms'}
+                            </h2>
+                            <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+                                {activeTab === 'transcript'
+                                    ? 'AI-powered transcription and agreement tracking will be available in a future update.'
+                                    : 'Negotiation terms management will be available in a future update.'}
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Agreed price */}
+            {negotiation.status === 'agreed' && negotiation.final_price && (
+                <div className="flex items-center justify-between border-t border-gold/30 bg-gold/5 px-5 py-3">
+                    <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-gold" strokeWidth={1.5} />
+                        <span className="text-[10px] tracking-wider text-gold uppercase">Agreed Price</span>
+                    </div>
+                    <span className="font-display text-xl text-gold">{formatCurrency(negotiation.final_price)}</span>
+                </div>
+            )}
+
+            {/* Bottom form */}
+            {isOpen && (
+                <div className="border-t border-border bg-black/10 p-4">
+                    {negotiation.initial_offer && (
+                        <p className="mb-3 text-[10px] tracking-[0.18em] text-foreground/40 uppercase">
+                            Asking Price: <span className="text-foreground/70">{formatCurrency(negotiation.initial_offer)}</span>
+                        </p>
+                    )}
+                    <form onSubmit={submitMessage} className="space-y-2">
+                        <div className="flex gap-2">
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={data.amount}
+                                onChange={(e) => setData('amount', e.target.value)}
+                                placeholder="Your offer (optional)..."
+                                className="flex-1 border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-gold focus:outline-none"
+                            />
+                            <button
+                                type="submit"
+                                disabled={processing}
+                                className="bg-gold px-5 py-2 text-[10px] font-medium tracking-[0.15em] text-black uppercase transition-colors hover:bg-gold/90 disabled:opacity-60"
+                            >
+                                {processing ? 'Sending…' : 'Submit Offer'}
+                            </button>
+                        </div>
+                        <input
+                            type="text"
+                            value={data.message}
+                            onChange={(e) => setData('message', e.target.value)}
+                            placeholder="Message (required)..."
+                            className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-gold focus:outline-none"
+                        />
+                        {(errors.amount || errors.message) && (
+                            <p className="text-[10px] text-destructive">{errors.amount ?? errors.message}</p>
+                        )}
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                            {['Accept Terms', 'Decline', 'Pause'].map((label) => (
+                                <button
+                                    key={label}
+                                    type="button"
+                                    disabled
+                                    className="cursor-not-allowed border border-border bg-secondary/20 py-2 text-[9px] tracking-[0.12em] text-foreground/25 uppercase"
+                                >
+                                    {label} — Soon
+                                </button>
+                            ))}
+                        </div>
+                    </form>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction', useAuctionShowLinks = false, negotiations, selectedNegotiation }: Props) {
     const [activeTab, setActiveTab] = useState<RoomTab>('history');
     const [now, setNow] = useState<number | null>(null);
     const [auctionStageView, setAuctionStageView] = useState<AuctionStageView>('live');
@@ -245,12 +447,76 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                 </div>
 
                 {isNegotiationView ? (
-                    <div className="border border-border bg-card/70 px-6 py-12 text-center">
-                        <p className="mb-2 text-[10px] tracking-[0.25em] text-gold uppercase">Coming next</p>
-                        <h1 className="font-display text-3xl text-foreground">Live Negotiation</h1>
-                        <p className="mx-auto mt-4 max-w-2xl text-sm text-muted-foreground">
-                            This space keeps the previous mock route available, but the live negotiation experience will be implemented in a later phase.
-                        </p>
+                    <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
+                        {/* Sessions sidebar */}
+                        <aside className="border border-border bg-card/70">
+                            <div className="border-b border-border px-4 py-4">
+                                <p className="text-[10px] tracking-[0.22em] text-gold uppercase">
+                                    {negotiations ? `${negotiations.length} active session${negotiations.length !== 1 ? 's' : ''}` : 'Active Sessions'}
+                                </p>
+                            </div>
+                            <div className="max-h-[calc(100vh-16rem)] overflow-y-auto">
+                                {negotiations && negotiations.length > 0 ? (
+                                    negotiations.map((neg) => {
+                                        const conf = NEGOTIATION_STATUS_CONFIG[neg.status] ?? NEGOTIATION_STATUS_CONFIG.pending;
+                                        const isSelected = selectedNegotiation?.id === neg.id;
+                                        return (
+                                            <button
+                                                key={neg.id}
+                                                type="button"
+                                                onClick={() => router.visit(
+                                                    auctionHouse({ query: { view: 'negotiation', negotiation: neg.id } }).url,
+                                                    { preserveScroll: true },
+                                                )}
+                                                className={`grid w-full grid-cols-[72px_minmax(0,1fr)] gap-4 border-b border-border/70 px-4 py-4 text-left transition-colors ${isSelected ? 'bg-gold/10' : 'hover:bg-white/3'}`}
+                                            >
+                                                <div className="aspect-square overflow-hidden bg-secondary">
+                                                    {neg.product?.image_url ? (
+                                                        <img src={neg.product.image_url} alt={neg.product?.name} className="h-full w-full object-cover" />
+                                                    ) : (
+                                                        <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">—</div>
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-[10px] tracking-[0.16em] text-foreground/40 uppercase">{neg.product?.brand?.name ?? ''}</p>
+                                                    <h3 className="truncate font-display text-base text-foreground">{neg.product?.name ?? `#${neg.id}`}</h3>
+                                                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                                                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] tracking-[0.12em] uppercase ${conf.classes}`}>
+                                                            {conf.label}
+                                                        </span>
+                                                        {neg.initial_offer && (
+                                                            <span className="text-sm font-medium text-gold">{formatCurrency(neg.initial_offer)}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })
+                                ) : negotiations !== null && negotiations !== undefined ? (
+                                    <div className="px-4 py-8 text-sm text-muted-foreground">You have no active negotiations.</div>
+                                ) : (
+                                    <div className="px-4 py-8 text-sm text-muted-foreground">Sign in to view your negotiations.</div>
+                                )}
+                            </div>
+                        </aside>
+
+                        {/* Detail panel */}
+                        <section className="border border-border bg-card/70">
+                            {selectedNegotiation ? (
+                                <NegotiationDetailPanel key={selectedNegotiation.id} negotiation={selectedNegotiation} />
+                            ) : (
+                                <div className="flex min-h-[540px] items-center justify-center px-6 text-center">
+                                    <div>
+                                        <HandshakeIcon className="mx-auto mb-4 h-10 w-10 text-gold/30" strokeWidth={1} />
+                                        <p className="text-[10px] tracking-[0.25em] text-gold uppercase">Live Negotiation</p>
+                                        <h1 className="mt-2 font-display text-2xl text-foreground">Select a negotiation</h1>
+                                        <p className="mx-auto mt-3 max-w-sm text-sm text-muted-foreground">
+                                            Choose a negotiation from the list to view the offer thread and respond to counter-offers.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </section>
                     </div>
                 ) : (
                     <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">

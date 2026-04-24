@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/currency';
 import PortalLayout from '@/layouts/portal-layout';
 import { auctionHouse } from '@/routes/portal';
-import { show as showMyAuction } from '@/routes/portal/profile';
+import { show as showMyAuction } from '@/routes/portal/profile/auctions';
 import type { Auction, PaginatedData } from '@/types';
 
 type Props = {

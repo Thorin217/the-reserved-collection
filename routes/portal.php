@@ -5,9 +5,11 @@ use App\Http\Controllers\Portal\AuctionController;
 use App\Http\Controllers\Portal\AuctionHouseController;
 use App\Http\Controllers\Portal\CartController;
 use App\Http\Controllers\Portal\CatalogController;
+use App\Http\Controllers\Portal\CollectorVerificationController;
 use App\Http\Controllers\Portal\MyCollectionController;
 use App\Http\Controllers\Portal\OrderController;
 use App\Http\Controllers\Portal\PortalProfileController;
+use App\Http\Controllers\Portal\ProductNegotiationController;
 use App\Http\Controllers\Portal\ProposalPreviewController;
 use App\Http\Controllers\Portal\SearchController;
 use App\Http\Controllers\Portal\WishlistController;
@@ -43,5 +45,13 @@ Route::name('portal.')->group(function () {
 
         Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
         Route::get('orders/{sale}', [OrderController::class, 'show'])->name('orders.show');
+
+        // Collector Verification
+        Route::post('collector-verification', [CollectorVerificationController::class, 'store'])->name('collector-verification.store');
+
+        // Product Negotiations
+        Route::post('products/{product}/negotiations', [ProductNegotiationController::class, 'store'])->name('product-negotiations.store');
+        Route::get('negotiations/{productNegotiation}', [ProductNegotiationController::class, 'show'])->name('negotiations.show');
+        Route::post('negotiations/{productNegotiation}/messages', [ProductNegotiationController::class, 'storeMessage'])->name('negotiations.messages.store');
     });
 });
