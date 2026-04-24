@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Enums\SalePaymentType;
 use App\Enums\SaleStatus;
 use App\Models\Sale;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -31,6 +32,7 @@ class UpdateSaleRequest extends FormRequest
             'negotiation_id' => ['nullable', 'integer', 'exists:negotiations,id'],
             'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
             'status' => ['required', Rule::enum(SaleStatus::class)],
+            'payment_type' => ['required', Rule::enum(SalePaymentType::class)],
             'sold_at' => ['nullable', 'date'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],

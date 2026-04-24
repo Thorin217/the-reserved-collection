@@ -1,6 +1,6 @@
 import { Link, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +34,7 @@ type SaleFormData = {
     client_id: string;
     warehouse_id: string;
     status: 'draft' | 'cancelled';
+    payment_type: 'cash' | 'credit';
     sold_at: string;
     tax_total: string;
     discount_total: string;
@@ -45,6 +46,7 @@ type SaleFormData = {
 type SaleData = {
     id: number;
     status: 'draft' | 'confirmed' | 'cancelled';
+    payment_type: 'cash' | 'credit';
     client_id: number;
     warehouse_id: number | null;
     sold_at: string | null;
@@ -141,6 +143,7 @@ export default function SaleForm({
         client_id: initialSale?.client_id ? String(initialSale.client_id) : '',
         warehouse_id: initialSale?.warehouse_id ? String(initialSale.warehouse_id) : '',
         status: initialSale?.status === 'cancelled' ? 'cancelled' : 'draft',
+        payment_type: initialSale?.payment_type ?? 'credit',
         sold_at: initialSale?.sold_at?.slice(0, 10) ?? '',
         tax_total: initialSale?.tax_total ?? '0',
         discount_total: initialSale?.discount_total ?? '0',
@@ -179,6 +182,17 @@ export default function SaleForm({
 
         return Math.max(0, subtotal + taxTotal - discountTotal);
     }, [form.data.discount_total, form.data.tax_total, subtotal]);
+
+    useEffect(() => {
+        const creditBalanceDue = total.toFixed(2);
+
+        if (
+            form.data.payment_type === 'credit'
+            && form.data.balance_due !== creditBalanceDue
+        ) {
+            form.setData('balance_due', creditBalanceDue);
+        }
+    }, [form.data.balance_due, form.data.payment_type, form.setData, total]);
 
     function addItem() {
         form.setData('items', [
@@ -263,10 +277,11 @@ export default function SaleForm({
             client_id: Number(data.client_id),
             warehouse_id: data.warehouse_id ? Number(data.warehouse_id) : null,
             status: data.status,
+            payment_type: data.payment_type,
             sold_at: data.sold_at || null,
             tax_total: data.tax_total || 0,
             discount_total: data.discount_total || 0,
-            balance_due: data.balance_due || total,
+            balance_due: data.payment_type === 'credit' ? total : (data.balance_due || total),
             notes: data.notes || null,
             items: data.items.map((item) => ({
                 product_variant_id: item.product_variant_id
@@ -361,6 +376,29 @@ export default function SaleForm({
                                     </SelectContent>
                                 </Select>
                                 <InputError message={form.errors.status} />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Payment type *</Label>
+                                <Select
+                                    value={form.data.payment_type}
+                                    onValueChange={(value: 'cash' | 'credit') => {
+                                        form.setData('payment_type', value);
+
+                                        if (value === 'credit') {
+                                            form.setData('balance_due', total.toFixed(2));
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select payment type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="credit">Credit</SelectItem>
+                                        <SelectItem value="cash">Cash</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={form.errors.payment_type} />
                             </div>
 
                             <div className="space-y-2">
@@ -531,9 +569,15 @@ export default function SaleForm({
                                     min="0"
                                     step="0.01"
                                     value={form.data.balance_due}
+                                    disabled={form.data.payment_type === 'credit'}
                                     onChange={(event) => form.setData('balance_due', event.target.value)}
                                 />
                                 <InputError message={form.errors.balance_due} />
+                                {form.data.payment_type === 'credit' && (
+                                    <p className="text-xs text-muted-foreground">
+                                        Credit sales keep the full balance due until payments are recorded.
+                                    </p>
+                                )}
                             </div>
 
                             <div className="space-y-2 rounded-lg border p-3 text-sm">

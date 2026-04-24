@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SalePaymentType;
 use App\Enums\SaleStatus;
 use Database\Factories\SaleFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +25,7 @@ class Sale extends Model
         'sale_number',
         'status',
         'currency',
+        'payment_type',
         'sold_at',
         'subtotal',
         'tax_total',
@@ -41,6 +43,7 @@ class Sale extends Model
         'warehouse_id' => 'integer',
         'user_id' => 'integer',
         'status' => SaleStatus::class,
+        'payment_type' => SalePaymentType::class,
         'sold_at' => 'datetime',
         'subtotal' => 'decimal:2',
         'tax_total' => 'decimal:2',

@@ -2,6 +2,7 @@
 
 namespace App\Actions\Finance;
 
+use App\Enums\SalePaymentType;
 use App\Enums\SaleStatus;
 use App\Models\Sale;
 use App\Models\User;
@@ -26,7 +27,10 @@ class SaveSale
             $taxTotal = (float) ($validated['tax_total'] ?? 0);
             $discountTotal = (float) ($validated['discount_total'] ?? 0);
             $total = max(0, $subtotal + $taxTotal - $discountTotal);
-            $balanceDue = (float) ($validated['balance_due'] ?? $total);
+            $paymentType = SalePaymentType::from((string) $validated['payment_type']);
+            $balanceDue = $paymentType === SalePaymentType::Credit
+                ? $total
+                : (float) ($validated['balance_due'] ?? $total);
 
             $sale->fill([
                 'client_id' => $validated['client_id'],
@@ -37,6 +41,7 @@ class SaveSale
                 'user_id' => $sale->exists ? $sale->user_id : $user->id,
                 'status' => $validated['status'] ?? SaleStatus::Draft,
                 'currency' => 'USD',
+                'payment_type' => $paymentType,
                 'sold_at' => $validated['sold_at'] ?? null,
                 'subtotal' => $subtotal,
                 'tax_total' => $taxTotal,

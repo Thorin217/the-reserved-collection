@@ -2,6 +2,7 @@
 
 namespace App\Actions\Finance;
 
+use App\Enums\SalePaymentType;
 use App\Enums\SaleStatus;
 use App\Models\CartItem;
 use App\Models\Client;
@@ -50,6 +51,7 @@ class CreateSaleFromCart
                 'sale_number' => $this->temporarySaleNumber(),
                 'status' => SaleStatus::Draft,
                 'currency' => 'USD',
+                'payment_type' => SalePaymentType::Credit,
                 'sold_at' => null,
                 'subtotal' => $subtotal,
                 'tax_total' => 0,

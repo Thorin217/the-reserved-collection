@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\SalePaymentType;
 use App\Enums\SaleStatus;
 use App\Models\Client;
 use App\Models\Lead;
@@ -28,6 +29,7 @@ class SaleFactory extends Factory
             'sale_number' => strtoupper(fake()->unique()->bothify('S-######')),
             'status' => SaleStatus::Draft->value,
             'currency' => 'USD',
+            'payment_type' => SalePaymentType::Credit->value,
             'sold_at' => null,
             'subtotal' => $total,
             'tax_total' => 0,

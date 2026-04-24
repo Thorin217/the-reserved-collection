@@ -23,6 +23,7 @@ class SaleResource extends JsonResource
             'sale_number' => $this->sale_number,
             'status' => $this->status,
             'currency' => $this->currency,
+            'payment_type' => $this->payment_type,
             'sold_at' => $this->sold_at,
             'subtotal' => $this->subtotal,
             'tax_total' => $this->tax_total,
