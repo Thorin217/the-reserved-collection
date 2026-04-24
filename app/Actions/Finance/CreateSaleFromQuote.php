@@ -2,6 +2,7 @@
 
 namespace App\Actions\Finance;
 
+use App\Enums\SalePaymentType;
 use App\Enums\SaleStatus;
 use App\Models\Quote;
 use App\Models\Sale;
@@ -42,6 +43,7 @@ class CreateSaleFromQuote
             'warehouse_id' => null,
             'status' => SaleStatus::Draft->value,
             'sold_at' => null,
+            'payment_type' => SalePaymentType::Credit->value,
             'tax_total' => (float) $quote->tax_total,
             'discount_total' => (float) $quote->discount_total,
             'balance_due' => (float) $quote->total,

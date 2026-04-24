@@ -1,10 +1,17 @@
 <?php
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Client;
 use App\Models\ProductVariant;
 use App\Models\Sale;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(function () {
+    $this->withoutMiddleware([
+        HandleInertiaRequests::class,
+    ]);
+});
 
 function salePayload(Client $client, ProductVariant $variant, array $overrides = []): array
 {
@@ -12,6 +19,7 @@ function salePayload(Client $client, ProductVariant $variant, array $overrides =
         'client_id' => $client->id,
         'warehouse_id' => null,
         'status' => 'draft',
+        'payment_type' => 'credit',
         'sold_at' => null,
         'tax_total' => 25,
         'discount_total' => 0,
@@ -62,7 +70,27 @@ it('creates draft sales from admin form', function () {
     $response->assertRedirect(route('admin.finance.sales.edit', $sale));
 
     expect($sale->status->value)->toBe('draft')
+        ->and($sale->payment_type->value)->toBe('credit')
         ->and((float) $sale->subtotal)->toBe(2000.0)
         ->and((float) $sale->total)->toBe(2025.0)
         ->and($sale->items()->count())->toBe(1);
+});
+
+it('forces full balance due for credit sales', function () {
+    $admin = User::factory()->admin()->create();
+    $client = Client::factory()->create();
+    $variant = ProductVariant::factory()->create([
+        'price' => 1000,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.finance.sales.store'), salePayload($client, $variant, [
+            'payment_type' => 'credit',
+            'balance_due' => 0,
+        ]))
+        ->assertRedirect();
+
+    $sale = Sale::query()->latest('id')->firstOrFail();
+
+    expect((float) $sale->balance_due)->toBe((float) $sale->total);
 });

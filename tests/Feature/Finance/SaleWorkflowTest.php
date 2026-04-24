@@ -1,6 +1,8 @@
 <?php
 
 use App\Actions\Finance\ConfirmSale;
+use App\Enums\PaymentStatus;
+use App\Enums\SalePaymentType;
 use App\Models\AccountReceivable;
 use App\Models\Branch;
 use App\Models\Client;
@@ -52,6 +54,7 @@ it('confirms a sale and synchronizes inventory', function () {
         'sale_number' => 'SALE-1001',
         'status' => 'draft',
         'currency' => 'USD',
+        'payment_type' => SalePaymentType::Credit,
         'subtotal' => 8000,
         'tax_total' => 0,
         'discount_total' => 0,
@@ -89,4 +92,54 @@ it('confirms a sale and synchronizes inventory', function () {
             ->where('reference_id', $sale->id)
             ->where('serial_id', $serial->id)
             ->exists())->toBeTrue();
+
+    $receivable = AccountReceivable::query()->where('sale_id', $sale->id)->firstOrFail();
+
+    expect($receivable->status)->toBe(PaymentStatus::Pending)
+        ->and((float) $receivable->paid_amount)->toBe(0.0)
+        ->and((float) $receivable->balance_due)->toBe(8000.0);
+});
+
+it('marks receivable as paid for cash sales with zero balance due', function () {
+    $user = User::factory()->create();
+    $client = Client::factory()->create();
+
+    $sale = Sale::factory()->create([
+        'client_id' => $client->id,
+        'user_id' => $user->id,
+        'payment_type' => SalePaymentType::Cash,
+        'status' => 'draft',
+        'total' => 5000,
+        'balance_due' => 0,
+    ]);
+
+    app(ConfirmSale::class)->handle($sale);
+
+    $receivable = AccountReceivable::query()->where('sale_id', $sale->id)->firstOrFail();
+
+    expect($receivable->status)->toBe(PaymentStatus::Paid)
+        ->and((float) $receivable->paid_amount)->toBe(5000.0)
+        ->and((float) $receivable->balance_due)->toBe(0.0);
+});
+
+it('marks receivable as partial for cash sales with remaining balance', function () {
+    $user = User::factory()->create();
+    $client = Client::factory()->create();
+
+    $sale = Sale::factory()->create([
+        'client_id' => $client->id,
+        'user_id' => $user->id,
+        'payment_type' => SalePaymentType::Cash,
+        'status' => 'draft',
+        'total' => 5000,
+        'balance_due' => 1500,
+    ]);
+
+    app(ConfirmSale::class)->handle($sale);
+
+    $receivable = AccountReceivable::query()->where('sale_id', $sale->id)->firstOrFail();
+
+    expect($receivable->status)->toBe(PaymentStatus::Partial)
+        ->and((float) $receivable->paid_amount)->toBe(3500.0)
+        ->and((float) $receivable->balance_due)->toBe(1500.0);
 });

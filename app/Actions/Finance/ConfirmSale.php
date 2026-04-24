@@ -5,6 +5,7 @@ namespace App\Actions\Finance;
 use App\Enums\InventoryMovementType;
 use App\Enums\PaymentStatus;
 use App\Enums\ProductSerialStatus;
+use App\Enums\SalePaymentType;
 use App\Enums\SaleStatus;
 use App\Models\AccountReceivable;
 use App\Models\InventoryMovement;
@@ -48,9 +49,16 @@ class ConfirmSale
             ])->save();
 
             $paidAmount = max(0, (float) $sale->total - $balanceDue);
-            $paymentStatus = $balanceDue <= 0
-                ? PaymentStatus::Paid
-                : ($paidAmount > 0 ? PaymentStatus::Partial : PaymentStatus::Pending);
+            $paymentType = $sale->payment_type instanceof SalePaymentType
+                ? $sale->payment_type
+                : SalePaymentType::from((string) $sale->payment_type);
+
+            $paymentStatus = match ($paymentType) {
+                SalePaymentType::Credit => PaymentStatus::Pending,
+                SalePaymentType::Cash => $balanceDue <= 0
+                    ? PaymentStatus::Paid
+                    : ($paidAmount > 0 ? PaymentStatus::Partial : PaymentStatus::Pending),
+            };
 
             AccountReceivable::query()->updateOrCreate(
                 ['sale_id' => $sale->id],
@@ -60,9 +68,9 @@ class ConfirmSale
                     'status' => $paymentStatus,
                     'due_date' => $soldAt->toDateString(),
                     'amount' => $sale->total,
-                    'paid_amount' => $paidAmount,
+                    'paid_amount' => $paymentType === SalePaymentType::Credit ? 0 : $paidAmount,
                     'balance_due' => $balanceDue,
-                    'paid_at' => $balanceDue <= 0 ? $soldAt : null,
+                    'paid_at' => $paymentType === SalePaymentType::Cash && $balanceDue <= 0 ? $soldAt : null,
                     'notes' => 'Auto-generated from confirmed sale.',
                 ],
             );

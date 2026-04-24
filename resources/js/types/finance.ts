@@ -5,6 +5,7 @@ import type { ProductSerial, ProductVariant } from './inventory';
 export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'rejected' | 'expired';
 export type SaleStatus = 'draft' | 'confirmed' | 'cancelled';
 export type FinanceCurrency = 'USD';
+export type SalePaymentType = 'cash' | 'credit';
 
 export type QuoteItem = {
     id: number;
@@ -84,6 +85,7 @@ export type Sale = {
     sale_number: string;
     status: SaleStatus;
     currency: FinanceCurrency;
+    payment_type: SalePaymentType;
     sold_at: string | null;
     subtotal: string;
     tax_total: string;

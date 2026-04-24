@@ -111,10 +111,10 @@ class AuctionController extends Controller
 
     public function store(StoreAuctionRequest $request, CreateAuction $createAuction): RedirectResponse
     {
-        $auction = $createAuction->handle($request->validated(), $request->user());
+        $createAuction->handle($request->validated(), $request->user());
 
         return redirect()
-            ->route('admin.auctions.show', $auction)
+            ->route('admin.auctions.index')
             ->with('success', 'Auction created successfully.');
     }
 

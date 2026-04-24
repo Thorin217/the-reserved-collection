@@ -116,7 +116,7 @@ it('creates an auction for a serial unit and snapshots inventory data', function
 
     $auction = Auction::query()->firstOrFail();
 
-    $response->assertRedirect(route('admin.auctions.show', $auction));
+    $response->assertRedirect(route('admin.auctions.index'));
 
     expect($auction->status)->toBe(AuctionStatus::Draft)
         ->and($auction->product_variant_id)->toBe($variant->id)
