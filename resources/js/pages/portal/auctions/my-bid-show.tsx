@@ -214,6 +214,66 @@ export default function MyAuctionBidShow({ auction: { data: auction } }: Props) 
                                     )}
                                 </CardContent>
                             </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Lot items</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {auction.items && auction.items.length > 0 ? (
+                                        <div className="max-h-[32rem] overflow-y-auto pr-1">
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                {auction.items.map((item, index) => (
+                                                    <div
+                                                        key={item.id}
+                                                        className="border border-border bg-card/60 p-3"
+                                                    >
+                                                        <div className="aspect-[4/3] overflow-hidden bg-secondary">
+                                                            {item.snapshot?.image_url ? (
+                                                                <img
+                                                                    src={item.snapshot.image_url}
+                                                                    alt={item.snapshot.name ?? `Lot item ${index + 1}`}
+                                                                    className="h-full w-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                                                                    No image available
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="mt-3 space-y-1">
+                                                            <p className="text-[10px] tracking-[0.16em] text-muted-foreground uppercase">
+                                                                Item #{item.position}
+                                                            </p>
+                                                            <p className="font-medium text-foreground">
+                                                                {item.snapshot?.name ?? 'Auction item'}
+                                                            </p>
+                                                            <p className="text-sm text-muted-foreground">
+                                                                {item.snapshot?.brand_name ?? '—'}
+                                                            </p>
+                                                            <p className="text-sm text-muted-foreground">
+                                                                {item.snapshot?.attribute_summary ?? 'No additional specification'}
+                                                            </p>
+                                                            <div className="flex items-center justify-between gap-3 pt-2 text-sm">
+                                                                <span className="text-muted-foreground">
+                                                                    {item.inventory_source_type}
+                                                                </span>
+                                                                <span className="font-medium text-gold">
+                                                                    {formatCurrency(item.reference_price)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">
+                                            No lot items were recorded for this auction.
+                                        </p>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
                 </div>

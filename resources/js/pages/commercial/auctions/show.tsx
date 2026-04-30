@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/currency';
 import AppLayout from '@/layouts/app-layout';
-import { close as auctionClose, index as auctionsIndex, publish as auctionPublish, cancel as auctionCancel } from '@/routes/admin/auctions';
+import { cancel as auctionCancel, close as auctionClose, edit as auctionEdit, index as auctionsIndex, publish as auctionPublish } from '@/routes/admin/auctions';
 import type { Auction } from '@/types';
 
 type Props = {
@@ -19,7 +19,6 @@ type Props = {
 type PendingAction = 'publish' | 'close' | 'cancel' | null;
 
 export default function AuctionsShow({ auction: { data: auction } }: Props) {
-    const snapshot = auction.inventory_snapshot ?? {};
     const winnerLabel = auction.winner?.name ?? 'No winner';
     const currentBidderLabel = auction.current_bid_user?.name ?? 'No bids yet';
     const [pendingAction, setPendingAction] = useState<PendingAction>(null);
@@ -82,6 +81,9 @@ export default function AuctionsShow({ auction: { data: auction } }: Props) {
                     </div>
                     <div className="flex gap-2">
                         {auction.status === 'draft' && (
+                            <Button variant="outline" onClick={() => router.visit(auctionEdit({ auction }).url)}>Edit</Button>
+                        )}
+                        {auction.status === 'draft' && (
                             <Button onClick={() => setPendingAction('publish')}>Publish</Button>
                         )}
                         {(auction.status === 'scheduled' || auction.status === 'live') && (
@@ -103,6 +105,7 @@ export default function AuctionsShow({ auction: { data: auction } }: Props) {
                             <div><div className="text-xs text-muted-foreground">Status</div><Badge variant="outline">{auction.status}</Badge></div>
                             <div><div className="text-xs text-muted-foreground">Result</div><div>{auction.closure_result ?? '—'}</div></div>
                             <div><div className="text-xs text-muted-foreground">Source type</div><div className="capitalize">{auction.inventory_source_type}</div></div>
+                            <div><div className="text-xs text-muted-foreground">Lot items</div><div>{auction.items_count ?? auction.items?.length ?? 0}</div></div>
                             <div><div className="text-xs text-muted-foreground">Minimum next bid</div><div>{formatCurrency(auction.minimum_allowed_bid)}</div></div>
                             <div><div className="text-xs text-muted-foreground">Starting price</div><div>{formatCurrency(auction.starting_price)}</div></div>
                             <div><div className="text-xs text-muted-foreground">Current bid</div><div>{auction.current_bid_amount ? formatCurrency(auction.current_bid_amount) : '—'}</div></div>
@@ -120,14 +123,41 @@ export default function AuctionsShow({ auction: { data: auction } }: Props) {
                     </Card>
 
                     <Card>
-                        <CardHeader><CardTitle>Inventory snapshot</CardTitle></CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                            <div className="font-medium">{snapshot.product_name ?? '—'}</div>
-                            <div className="text-muted-foreground">{snapshot.brand_name ?? '—'}</div>
-                            <div className="text-muted-foreground">Attributes: {snapshot.attribute_summary ?? '—'}</div>
-                            <div className="text-muted-foreground">Variant: {snapshot.variant_sku ?? '—'}</div>
-                            <div className="text-muted-foreground">Serial: {snapshot.serial_number ?? '—'}</div>
-                            <div className="text-muted-foreground">Reference price: {snapshot.price_reference ? formatCurrency(snapshot.price_reference) : '—'}</div>
+                        <CardHeader><CardTitle>Lot items</CardTitle></CardHeader>
+                        <CardContent className="max-h-[44rem] space-y-3 overflow-y-auto pr-2">
+                            {auction.items && auction.items.length > 0 ? auction.items.map((item) => (
+                                <div key={item.id} className="flex gap-3 rounded-lg border p-3">
+                                    <div className="bg-muted h-20 w-20 shrink-0 overflow-hidden rounded-md border">
+                                        {item.snapshot?.image_url ? (
+                                            <img
+                                                src={item.snapshot.image_url}
+                                                alt={item.snapshot.product_name ?? `Item ${item.position}`}
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="text-muted-foreground flex h-full items-center justify-center text-xs">No image</div>
+                                        )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-xs text-muted-foreground">Item #{item.position}</div>
+                                        <div className="truncate font-medium">{item.snapshot?.product_name ?? '—'}</div>
+                                        <div className="text-muted-foreground truncate text-sm">{item.snapshot?.brand_name ?? '—'}</div>
+                                        <div className="text-muted-foreground line-clamp-2 text-sm">{item.snapshot?.attribute_summary ?? '—'}</div>
+                                        <div className="text-muted-foreground mt-1 text-sm capitalize">Type: {item.inventory_source_type}</div>
+                                        <div className="text-muted-foreground text-sm">
+                                            Variant: {item.snapshot?.variant_sku ?? '—'}
+                                        </div>
+                                        <div className="text-muted-foreground text-sm">
+                                            Serial: {item.snapshot?.serial_number ?? '—'}
+                                        </div>
+                                        <div className="mt-1 text-sm font-medium">
+                                            {item.reference_price ? formatCurrency(item.reference_price) : '—'}
+                                        </div>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="text-muted-foreground text-sm">No items registered for this lot.</div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

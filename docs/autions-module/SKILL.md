@@ -7,10 +7,11 @@ Antes de construir migraciones, modelos, controladores o pantallas del módulo d
 ### Decisiones ya definidas
 
 - **Tipo de subasta inicial:** subasta tradicional con puja ascendente.
-- **Nivel del evento:** un producto/unidad por subasta en el MVP.
+- **Nivel del evento actualizado:** una subasta representa un `lote`.
+- **Composición del lote:** una subasta podrá contener múltiples productos a través de `auction_items`.
 - **Origen del lote:** siempre proviene de inventario existente.
-- **Relación con inventario:** si el producto opera por `variant`, la subasta se crea sobre esa unidad; si opera por `serial`, se crea sobre esa unidad serializada; si es `simple`, se crea sobre su variante operativa.
-- **Datos del lote:** la subasta reutiliza información del inventario como nombre, descripción, imagen y demás información general disponible.
+- **Relación con inventario por ahora:** los productos del lote seguirán tomando su referencia desde inventario, pero sin reserva operativa ni afectación formal de stock en esta fase.
+- **Datos del lote:** la subasta almacenará información general del lote y cada `auction_item` conservará su snapshot individual.
 - **Precio base / reserva:** el precio de venta actual de la variante servirá como referencia inicial y podrá editarse al crear la subasta.
 - **Regla de incrementos:** coexistirán dos reglas, un incremento mínimo requerido y la posibilidad de ofertar libremente por encima de ese mínimo.
 - **Registro de pujadores:** podrá pujar cualquier usuario registrado que no sea `admin`.
@@ -26,6 +27,8 @@ Antes de construir migraciones, modelos, controladores o pantallas del módulo d
 - **Post-MVP económico:** definir en una fase posterior cómo se conectará el cierre con ventas, cuentas por cobrar o contabilidad.
 - **Inventario durante auction activa:** queda pendiente definir el comportamiento operativo formal (`in_auction`, reserva visual, exclusión del catálogo o política equivalente).
 - **Notificación por email:** queda pendiente para una fase posterior; no se implementará en el bloque actual.
+- **Comportamiento visual del lote:** definir si la imagen principal del lote será manual, tomada del primer item o derivada por alguna regla de prioridad.
+- **Composición permitida del lote:** queda por confirmar si un lote podrá mezclar productos `serial`, `variant` y `simple` sin restricciones de UX, aunque el modelo lo soportará.
 
 ### Riesgo de no cerrar esto antes
 
@@ -83,8 +86,9 @@ Construir un módulo de subastas en versión simple, operable desde admin y visi
 ### Notas de alcance
 
 - La reportería no desaparece del plan general, pero queda como fase posterior.
-- El foco inmediato es el núcleo operativo: `evento -> pujas -> cierre -> ganador`.
-- Aunque la estructura pueda soportar evolución futura a múltiples lotes por evento, el flujo inicial se diseña como `una subasta = una unidad/lote`.
+- El foco inmediato es el núcleo operativo: `lote -> pujas -> cierre -> ganador`.
+- La evolución aprobada cambia el concepto base del módulo a `una subasta = un lote`.
+- Cada lote podrá contener múltiples `auction_items`, pero la puja seguirá registrándose sobre la subasta completa, no por item.
 
 ---
 
@@ -135,8 +139,10 @@ El módulo base de `Auctions` ya fue implementado en una primera versión funcio
 
 ### Ajuste importante del diseño respecto al plan inicial
 
-- Para el MVP implementado se simplificó el dominio a `auctions + auction_bids`.
-- No se creó `auction_lots` porque el alcance aprobado es `una subasta = una unidad`.
+- El MVP inicial se construyó como `una subasta = una unidad`.
+- La siguiente evolución aprobada cambia `auctions` para que represente la cabecera del lote.
+- Se creará `auction_items` como detalle de productos por lote.
+- `auction_bids` seguirá vinculado a `auctions`, porque la puja pertenece al lote completo.
 - No se creó `auction_bidders` porque cualquier usuario autenticado no-admin puede pujar.
 
 ### Conclusión
@@ -145,23 +151,24 @@ El módulo ya no está “por construir desde cero”. Ahora se encuentra en est
 
 ---
 
-## 5) Flujo de negocio propuesto (versión simple)
+## 5) Flujo de negocio propuesto (versión lote)
 
 ### Flujo principal
 
 1. Admin crea una subasta desde admin.
-2. Admin selecciona la unidad a subastar desde inventario.
-3. El sistema precarga información de inventario como referencia.
-4. Admin define fechas, precio inicial, precio de reserva y regla mínima de incremento.
-5. La subasta se publica.
-6. Los usuarios registrados que no sean admin pueden pujar desde cliente.
-7. Las pujas se registran en backend sin tiempo real.
-8. Cliente ve historial, puja actual y estado al refrescar o navegar.
-9. Al llegar la fecha de cierre, o por acción del admin, la subasta se cierra.
-10. El sistema determina automáticamente la puja válida más alta.
-11. El sistema fija el `hammer price` como monto final de adjudicación.
-12. El ganador ve el resultado y el monto a pagar.
-13. Admin ve el cierre completo de la subasta sin afectar todavía módulos contables.
+2. Admin configura la cabecera del lote.
+3. Admin agrega uno o varios `auction_items` al lote.
+4. Cada item toma su referencia desde inventario y conserva snapshot individual.
+5. Admin define fechas, precio inicial, precio de reserva y regla mínima de incremento del lote completo.
+6. La subasta se publica.
+7. Los usuarios registrados que no sean admin pueden pujar desde cliente.
+8. Las pujas se registran en backend sin tiempo real.
+9. Cliente ve historial, puja actual, items del lote y estado al refrescar o navegar.
+10. Al llegar la fecha de cierre, o por acción del admin, la subasta se cierra.
+11. El sistema determina automáticamente la puja válida más alta.
+12. El sistema fija el `hammer price` como monto final de adjudicación del lote.
+13. El ganador ve el resultado y el monto a pagar.
+14. Admin ve el cierre completo de la subasta sin afectar todavía módulos contables.
 
 ### Estados sugeridos para evento/subasta
 
@@ -171,7 +178,7 @@ El módulo ya no está “por construir desde cero”. Ahora se encuentra en est
 - `closed`
 - `cancelled`
 
-### Estados sugeridos para unidad/lote
+### Estados sugeridos para lote
 
 - `draft`
 - `scheduled`
@@ -181,6 +188,18 @@ El módulo ya no está “por construir desde cero”. Ahora se encuentra en est
 - `unsold`
 - `cancelled`
 
+### Reglas cerradas para el cambio a lotes
+
+- `auctions` deja de ser la referencia directa a un solo producto y pasa a ser la cabecera del lote.
+- `auction_items` será la tabla de detalle del lote.
+- una subasta puede tener uno o varios `auction_items`.
+- una puja siempre aplica al lote completo, nunca a un item individual.
+- el ganador gana el lote completo.
+- `starting_price`, `reserve_price`, `minimum_increment`, `current_bid_amount` y `hammer_price` pertenecen a `auctions`, no a `auction_items`.
+- cada `auction_item` mantiene su propio snapshot para preservar nombre, imagen y contexto comercial del producto agregado al lote.
+- en esta fase no habrá reserva operativa de inventario ni decremento de stock al agregar items al lote.
+- se permitirá reutilizar el mismo producto base en distintas subastas futuras mientras no se defina una política formal de afectación de inventario.
+
 ### Elegibilidad de pujador en MVP
 
 - cualquier usuario autenticado y no admin puede pujar
@@ -189,7 +208,7 @@ El módulo ya no está “por construir desde cero”. Ahora se encuentra en est
 
 ---
 
-## 6) Modelo de datos implementado en el MVP
+## 6) Modelo de datos objetivo tras el cambio a lotes
 
 ## `auctions`
 
@@ -199,11 +218,8 @@ El módulo ya no está “por construir desde cero”. Ahora se encuentra en est
 - `description` nullable
 - `status`
 - `closure_result` nullable
-- `product_id`
-- `product_variant_id`
-- `product_serial_id` nullable
-- `inventory_source_type`
 - `lot_number`
+- `hero_image_url` nullable
 - `starting_price`
 - `reserve_price` nullable
 - `minimum_increment`
@@ -219,16 +235,37 @@ El módulo ya no está “por construir desde cero”. Ahora se encuentra en est
 - `is_manually_closed`
 - `created_by`
 - `closed_by` nullable
-- `inventory_snapshot` nullable JSON
 - `notes` nullable
 - timestamps
 
 ### Notas
 
 - `current_bid_amount` acelera lectura en cliente/admin.
-- `hammer_price` representa la puja ganadora final.
+- `hammer_price` representa la puja ganadora final del lote.
 - `total_due` en el MVP puede ser igual a `hammer_price`.
-- `inventory_snapshot` permite congelar datos visuales/comerciales del artículo al momento de crear la subasta.
+- `auctions` deja de cargar relación directa a producto individual.
+- la imagen principal del lote puede definirse manualmente o derivarse después desde los items.
+
+## `auction_items`
+
+- `id`
+- `auction_id`
+- `position`
+- `product_id`
+- `product_variant_id` nullable
+- `product_serial_id` nullable
+- `inventory_source_type`
+- `reference_price` nullable
+- `snapshot` JSON
+- `notes` nullable
+- timestamps
+
+### Notas
+
+- `snapshot` conserva datos visuales y comerciales del item al momento de agregarse al lote.
+- `position` permite ordenar la visualización dentro del lote.
+- `reference_price` es informativo y no reemplaza los precios de puja del lote.
+- la tabla no implica por sí sola una reserva operativa de inventario.
 
 ## `auction_bids`
 
@@ -240,7 +277,7 @@ El módulo ya no está “por construir desde cero”. Ahora se encuentra en est
 - `placed_at`
 - timestamps
 
-### Tablas descartadas en el MVP
+### Tablas descartadas por ahora
 
 - `auction_lots`
 - `auction_bidders`
@@ -249,7 +286,7 @@ El módulo ya no está “por construir desde cero”. Ahora se encuentra en est
 
 ### Razón
 
-El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan reservadas para una evolución posterior si el módulo crece hacia eventos multi-lote, aprobaciones de bidder o reportería materializada.
+El alcance actual prioriza un dominio claro y funcional. `auctions` ya cubre la cabecera del lote, `auction_items` cubre el detalle y `auction_bids` mantiene la puja sobre el lote completo. Las demás tablas quedan reservadas para evoluciones posteriores como aprobaciones de bidder o reportería materializada.
 
 ---
 
@@ -257,8 +294,9 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
 
 ### Inventario
 
-- la subasta se vincula a `product`, `product_variant` o `product_serial` según el tipo operativo del producto
-- debe reutilizar imagen, nombre, referencia y datos generales del inventario
+- cada `auction_item` se vincula a `product`, `product_variant` o `product_serial` según el tipo operativo del producto
+- cada item debe reutilizar imagen, nombre, referencia y datos generales del inventario
+- en esta fase no habrá bloqueo, reserva ni decremento de inventario
 - si el lote se vende, debe prepararse la integración con `sales` y estado de inventario al cierre
 
 ### CRM / Clientes
@@ -288,6 +326,10 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
 
 - `Auction`
 - `AuctionBid`
+
+### Entidad a incorporar en la siguiente iteración
+
+- `AuctionItem`
 
 ### Enums implementados
 
@@ -326,6 +368,10 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
 
 ### Pendiente en backend
 
+- migración de `auctions` para eliminar relación directa con producto único
+- migración para crear `auction_items`
+- refactor de creación de subasta para permitir múltiples items por lote
+- adaptación de resources y acciones de dominio al nuevo modelo
 - edición/update de subastas
 - políticas dedicadas si se quiere endurecer autorización
 - integración con ventas/finance en fase posterior
@@ -360,9 +406,9 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
 
 ### Funcionalidad implementada
 
-- crear subasta desde inventario
+- crear subasta simple desde inventario
 - programar fechas
-- seleccionar unidad `variant` o `serial`
+- seleccionar una unidad `variant` o `serial`
 - definir precios base
 - revisar historial de pujas
 - publicar subasta
@@ -372,6 +418,10 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
 
 ### Pendiente en admin
 
+- convertir la creación de subasta a creación de lote
+- permitir agregar múltiples `auction_items`
+- permitir quitar/reordenar items del lote
+- mostrar resumen del lote en detalle admin
 - edición de subasta
 - filtros más avanzados
 - confirmaciones UX más robustas
@@ -398,6 +448,8 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
 
 ### Pendiente en cliente
 
+- mostrar lote con múltiples items dentro del detalle de la subasta
+- definir galería/listado de items del lote
 - vista clara de `ganaste / no ganaste`
 - countdown y estados más visibles
 - pulido de feedback al pujar
@@ -419,6 +471,7 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
     - puja mínima permitida
     - hora de cierre
     - estado de la subasta
+    - composición del lote
 
 ---
 
@@ -444,7 +497,7 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
 
 - estado: completada
 - se definió subasta tradicional
-- se definió una unidad por subasta
+- se redefinió la subasta como lote
 - se definió cierre mixto
 - se definió `hammer price` sin fees extra en MVP
 
@@ -452,32 +505,27 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
 
 ## Fase 1 — Diseño del dominio y datos
 
-- estado: completada
-- se simplificó el dominio a `auctions + auction_bids`
-- se definieron enums, relaciones e inventario snapshot
+- estado: en actualización
+- el dominio inicial `auctions + auction_bids` debe evolucionar a `auctions + auction_items + auction_bids`
+- se debe separar cabecera del lote y detalle de productos
 
-**Resultado:** modelo de datos estable e implementado.
+**Resultado esperado:** modelo de datos de lotes estable y listo para migración.
 
 ## Fase 2 — Backend admin base
 
-- estado: completada
-- migraciones creadas
-- modelos y factories creados
-- requests y resources creados
-- flujo admin de creación/publicación/cierre implementado
+- estado: parcial
+- migraciones, modelos y flujo base ya existen
+- falta refactor del backend para soportar múltiples `auction_items`
 
-**Resultado:** admin puede crear y operar subastas.
+**Resultado esperado:** admin puede crear y operar lotes.
 
 ## Fase 3 — Cliente/portal funcional
 
-- estado: completada
-- `Auction House` conectada a datos reales
-- detalle de subasta implementado
-- registro de pujas implementado
-- historial básico implementado
-- vista de participaciones implementada
+- estado: parcial
+- `Auction House` ya está conectada a datos reales
+- falta adaptar detalle y listados a composición multi-item del lote
 
-**Resultado:** cliente puede participar en subastas sin sockets.
+**Resultado esperado:** cliente puede participar en subastas por lote sin sockets.
 
 ## Fase 4 — Cierre y resolución
 
@@ -495,8 +543,8 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
 - pruebas feature del flujo crítico ya implementadas
 - falta validación completa en entorno MySQL real
 - falta pulido UX
+- falta terminar el cambio estructural a lotes
 - falta definición de integraciones posteriores
-- el siguiente bloque funcional aprobado dentro del portal es `My Auctions + resultado post-cierre`
 
 **Resultado esperado:** módulo estable, validado en entorno real y listo para crecer.
 
@@ -504,20 +552,19 @@ El alcance actual prioriza un dominio simple y funcional. Estas tablas quedan re
 
 ## 13) Tareas concretas pendientes
 
-1. Ejecutar migraciones en entorno MySQL real y validar el flujo end-to-end.
-2. Validar visualmente admin y portal con datos reales.
-3. Confirmar que el scheduler del servidor ejecute apertura/cierre automático.
-4. Regenerar `Wayfinder` cuando el entorno permita correr `php artisan wayfinder:generate`.
-5. Implementar `My Auctions` como sección visible para usuarios con participación.
-6. Agregar acceso a `My Auctions` dentro de `Profile`.
-7. Agregar botón `My Auctions` en la vista principal de `Auctions`.
-8. Mostrar resultado post-cierre para el usuario que participó:
-    - ganador
-    - perdedor
-    - reserva no alcanzada
-9. Definir si las unidades subastadas deben quedar visibles, ocultas o marcadas dentro del resto del catálogo.
-10. Definir el comportamiento del inventario al cerrar una subasta sin ganador o sin reserva alcanzada.
-11. Decidir después el siguiente alcance: reportería, emails o integración comercial/financiera.
+1. Crear migración para remover de `auctions` la referencia directa a producto único.
+2. Crear migración para `auction_items`.
+3. Refactorizar modelo `Auction` y crear modelo `AuctionItem`.
+4. Adaptar factories y seeders del módulo.
+5. Adaptar requests, resources y acciones de dominio para creación de lotes.
+6. Refactorizar admin create/edit para agregar múltiples `auction_items`.
+7. Adaptar admin show para renderizar composición del lote.
+8. Adaptar portal `Auction House` y detalle para mostrar múltiples items por subasta.
+9. Validar que `auction_bids` siga funcionando sobre la subasta/lote sin cambios de concepto.
+10. Ejecutar pruebas y agregar cobertura específica para lotes multi-item.
+11. Confirmar que el scheduler del servidor ejecute apertura/cierre automático.
+12. Regenerar `Wayfinder` cuando el entorno permita correr `php artisan wayfinder:generate`.
+13. Dejar para fase posterior la afectación de inventario, reportería, emails e integración comercial/financiera.
 
 ---
 

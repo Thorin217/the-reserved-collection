@@ -4,7 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\AuctionStatus;
 use App\Models\Auction;
-use App\Models\ProductVariant;
+use App\Models\AuctionItem;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -21,21 +21,18 @@ class AuctionFactory extends Factory
      */
     public function definition(): array
     {
-        $variant = ProductVariant::factory()->create();
-        $product = $variant->product;
         $startingPrice = fake()->randomFloat(2, 1000, 10000);
+        $title = fake()->words(3, true).' Lot';
 
         return [
-            'title' => $product->name,
-            'slug' => Str::slug($product->name).'-'.Str::lower(Str::random(6)),
+            'title' => $title,
+            'slug' => Str::slug($title).'-'.Str::lower(Str::random(6)),
             'description' => fake()->sentence(),
             'status' => AuctionStatus::Draft,
             'closure_result' => null,
-            'product_id' => $product->id,
-            'product_variant_id' => $variant->id,
-            'product_serial_id' => null,
-            'inventory_source_type' => $product->product_type->value,
+            'inventory_source_type' => 'variant',
             'lot_number' => 'LOT-'.strtoupper(fake()->unique()->bothify('######')),
+            'hero_image_url' => null,
             'starting_price' => $startingPrice,
             'reserve_price' => $startingPrice + 500,
             'minimum_increment' => 100,
@@ -51,21 +48,28 @@ class AuctionFactory extends Factory
             'is_manually_closed' => false,
             'created_by' => User::factory()->admin(),
             'closed_by' => null,
-            'inventory_snapshot' => [
-                'product_name' => $product->name,
-                'product_slug' => $product->slug,
-                'brand_name' => $product->brand?->name,
-                'category_name' => $product->category?->name,
-                'product_sku' => $product->sku,
-                'variant_sku' => $variant->sku,
-                'serial_number' => null,
-                'image_url' => null,
-                'price_reference' => $variant->price,
-                'product_type' => $product->product_type->value,
-                'has_serial_numbers' => $product->has_serial_numbers,
-                'attribute_summary' => $variant->attribute_summary,
-            ],
+            'inventory_snapshot' => null,
             'notes' => null,
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Auction $auction): void {
+            if ($auction->items()->exists()) {
+                return;
+            }
+
+            $item = AuctionItem::factory()->create([
+                'auction_id' => $auction->id,
+                'position' => 1,
+            ]);
+
+            $auction->update([
+                'inventory_source_type' => $auction->inventory_source_type ?: $item->inventory_source_type,
+                'hero_image_url' => $auction->hero_image_url ?: data_get($item->snapshot, 'image_url'),
+                'inventory_snapshot' => $auction->inventory_snapshot ?: $item->snapshot,
+            ]);
+        });
     }
 }

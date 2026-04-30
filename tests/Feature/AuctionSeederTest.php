@@ -19,6 +19,7 @@ it('seeds four live auctions and two scheduled auctions without duplication', fu
         ->and(Auction::query()->where('status', AuctionStatus::Scheduled)->count())->toBe(2)
         ->and(Auction::query()->where('status', AuctionStatus::Live)->whereNotNull('current_bid_amount')->count())->toBe(4)
         ->and(Auction::query()->where('status', AuctionStatus::Scheduled)->whereNull('current_bid_amount')->count())->toBe(2)
+        ->and(Auction::query()->has('items')->count())->toBe(6)
         ->and(Auction::query()->where('status', AuctionStatus::Live)->has('bids')->count())->toBe(4)
         ->and(
             Auction::query()

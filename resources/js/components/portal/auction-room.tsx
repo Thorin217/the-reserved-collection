@@ -324,7 +324,7 @@ function NegotiationDetailPanel({ negotiation }: { negotiation: ProductNegotiati
 }
 
 export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction', useAuctionShowLinks = false, negotiations, selectedNegotiation }: Props) {
-    const [activeTab, setActiveTab] = useState<RoomTab>('history');
+    const [activeTab, setActiveTab] = useState<RoomTab>('details');
     const [now, setNow] = useState<number | null>(null);
     const [auctionStageView, setAuctionStageView] = useState<AuctionStageView>('live');
     const { auth } = usePage<{ auth: Auth }>().props;
@@ -364,7 +364,7 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
     }, []);
 
     useEffect(() => {
-        setActiveTab('history');
+        setActiveTab('details');
         reset('amount');
 
         if (displayedAuction) {
@@ -588,6 +588,9 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                                                         {auction.inventory_snapshot?.brand_name ?? 'Auction'}
                                                     </p>
                                                     <h3 className="truncate font-display text-lg text-foreground">{auction.title}</h3>
+                                                    <p className="mt-1 text-[10px] tracking-[0.16em] text-foreground/45 uppercase">
+                                                        {auction.items_count ?? auction.items?.length ?? 0} item{(auction.items_count ?? auction.items?.length ?? 0) === 1 ? '' : 's'}
+                                                    </p>
                                                     <p className="mt-2 text-sm font-medium text-gold">{formatCurrency(auction.current_bid_amount ?? auction.starting_price)}</p>
                                                 </div>
                                             </button>
@@ -620,6 +623,9 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                                                     {displayedAuction.inventory_snapshot?.brand_name ?? 'Auction'}
                                                 </p>
                                                 <h1 className="mt-1 font-display text-3xl text-foreground xl:text-4xl">{displayedAuction.title}</h1>
+                                                <p className="mt-2 text-[10px] tracking-[0.18em] text-foreground/45 uppercase">
+                                                    {displayedAuction.items_count ?? displayedAuction.items?.length ?? 0} lot item{(displayedAuction.items_count ?? displayedAuction.items?.length ?? 0) === 1 ? '' : 's'}
+                                                </p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-[10px] tracking-[0.22em] text-foreground/45 uppercase">Time remaining</p>
@@ -793,13 +799,45 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                                             )}
 
                                             {activeTab === 'details' && (
-                                                <div className="flex h-full min-h-[420px] items-center justify-center text-center">
+                                                <div className="space-y-4">
                                                     <div>
-                                                        <p className="text-[10px] tracking-[0.22em] text-gold uppercase">Upcoming</p>
-                                                        <h2 className="mt-2 font-display text-2xl text-foreground">Details</h2>
+                                                        <p className="text-[10px] tracking-[0.22em] text-gold uppercase">Lot Details</p>
+                                                        <h2 className="mt-2 font-display text-2xl text-foreground">Items in this auction</h2>
                                                         <p className="mt-3 max-w-sm text-sm text-muted-foreground">
-                                                            Extended lot details will be added here in a future iteration.
+                                                            This lot is composed of the following items. Bids still apply to the full lot amount.
                                                         </p>
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        {displayedAuction.items && displayedAuction.items.length > 0 ? (
+                                                            displayedAuction.items.map((item) => (
+                                                                <div key={item.id} className="grid grid-cols-[72px_minmax(0,1fr)] gap-3 border border-border/70 p-3">
+                                                                    <div className="aspect-square overflow-hidden bg-secondary">
+                                                                        {item.snapshot?.image_url ? (
+                                                                            <img
+                                                                                src={item.snapshot.image_url}
+                                                                                alt={item.snapshot.product_name ?? `Item ${item.position}`}
+                                                                                className="h-full w-full object-cover"
+                                                                            />
+                                                                        ) : (
+                                                                            <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">No image</div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-[10px] tracking-[0.16em] text-gold uppercase">Item #{item.position}</p>
+                                                                        <h3 className="truncate font-display text-lg text-foreground">{item.snapshot?.product_name ?? 'Lot item'}</h3>
+                                                                        <p className="mt-1 text-[11px] tracking-[0.18em] text-foreground/55 uppercase">
+                                                                            {item.snapshot?.brand_name ?? 'Auction'}
+                                                                        </p>
+                                                                        <p className="mt-2 text-sm text-foreground/70">{item.snapshot?.attribute_summary ?? 'No additional attributes'}</p>
+                                                                        <p className="mt-2 text-sm text-gold">
+                                                                            {item.reference_price ? formatCurrency(item.reference_price) : 'Reference not available'}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <p className="text-sm text-muted-foreground">No lot items available yet.</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}

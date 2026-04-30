@@ -41,11 +41,9 @@ class AuctionResource extends JsonResource
             'description' => $this->description,
             'status' => $this->status,
             'closure_result' => $this->closure_result,
-            'product_id' => $this->product_id,
-            'product_variant_id' => $this->product_variant_id,
-            'product_serial_id' => $this->product_serial_id,
             'inventory_source_type' => $this->inventory_source_type,
             'lot_number' => $this->lot_number,
+            'hero_image_url' => $this->hero_image_url,
             'starting_price' => $this->starting_price,
             'reserve_price' => $this->reserve_price,
             'minimum_increment' => $this->minimum_increment,
@@ -65,6 +63,7 @@ class AuctionResource extends JsonResource
             'notes' => $this->notes,
             'minimum_allowed_bid' => $this->minimumAllowedBid(),
             'bids_count' => $this->whenCounted('bids'),
+            'items_count' => $this->whenLoaded('items', fn () => $this->items->count()),
             'user_has_bid' => $userHasBid,
             'user_bid_count' => $this->when(isset($this->user_bid_count), fn () => (int) $this->user_bid_count),
             'user_max_bid_amount' => $this->when(isset($this->user_max_bid_amount), fn () => $this->user_max_bid_amount),
@@ -74,6 +73,7 @@ class AuctionResource extends JsonResource
             'current_bid_user' => UserResource::make($this->whenLoaded('currentBidUser')),
             'winner' => UserResource::make($this->whenLoaded('winner')),
             'bids' => AuctionBidResource::collection($this->whenLoaded('bids')),
+            'items' => AuctionItemResource::collection($this->whenLoaded('items')),
         ];
     }
 }

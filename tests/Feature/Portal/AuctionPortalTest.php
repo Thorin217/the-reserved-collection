@@ -4,8 +4,6 @@ use App\Enums\AuctionClosureResult;
 use App\Enums\AuctionStatus;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Auction;
-use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -15,19 +13,15 @@ beforeEach(function () {
     ]);
 });
 
-it('renders the portal auction house and detail pages', function () {
-    $product = Product::factory()->simple()->create([
-        'name' => 'Royal Oak',
-    ]);
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
+function createPortalAuctionLot(array $auctionOverrides = []): Auction
+{
+    return Auction::factory()->create($auctionOverrides)->fresh(['items']);
+}
 
-    $auction = Auction::factory()->create([
+it('renders the portal auction house and detail pages', function () {
+    $auction = createPortalAuctionLot([
         'title' => 'Royal Oak Lot',
         'slug' => 'royal-oak-lot',
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
         'status' => AuctionStatus::Live,
         'starts_at' => now()->subHour(),
         'ends_at' => now()->addHour(),
@@ -41,24 +35,17 @@ it('renders the portal auction house and detail pages', function () {
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
             ->component('portal/auctions/show')
-            ->where('auction.data.slug', 'royal-oak-lot'));
+            ->where('auction.data.slug', 'royal-oak-lot')
+            ->where('auction.data.items.0.position', 1));
 });
 
 it('shows participated auctions inside my auctions', function () {
     $customer = User::factory()->customer()->create();
     $otherCustomer = User::factory()->customer()->create();
-    $product = Product::factory()->simple()->create([
-        'name' => 'Nautilus',
-    ]);
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $participatedAuction = Auction::factory()->create([
+    $participatedAuction = createPortalAuctionLot([
         'title' => 'Nautilus Lot',
         'slug' => 'nautilus-lot',
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
         'status' => AuctionStatus::Closed,
         'closure_result' => AuctionClosureResult::Sold,
         'winner_user_id' => $otherCustomer->id,
@@ -88,16 +75,10 @@ it('shows participated auctions inside my auctions', function () {
 it('renders a dedicated my auction detail page for participated auctions', function () {
     $customer = User::factory()->customer()->create();
     $otherCustomer = User::factory()->customer()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $auction = Auction::factory()->create([
+    $auction = createPortalAuctionLot([
         'title' => 'Collector Lot',
         'slug' => 'collector-lot',
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
         'status' => AuctionStatus::Closed,
         'closure_result' => AuctionClosureResult::Sold,
         'winner_user_id' => $otherCustomer->id,
@@ -125,14 +106,8 @@ it('renders a dedicated my auction detail page for participated auctions', funct
 
 it('exposes a winning result for the participant in a closed auction', function () {
     $customer = User::factory()->customer()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $auction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $auction = createPortalAuctionLot([
         'status' => AuctionStatus::Closed,
         'closure_result' => AuctionClosureResult::Sold,
         'winner_user_id' => $customer->id,
@@ -162,15 +137,8 @@ it('exposes a winning result for the participant in a closed auction', function 
 
 it('allows a registered customer to place a valid bid', function () {
     $customer = User::factory()->customer()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-        'price' => 8000,
-    ]);
 
-    $auction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $auction = createPortalAuctionLot([
         'status' => AuctionStatus::Live,
         'starting_price' => 8000,
         'minimum_increment' => 250,
@@ -195,14 +163,8 @@ it('allows a registered customer to place a valid bid', function () {
 
 it('rejects bids that do not satisfy the minimum increment', function () {
     $customer = User::factory()->customer()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $auction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $auction = createPortalAuctionLot([
         'status' => AuctionStatus::Live,
         'starting_price' => 1000,
         'minimum_increment' => 100,
@@ -220,14 +182,8 @@ it('rejects bids that do not satisfy the minimum increment', function () {
 
 it('prevents the current leading bidder from bidding again immediately', function () {
     $customer = User::factory()->customer()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $auction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $auction = createPortalAuctionLot([
         'status' => AuctionStatus::Live,
         'starting_price' => 1000,
         'minimum_increment' => 100,
@@ -254,14 +210,8 @@ it('prevents the current leading bidder from bidding again immediately', functio
 it('requires a 4 second cooldown before the same user can bid again', function () {
     $customer = User::factory()->customer()->create();
     $otherCustomer = User::factory()->customer()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $auction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $auction = createPortalAuctionLot([
         'status' => AuctionStatus::Live,
         'starting_price' => 1000,
         'minimum_increment' => 100,
@@ -294,14 +244,8 @@ it('requires a 4 second cooldown before the same user can bid again', function (
 
 it('prevents admin users from bidding in auctions', function () {
     $admin = User::factory()->admin()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $auction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $auction = createPortalAuctionLot([
         'status' => AuctionStatus::Live,
         'starts_at' => now()->subHour(),
         'ends_at' => now()->addHour(),

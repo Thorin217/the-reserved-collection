@@ -147,7 +147,9 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         Route::get('/', [AuctionController::class, 'index'])->name('index');
         Route::get('create', [AuctionController::class, 'create'])->name('create');
         Route::post('/', [AuctionController::class, 'store'])->name('store');
+        Route::get('{auction}/edit', [AuctionController::class, 'edit'])->name('edit');
         Route::get('{auction}', [AuctionController::class, 'show'])->name('show');
+        Route::put('{auction}', [AuctionController::class, 'update'])->name('update');
         Route::post('{auction}/publish', [AuctionController::class, 'publish'])->name('publish');
         Route::post('{auction}/close', [AuctionController::class, 'close'])->name('close');
         Route::post('{auction}/cancel', [AuctionController::class, 'cancel'])->name('cancel');

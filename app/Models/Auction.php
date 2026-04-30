@@ -22,11 +22,9 @@ class Auction extends Model
         'description',
         'status',
         'closure_result',
-        'product_id',
-        'product_variant_id',
-        'product_serial_id',
         'inventory_source_type',
         'lot_number',
+        'hero_image_url',
         'starting_price',
         'reserve_price',
         'minimum_increment',
@@ -54,9 +52,6 @@ class Auction extends Model
         return [
             'status' => AuctionStatus::class,
             'closure_result' => AuctionClosureResult::class,
-            'product_id' => 'integer',
-            'product_variant_id' => 'integer',
-            'product_serial_id' => 'integer',
             'current_bid_user_id' => 'integer',
             'winning_bid_id' => 'integer',
             'winner_user_id' => 'integer',
@@ -74,21 +69,6 @@ class Auction extends Model
             'is_manually_closed' => 'boolean',
             'inventory_snapshot' => 'array',
         ];
-    }
-
-    public function product(): BelongsTo
-    {
-        return $this->belongsTo(Product::class);
-    }
-
-    public function productVariant(): BelongsTo
-    {
-        return $this->belongsTo(ProductVariant::class);
-    }
-
-    public function productSerial(): BelongsTo
-    {
-        return $this->belongsTo(ProductSerial::class);
     }
 
     public function creator(): BelongsTo
@@ -119,6 +99,11 @@ class Auction extends Model
     public function bids(): HasMany
     {
         return $this->hasMany(AuctionBid::class);
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(AuctionItem::class)->orderBy('position');
     }
 
     public function scopeVisible(Builder $query): Builder

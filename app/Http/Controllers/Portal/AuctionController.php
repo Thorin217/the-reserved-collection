@@ -37,6 +37,10 @@ class AuctionController extends Controller
             ? $this->visibleAuctionsQuery($userId)
                 ->visible()
                 ->with([
+                    'items.product.brand',
+                    'items.product.category',
+                    'items.productVariant',
+                    'items.productSerial',
                     'winner',
                     'currentBidUser',
                     'bids' => fn ($query) => $query->with('user')->latest('placed_at')->limit(25),
@@ -90,6 +94,10 @@ class AuctionController extends Controller
 
         $auction = $this->visibleAuctionsQuery($userId)
             ->with([
+                'items.product.brand',
+                'items.product.category',
+                'items.productVariant',
+                'items.productSerial',
                 'winner',
                 'currentBidUser',
                 'bids' => fn ($query) => $query->with('user')->latest('placed_at')->limit(25),
@@ -118,7 +126,7 @@ class AuctionController extends Controller
                 'bids as user_max_bid_amount' => fn ($query) => $query->where('user_id', $userId),
             ], 'amount')
             ->whereHas('bids', fn ($query) => $query->where('user_id', $userId))
-            ->with(['winner'])
+            ->with(['winner', 'items'])
             ->latest('starts_at')
             ->paginate(12)
             ->withQueryString();
@@ -152,6 +160,10 @@ class AuctionController extends Controller
                 'bids as user_max_bid_amount' => fn ($query) => $query->where('user_id', $userId),
             ], 'amount')
             ->with([
+                'items.product.brand',
+                'items.product.category',
+                'items.productVariant',
+                'items.productSerial',
                 'winner',
                 'currentBidUser',
                 'bids' => fn ($query) => $query->with('user')->latest('placed_at')->limit(25),
@@ -167,6 +179,7 @@ class AuctionController extends Controller
     {
         return Auction::query()
             ->withCount('bids')
+            ->with('items')
             ->when($userId !== null, function ($query) use ($userId): void {
                 $query
                     ->withCount([

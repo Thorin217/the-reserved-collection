@@ -71,10 +71,10 @@ class CloseAuction
                 'winner',
                 'winningBid',
                 'currentBidUser',
-                'product.brand',
-                'product.category',
-                'productVariant',
-                'productSerial',
+                'items.product.brand',
+                'items.product.category',
+                'items.productVariant',
+                'items.productSerial',
                 'bids.user',
             ]);
         });

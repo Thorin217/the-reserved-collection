@@ -2,22 +2,19 @@
 
 namespace App\Actions\Auctions;
 
-use App\Enums\AuctionStatus;
 use App\Models\Auction;
 use App\Models\ProductSerial;
 use App\Models\ProductVariant;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
-class CreateAuction
+class UpdateAuction
 {
     /**
      * @param  array<string, mixed>  $validated
      */
-    public function handle(array $validated, User $user): Auction
+    public function handle(Auction $auction, array $validated): Auction
     {
-        return DB::transaction(function () use ($validated, $user): Auction {
+        return DB::transaction(function () use ($auction, $validated): Auction {
             $items = collect($validated['items'])
                 ->values()
                 ->map(function (array $item, int $index): array {
@@ -43,29 +40,22 @@ class CreateAuction
 
             $primaryItem = $items->firstOrFail();
 
-            $auction = Auction::query()->create([
+            $auction->update([
                 'title' => $validated['title'],
-                'slug' => Str::slug($validated['title']).'-'.Str::lower(Str::random(6)),
                 'description' => $validated['description'] ?? null,
-                'status' => AuctionStatus::Draft,
                 'inventory_source_type' => $this->resolveInventorySourceType($items->pluck('inventory_source_type')->all()),
-                'lot_number' => 'LOT-TMP-'.Str::upper(Str::random(10)),
                 'hero_image_url' => data_get($primaryItem, 'snapshot.image_url'),
                 'starting_price' => $validated['starting_price'],
                 'reserve_price' => $validated['reserve_price'] ?? null,
                 'minimum_increment' => $validated['minimum_increment'],
                 'starts_at' => $validated['starts_at'],
                 'ends_at' => $validated['ends_at'],
-                'created_by' => $user->id,
                 'inventory_snapshot' => $primaryItem['snapshot'],
                 'notes' => $validated['notes'] ?? null,
             ]);
 
+            $auction->items()->delete();
             $auction->items()->createMany($items->all());
-
-            $auction->update([
-                'lot_number' => 'LOT-'.str_pad((string) $auction->id, 6, '0', STR_PAD_LEFT),
-            ]);
 
             return $auction->fresh([
                 'items.product.brand',

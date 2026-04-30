@@ -21,8 +21,11 @@ function auctionAdminPayload(ProductVariant $variant, ?ProductSerial $serial = n
     return array_replace_recursive([
         'title' => 'Rolex Daytona Auction',
         'description' => 'Single lot auction',
-        'product_variant_id' => $variant->id,
-        'product_serial_id' => $serial?->id,
+        'items' => [[
+            'product_variant_id' => $variant->id,
+            'product_serial_id' => $serial?->id,
+            'notes' => '',
+        ]],
         'starting_price' => 15000,
         'reserve_price' => 15500,
         'minimum_increment' => 250,
@@ -30,6 +33,24 @@ function auctionAdminPayload(ProductVariant $variant, ?ProductSerial $serial = n
         'ends_at' => now()->addDay()->format('Y-m-d H:i:s'),
         'notes' => 'VIP event',
     ], $overrides);
+}
+
+function createAuctionLot(array $auctionOverrides = [], array $itemOverrides = []): Auction
+{
+    $auction = Auction::factory()->create($auctionOverrides);
+    $item = $auction->items()->firstOrFail();
+
+    $item->update($itemOverrides);
+
+    if ($itemOverrides !== []) {
+        $auction->update([
+            'inventory_source_type' => $item->inventory_source_type,
+            'hero_image_url' => data_get($item->snapshot, 'image_url'),
+            'inventory_snapshot' => $item->snapshot,
+        ]);
+    }
+
+    return $auction->fresh(['items']);
 }
 
 it('renders auction admin index and create pages', function () {
@@ -61,27 +82,40 @@ it('renders auction admin index and create pages', function () {
             ->has('serial_units'));
 });
 
-it('filters auctions in admin by closure result and inventory source type', function () {
+it('renders the edit page for a draft auction', function () {
     $admin = User::factory()->admin()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
+    $auction = createAuctionLot([
+        'created_by' => $admin->id,
+        'status' => AuctionStatus::Draft,
     ]);
 
-    $matchingAuction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $this->actingAs($admin)
+        ->get(route('admin.auctions.edit', $auction))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('commercial/auctions/edit')
+            ->where('auction.data.id', $auction->id)
+            ->has('variant_units')
+            ->has('serial_units'));
+});
+
+it('filters auctions in admin by closure result and inventory source type', function () {
+    $admin = User::factory()->admin()->create();
+
+    $matchingAuction = createAuctionLot([
         'inventory_source_type' => 'variant',
         'closure_result' => AuctionClosureResult::Sold,
         'status' => AuctionStatus::Closed,
+    ], [
+        'inventory_source_type' => 'variant',
     ]);
 
-    Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    createAuctionLot([
         'inventory_source_type' => 'serial',
         'closure_result' => AuctionClosureResult::ReserveNotMet,
         'status' => AuctionStatus::Closed,
+    ], [
+        'inventory_source_type' => 'serial',
     ]);
 
     $this->actingAs($admin)
@@ -97,7 +131,7 @@ it('filters auctions in admin by closure result and inventory source type', func
             ->where('filters.inventory_source_type', 'variant'));
 });
 
-it('creates an auction for a serial unit and snapshots inventory data', function () {
+it('creates an auction lot for a serial unit and snapshots inventory data', function () {
     $admin = User::factory()->admin()->create();
     $product = Product::factory()->create([
         'name' => 'Submariner Date',
@@ -114,15 +148,86 @@ it('creates an auction for a serial unit and snapshots inventory data', function
     $response = $this->actingAs($admin)
         ->post(route('admin.auctions.store'), auctionAdminPayload($variant, $serial));
 
-    $auction = Auction::query()->firstOrFail();
+    $auction = Auction::query()->with('items')->firstOrFail();
+    $item = $auction->items->firstOrFail();
 
     $response->assertRedirect(route('admin.auctions.index'));
 
     expect($auction->status)->toBe(AuctionStatus::Draft)
-        ->and($auction->product_variant_id)->toBe($variant->id)
-        ->and($auction->product_serial_id)->toBe($serial->id)
-        ->and($auction->inventory_snapshot['product_name'])->toBe('Submariner Date')
-        ->and($auction->inventory_snapshot['serial_number'])->toBe('RLX-0001');
+        ->and($auction->items)->toHaveCount(1)
+        ->and($item->product_variant_id)->toBe($variant->id)
+        ->and($item->product_serial_id)->toBe($serial->id)
+        ->and($item->snapshot['product_name'])->toBe('Submariner Date')
+        ->and($item->snapshot['serial_number'])->toBe('RLX-0001');
+});
+
+it('creates an auction lot with multiple items', function () {
+    $admin = User::factory()->admin()->create();
+    $firstProduct = Product::factory()->simple()->create(['name' => 'Nautilus']);
+    $secondProduct = Product::factory()->simple()->create(['name' => 'Royal Oak']);
+    $firstVariant = ProductVariant::factory()->create(['product_id' => $firstProduct->id]);
+    $secondVariant = ProductVariant::factory()->create(['product_id' => $secondProduct->id]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.auctions.store'), auctionAdminPayload($firstVariant, null, [
+            'title' => 'Dual Lot',
+            'items' => [
+                ['product_variant_id' => $firstVariant->id, 'product_serial_id' => null, 'notes' => ''],
+                ['product_variant_id' => $secondVariant->id, 'product_serial_id' => null, 'notes' => ''],
+            ],
+        ]))
+        ->assertRedirect(route('admin.auctions.index'));
+
+    $auction = Auction::query()->with('items')->firstOrFail();
+
+    expect($auction->items)->toHaveCount(2)
+        ->and($auction->items->pluck('position')->all())->toBe([1, 2]);
+});
+
+it('updates a draft auction lot', function () {
+    $admin = User::factory()->admin()->create();
+    $firstProduct = Product::factory()->simple()->create(['name' => 'Nautilus']);
+    $secondProduct = Product::factory()->simple()->create(['name' => 'Royal Oak']);
+    $firstVariant = ProductVariant::factory()->create(['product_id' => $firstProduct->id, 'price' => 10000]);
+    $secondVariant = ProductVariant::factory()->create(['product_id' => $secondProduct->id, 'price' => 12000]);
+
+    $auction = createAuctionLot([
+        'created_by' => $admin->id,
+        'status' => AuctionStatus::Draft,
+        'title' => 'Original lot',
+    ], [
+        'product_id' => $firstProduct->id,
+        'product_variant_id' => $firstVariant->id,
+        'reference_price' => 10000,
+        'snapshot' => [
+            'product_name' => $firstProduct->name,
+            'brand_name' => null,
+            'attribute_summary' => null,
+            'image_url' => null,
+            'variant_sku' => $firstVariant->sku,
+            'serial_number' => null,
+            'price_reference' => 10000,
+        ],
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('admin.auctions.update', $auction), auctionAdminPayload($secondVariant, null, [
+            'title' => 'Updated lot',
+            'starting_price' => 12000,
+            'reserve_price' => 12500,
+            'items' => [
+                ['product_variant_id' => $secondVariant->id, 'product_serial_id' => null, 'notes' => ''],
+            ],
+        ]))
+        ->assertRedirect(route('admin.auctions.show', $auction))
+        ->assertSessionHas('success', 'Auction updated successfully.');
+
+    $auction->refresh()->load('items');
+
+    expect($auction->title)->toBe('Updated lot')
+        ->and((float) $auction->starting_price)->toBe(12000.0)
+        ->and($auction->items)->toHaveCount(1)
+        ->and($auction->items->first()->product_variant_id)->toBe($secondVariant->id);
 });
 
 it('rejects auctions with a start date in the past', function () {
@@ -159,14 +264,8 @@ it('rejects auctions whose end date is not after the start date', function () {
 
 it('does not publish expired draft auctions', function () {
     $admin = User::factory()->admin()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $auction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $auction = createAuctionLot([
         'created_by' => $admin->id,
         'status' => AuctionStatus::Draft,
         'starts_at' => now()->subDays(2),
@@ -180,6 +279,30 @@ it('does not publish expired draft auctions', function () {
     expect($auction->fresh()->status)->toBe(AuctionStatus::Draft);
 });
 
+it('does not allow editing a non-draft auction', function () {
+    $admin = User::factory()->admin()->create();
+    $auction = createAuctionLot([
+        'created_by' => $admin->id,
+        'status' => AuctionStatus::Scheduled,
+    ]);
+    $product = Product::factory()->simple()->create();
+    $variant = ProductVariant::factory()->create([
+        'product_id' => $product->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.auctions.edit', $auction))
+        ->assertRedirect(route('admin.auctions.show', $auction))
+        ->assertSessionHas('error', 'Only draft auctions can be edited.');
+
+    $this->actingAs($admin)
+        ->put(route('admin.auctions.update', $auction), auctionAdminPayload($variant, null, [
+            'title' => 'Blocked update',
+        ]))
+        ->assertRedirect(route('admin.auctions.show', $auction))
+        ->assertSessionHas('error', 'Only draft auctions can be edited.');
+});
+
 it('prevents creating a second active auction for the same inventory unit', function () {
     $admin = User::factory()->admin()->create();
     $product = Product::factory()->simple()->create();
@@ -187,28 +310,23 @@ it('prevents creating a second active auction for the same inventory unit', func
         'product_id' => $product->id,
     ]);
 
-    Auction::factory()->create([
+    createAuctionLot([
+        'status' => AuctionStatus::Scheduled,
+    ], [
         'product_id' => $product->id,
         'product_variant_id' => $variant->id,
         'product_serial_id' => null,
-        'status' => AuctionStatus::Scheduled,
     ]);
 
     $this->actingAs($admin)
         ->post(route('admin.auctions.store'), auctionAdminPayload($variant))
-        ->assertSessionHasErrors('product_variant_id');
+        ->assertSessionHasErrors('items.0.product_variant_id');
 });
 
 it('does not close a draft auction from admin', function () {
     $admin = User::factory()->admin()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $auction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $auction = createAuctionLot([
         'created_by' => $admin->id,
         'status' => AuctionStatus::Draft,
     ]);
@@ -223,14 +341,8 @@ it('does not close a draft auction from admin', function () {
 it('publishes and manually closes an auction with reserve met', function () {
     $admin = User::factory()->admin()->create();
     $customer = User::factory()->customer()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $auction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $auction = createAuctionLot([
         'created_by' => $admin->id,
         'status' => AuctionStatus::Draft,
         'reserve_price' => 1200,
@@ -272,14 +384,8 @@ it('publishes and manually closes an auction with reserve met', function () {
 
 it('does not cancel an already cancelled auction', function () {
     $admin = User::factory()->admin()->create();
-    $product = Product::factory()->simple()->create();
-    $variant = ProductVariant::factory()->create([
-        'product_id' => $product->id,
-    ]);
 
-    $auction = Auction::factory()->create([
-        'product_id' => $product->id,
-        'product_variant_id' => $variant->id,
+    $auction = createAuctionLot([
         'created_by' => $admin->id,
         'status' => AuctionStatus::Cancelled,
         'closed_at' => now(),

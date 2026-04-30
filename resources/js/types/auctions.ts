@@ -11,6 +11,32 @@ export type AuctionBid = {
     } | null;
 };
 
+export type AuctionItem = {
+    id: number;
+    auction_id: number;
+    position: number;
+    product_id: number;
+    product_variant_id: number;
+    product_serial_id: number | null;
+    inventory_source_type: string;
+    reference_price: string | null;
+    snapshot: {
+        product_name?: string;
+        product_slug?: string;
+        brand_name?: string | null;
+        category_name?: string | null;
+        product_sku?: string | null;
+        variant_sku?: string | null;
+        serial_number?: string | null;
+        image_url?: string | null;
+        price_reference?: string | number | null;
+        product_type?: string | null;
+        has_serial_numbers?: boolean;
+        attribute_summary?: string | null;
+    } | null;
+    notes: string | null;
+};
+
 export type Auction = {
     id: number;
     title: string;
@@ -18,11 +44,9 @@ export type Auction = {
     description: string | null;
     status: 'draft' | 'scheduled' | 'live' | 'closed' | 'cancelled';
     closure_result: 'sold' | 'reserve_not_met' | 'unsold' | null;
-    product_id: number;
-    product_variant_id: number;
-    product_serial_id: number | null;
     inventory_source_type: string;
     lot_number: string;
+    hero_image_url: string | null;
     starting_price: string;
     reserve_price: string | null;
     minimum_increment: string;
@@ -53,6 +77,7 @@ export type Auction = {
     notes: string | null;
     minimum_allowed_bid: number;
     bids_count?: number;
+    items_count?: number;
     user_has_bid?: boolean;
     user_bid_count?: number;
     user_max_bid_amount?: string | null;
@@ -62,4 +87,5 @@ export type Auction = {
     current_bid_user?: { id: number; name: string } | null;
     winner?: { id: number; name: string } | null;
     bids?: AuctionBid[];
+    items?: AuctionItem[];
 };

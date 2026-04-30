@@ -157,11 +157,9 @@ class AuctionSeeder extends Seeder
                     'description' => $product->description,
                     'status' => $definition['status'],
                     'closure_result' => null,
-                    'product_id' => $product->id,
-                    'product_variant_id' => $variant->id,
-                    'product_serial_id' => null,
                     'inventory_source_type' => $product->product_type->value,
                     'lot_number' => $definition['lot_number'],
+                    'hero_image_url' => $product->getFirstMediaUrl('product'),
                     'starting_price' => $startingPrice,
                     'reserve_price' => $reservePrice,
                     'minimum_increment' => $definition['increment'],
@@ -181,6 +179,18 @@ class AuctionSeeder extends Seeder
                     'notes' => 'Demo auction seeded for portal and admin review.',
                 ],
             );
+
+            $auction->items()->delete();
+            $auction->items()->create([
+                'position' => 1,
+                'product_id' => $product->id,
+                'product_variant_id' => $variant->id,
+                'product_serial_id' => null,
+                'inventory_source_type' => $product->product_type->value,
+                'reference_price' => $variant->price,
+                'snapshot' => $this->buildInventorySnapshot($variant),
+                'notes' => null,
+            ]);
 
             $this->syncAuctionBids($auction, $definition['bidder_sequence'], $bidders, $startingPrice, $definition['increment']);
         }

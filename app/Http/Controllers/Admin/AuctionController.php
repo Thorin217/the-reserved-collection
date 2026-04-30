@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\Auctions\CloseAuction;
 use App\Actions\Auctions\CreateAuction;
+use App\Actions\Auctions\UpdateAuction;
 use App\Enums\AuctionClosureResult;
 use App\Enums\AuctionStatus;
 use App\Enums\ProductSerialStatus;
@@ -56,11 +57,57 @@ class AuctionController extends Controller
             'inventory_source_types' => collect([
                 ['value' => 'variant', 'label' => 'Variant / simple'],
                 ['value' => 'serial', 'label' => 'Serial unit'],
+                ['value' => 'mixed', 'label' => 'Mixed lot'],
             ])->values(),
         ]);
     }
 
     public function create(): Response
+    {
+        return $this->renderAuctionForm();
+    }
+
+    public function edit(Auction $auction): Response|RedirectResponse
+    {
+        if ($auction->status !== AuctionStatus::Draft) {
+            return redirect()
+                ->route('admin.auctions.show', $auction)
+                ->with('error', 'Only draft auctions can be edited.');
+        }
+
+        $auction->load([
+            'items.productVariant.product.brand',
+            'items.productSerial',
+        ]);
+
+        return $this->renderAuctionForm($auction);
+    }
+
+    public function store(StoreAuctionRequest $request, CreateAuction $createAuction): RedirectResponse
+    {
+        $createAuction->handle($request->validated(), $request->user());
+
+        return redirect()
+            ->route('admin.auctions.index')
+            ->with('success', 'Auction created successfully.');
+    }
+
+    public function update(Auction $auction, StoreAuctionRequest $request, UpdateAuction $updateAuction): RedirectResponse
+    {
+        if ($auction->status !== AuctionStatus::Draft) {
+            return redirect()
+                ->route('admin.auctions.show', $auction)
+                ->with('error', 'Only draft auctions can be edited.');
+        }
+
+        $updateAuction->handle($auction, $request->validated());
+
+        return redirect()
+            ->route('admin.auctions.show', $auction)
+            ->with('success', 'Auction updated successfully.');
+    }
+
+    private function renderAuctionForm(?Auction $auction = null): Response
     {
         $variantUnits = ProductVariant::query()
             ->with(['product.brand'])
@@ -103,19 +150,11 @@ class AuctionController extends Controller
             ])
             ->values();
 
-        return Inertia::render('commercial/auctions/create', [
+        return Inertia::render($auction ? 'commercial/auctions/edit' : 'commercial/auctions/create', [
             'variant_units' => $variantUnits,
             'serial_units' => $serialUnits,
+            'auction' => $auction ? AuctionResource::make($auction) : null,
         ]);
-    }
-
-    public function store(StoreAuctionRequest $request, CreateAuction $createAuction): RedirectResponse
-    {
-        $createAuction->handle($request->validated(), $request->user());
-
-        return redirect()
-            ->route('admin.auctions.index')
-            ->with('success', 'Auction created successfully.');
     }
 
     public function show(Auction $auction): Response
@@ -125,6 +164,10 @@ class AuctionController extends Controller
             'closer',
             'winner',
             'currentBidUser',
+            'items.product.brand',
+            'items.product.category',
+            'items.productVariant',
+            'items.productSerial',
             'bids' => fn ($query) => $query->with('user')->latest('placed_at'),
         ]);
 

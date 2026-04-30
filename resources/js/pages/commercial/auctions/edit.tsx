@@ -13,7 +13,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { formatCurrency } from '@/lib/currency';
 import AppLayout from '@/layouts/app-layout';
-import { create as auctionsCreate, index as auctionsIndex, store as auctionsStore } from '@/routes/admin/auctions';
+import { edit as auctionEdit, index as auctionsIndex, update as auctionUpdate } from '@/routes/admin/auctions';
+import type { Auction } from '@/types';
 
 type UnitOption = {
     id: number;
@@ -39,6 +40,9 @@ type SelectedLotItem = {
 };
 
 type Props = {
+    auction: {
+        data: Auction;
+    };
     variant_units: UnitOption[];
     serial_units: UnitOption[];
 };
@@ -59,24 +63,48 @@ type AuctionForm = {
     notes: string;
 };
 
-export default function AuctionsCreate({ variant_units, serial_units }: Props) {
+function toDateTimeLocal(value: string): string {
+    const date = new Date(value);
+    const timezoneOffset = date.getTimezoneOffset() * 60_000;
+
+    return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
+}
+
+export default function AuctionsEdit({ auction: { data: auction }, variant_units, serial_units }: Props) {
     const [sourceType, setSourceType] = useState<'variant' | 'serial'>('variant');
     const [selectedVariantId, setSelectedVariantId] = useState('');
     const [selectedSerialId, setSelectedSerialId] = useState('');
     const [minimumStartAt, setMinimumStartAt] = useState('');
-    const [lotItems, setLotItems] = useState<SelectedLotItem[]>([]);
-    const [startingPriceOverridden, setStartingPriceOverridden] = useState(false);
-    const [reservePriceOverridden, setReservePriceOverridden] = useState(false);
-    const { data, setData, post, processing, errors } = useForm<AuctionForm>({
-        title: '',
-        description: '',
-        items: [],
-        starting_price: '',
-        reserve_price: '',
-        minimum_increment: '100',
-        starts_at: '',
-        ends_at: '',
-        notes: '',
+    const initialLotItems = useMemo<SelectedLotItem[]>(
+        () =>
+            (auction.items ?? []).map((item) => ({
+                source_type: item.product_serial_id ? 'serial' : 'variant',
+                product_variant_id: item.product_variant_id.toString(),
+                product_serial_id: item.product_serial_id?.toString() ?? '',
+                label: item.snapshot?.product_name ?? `Item ${item.position}`,
+                price: item.reference_price,
+                product_name: item.snapshot?.product_name ?? null,
+                brand_name: item.snapshot?.brand_name ?? null,
+                attribute_summary: item.snapshot?.attribute_summary ?? null,
+                image_url: item.snapshot?.image_url ?? null,
+            })),
+        [auction.items],
+    );
+    const [lotItems, setLotItems] = useState<SelectedLotItem[]>(initialLotItems);
+    const { data, setData, post, processing, errors, transform } = useForm<AuctionForm>({
+        title: auction.title,
+        description: auction.description ?? '',
+        items: (auction.items ?? []).map((item) => ({
+            product_variant_id: item.product_variant_id.toString(),
+            product_serial_id: item.product_serial_id?.toString() ?? '',
+            notes: item.notes ?? '',
+        })),
+        starting_price: auction.starting_price,
+        reserve_price: auction.reserve_price ?? '',
+        minimum_increment: auction.minimum_increment,
+        starts_at: toDateTimeLocal(auction.starts_at),
+        ends_at: toDateTimeLocal(auction.ends_at),
+        notes: auction.notes ?? '',
     });
 
     const sourceTypeOptions = useMemo<SearchableSelectOption[]>(
@@ -149,20 +177,7 @@ export default function AuctionsCreate({ variant_units, serial_units }: Props) {
         [lotItems],
     );
 
-    const lotReferenceTotalValue = useMemo(
-        () => (lotItems.length > 0 ? lotReferenceTotal.toFixed(2) : ''),
-        [lotItems.length, lotReferenceTotal],
-    );
-
-    useEffect(() => {
-        if (!startingPriceOverridden) {
-            setData('starting_price', lotReferenceTotalValue);
-        }
-
-        if (!reservePriceOverridden) {
-            setData('reserve_price', lotReferenceTotalValue);
-        }
-    }, [lotReferenceTotalValue, reservePriceOverridden, setData, startingPriceOverridden]);
+    const selectedUnitPreview = selectedUnit;
 
     function syncFormItems(nextItems: SelectedLotItem[]) {
         setLotItems(nextItems);
@@ -200,14 +215,7 @@ export default function AuctionsCreate({ variant_units, serial_units }: Props) {
             return;
         }
 
-        const nextItems = [...lotItems, nextItem];
-
-        syncFormItems(nextItems);
-
-        if (!data.title) {
-            setData('title', `${selectedUnit.product_name ?? selectedUnit.label} Lot`);
-        }
-
+        syncFormItems([...lotItems, nextItem]);
         setSelectedVariantId('');
         setSelectedSerialId('');
     }
@@ -222,15 +230,15 @@ export default function AuctionsCreate({ variant_units, serial_units }: Props) {
 
     return (
         <>
-            <Head title="Create auction" />
+            <Head title={`Edit ${auction.title}`} />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <h1 className="text-2xl font-bold">Create auction lot</h1>
+                <h1 className="text-2xl font-bold">Edit auction lot</h1>
 
                 <form
                     className="grid gap-6 lg:grid-cols-3"
                     onSubmit={(event) => {
                         event.preventDefault();
-                        post(auctionsStore().url);
+                        transform((formData) => ({ ...formData, _method: 'put' })).post(auctionUpdate({ auction }).url);
                     }}
                 >
                     <div className="space-y-6 lg:col-span-2">
@@ -362,10 +370,7 @@ export default function AuctionsCreate({ variant_units, serial_units }: Props) {
                                         <Label>Starting price</Label>
                                         <Input
                                             value={data.starting_price}
-                                            onChange={(event) => {
-                                                setStartingPriceOverridden(true);
-                                                setData('starting_price', event.target.value);
-                                            }}
+                                            onChange={(event) => setData('starting_price', event.target.value)}
                                         />
                                         <InputError message={errors.starting_price} />
                                     </div>
@@ -373,10 +378,7 @@ export default function AuctionsCreate({ variant_units, serial_units }: Props) {
                                         <Label>Reserve price</Label>
                                         <Input
                                             value={data.reserve_price}
-                                            onChange={(event) => {
-                                                setReservePriceOverridden(true);
-                                                setData('reserve_price', event.target.value);
-                                            }}
+                                            onChange={(event) => setData('reserve_price', event.target.value)}
                                         />
                                         <InputError message={errors.reserve_price} />
                                     </div>
@@ -429,21 +431,21 @@ export default function AuctionsCreate({ variant_units, serial_units }: Props) {
                             <CardHeader><CardTitle>Selected unit preview</CardTitle></CardHeader>
                             <CardContent className="space-y-2 text-sm">
                                 <div className="bg-muted flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border">
-                                    {selectedUnit?.image_url ? (
+                                    {selectedUnitPreview?.image_url ? (
                                         <img
-                                            src={selectedUnit.image_url}
-                                            alt={selectedUnit.product_name ?? selectedUnit.label}
+                                            src={selectedUnitPreview.image_url}
+                                            alt={selectedUnitPreview.product_name ?? selectedUnitPreview.label}
                                             className="h-full w-full object-cover"
                                         />
                                     ) : (
                                         <div className="text-muted-foreground px-4 text-center text-xs">Choose a product to preview it here</div>
                                     )}
                                 </div>
-                                <div className="font-medium">{selectedUnit?.product_name ?? 'No item selected yet'}</div>
-                                <div className="text-muted-foreground">{selectedUnit?.brand_name ?? '—'}</div>
-                                <div className="text-muted-foreground">{selectedUnit?.attribute_summary ?? '—'}</div>
+                                <div className="font-medium">{selectedUnitPreview?.product_name ?? 'No item selected yet'}</div>
+                                <div className="text-muted-foreground">{selectedUnitPreview?.brand_name ?? '—'}</div>
+                                <div className="text-muted-foreground">{selectedUnitPreview?.attribute_summary ?? '—'}</div>
                                 <div className="text-muted-foreground">
-                                    {selectedUnit?.price ? `Reference price: ${formatCurrency(selectedUnit.price)}` : '—'}
+                                    {selectedUnitPreview?.price ? `Reference price: ${formatCurrency(selectedUnitPreview.price)}` : '—'}
                                 </div>
                             </CardContent>
                         </Card>
@@ -461,16 +463,14 @@ export default function AuctionsCreate({ variant_units, serial_units }: Props) {
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-muted-foreground">Reference total</span>
-                                    <span className="font-medium">
-                                        {formatCurrency(lotReferenceTotal)}
-                                    </span>
+                                    <span className="font-medium">{formatCurrency(lotReferenceTotal)}</span>
                                 </div>
                             </CardContent>
                         </Card>
 
                         <div className="flex gap-2">
                             <Button type="button" variant="outline" className="flex-1" onClick={() => history.back()}>Cancel</Button>
-                            <Button type="submit" className="flex-1" disabled={processing}>{processing ? 'Saving...' : 'Create auction'}</Button>
+                            <Button type="submit" className="flex-1" disabled={processing}>{processing ? 'Saving...' : 'Update auction'}</Button>
                         </div>
                     </div>
                 </form>
@@ -479,8 +479,8 @@ export default function AuctionsCreate({ variant_units, serial_units }: Props) {
     );
 }
 
-AuctionsCreate.layout = (page: React.ReactNode) => (
-    <AppLayout breadcrumbs={[{ title: 'Commercial', href: '#' }, { title: 'Auctions', href: auctionsIndex().url }, { title: 'Create', href: auctionsCreate().url }]}>
+AuctionsEdit.layout = (page: React.ReactNode) => (
+    <AppLayout breadcrumbs={[{ title: 'Commercial', href: '#' }, { title: 'Auctions', href: auctionsIndex().url }, { title: 'Edit', href: '#' }]}>
         {page}
     </AppLayout>
 );
