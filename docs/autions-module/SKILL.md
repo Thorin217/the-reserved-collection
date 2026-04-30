@@ -758,6 +758,605 @@ Como el flujo aprobado es `una subasta = una unidad/producto/serial`, crear una 
 ### Índices recomendados
 
 - index `status`
+
+---
+
+## 19) Planeación de implementación — Evolución a `auction_events`
+
+Esta sección reemplaza el blueprint anterior como guía vigente para la siguiente gran iteración del módulo. El objetivo ya no es solo manejar `auctions` por lote, sino soportar dos comportamientos bajo una misma agrupación visible:
+
+- un `auction_event` con una sola `auction` que recibe pujas por el lote completo
+- un `auction_event` con múltiples `auctions`, donde cada una recibe pujas por un producto específico del grupo
+
+### Regla conceptual cerrada
+
+- `auction_events` será la tabla padre de agrupación
+- `auctions` seguirá siendo la unidad real que recibe pujas
+- `auction_items` seguirá siendo el detalle de productos de cada `auction`
+- `auction_bids` seguirá vinculado a `auctions`
+
+### Interpretación operativa
+
+- si un `auction_event` tiene `1 auction` con múltiples `auction_items`
+    - se trata de puja al lote completo
+- si un `auction_event` tiene múltiples `auctions`, y cada una contiene `1 auction_item`
+    - se trata de puja por producto individual dentro del mismo grupo
+
+### Objetivo técnico de la iteración
+
+Permitir que el sistema modele ambas experiencias sin duplicar lógica de bids, cierre, ganador, scheduler ni UI de resultados. El cambio debe preservar el módulo actual y migrarlo sin romper el flujo ya operativo.
+
+---
+
+## 19.1 Diseño objetivo del dominio
+
+### `auction_events`
+
+Nueva tabla padre para representar el grupo visible en admin y cliente.
+
+Campos sugeridos:
+
+- `id`
+- `title`
+- `slug`
+- `description` nullable
+- `format`
+- `status`
+- `starts_at`
+- `ends_at`
+- `hero_image_url` nullable
+- `notes` nullable
+- `created_by`
+- `closed_by` nullable
+- `closed_at` nullable
+- timestamps
+
+### `auctions`
+
+Se mantiene como entidad de puja, pero ahora pertenece a `auction_events`.
+
+Campos nuevos o ajustados:
+
+- `auction_event_id`
+- `sequence` nullable
+
+Campos que se mantienen:
+
+- `title`
+- `slug`
+- `lot_number`
+- `status`
+- `closure_result`
+- `starting_price`
+- `reserve_price`
+- `minimum_increment`
+- `current_bid_amount`
+- `winner_user_id`
+- `winning_bid_id`
+- `hammer_price`
+- `starts_at`
+- `ends_at`
+- `hero_image_url`
+- `inventory_snapshot`
+
+### `auction_items`
+
+Se mantiene como detalle de cada `auction`.
+
+Campos vigentes:
+
+- `auction_id`
+- `position`
+- `inventory_source_type`
+- `product_id`
+- `product_variant_id` nullable
+- `product_serial_id` nullable
+- `reference_price`
+- `snapshot`
+- `notes` nullable
+
+### `auction_bids`
+
+Sin cambio de concepto:
+
+- cada puja pertenece a una `auction`
+- nunca a `auction_event`
+- nunca directamente a `auction_item`
+
+---
+
+## 19.2 Reglas de negocio para `auction_events`
+
+### `format`
+
+Valores sugeridos:
+
+- `lot`
+- `grouped_items`
+
+### Significado
+
+- `lot`
+    - el evento normalmente tendrá una sola `auction`
+    - esa `auction` puede contener varios `auction_items`
+    - el usuario puja al monto total del lote
+
+- `grouped_items`
+    - el evento tendrá múltiples `auctions`
+    - cada `auction` normalmente tendrá un solo `auction_item`
+    - el usuario puja por productos individuales dentro del grupo
+
+### `status`
+
+Valores sugeridos:
+
+- `draft`
+- `scheduled`
+- `live`
+- `closed`
+- `cancelled`
+
+### Regla de sincronización sugerida
+
+El estado de `auction_event` no debe manejarse como un estado aislado. Debe derivarse del conjunto de `auctions` hijas.
+
+Reglas sugeridas:
+
+- si todas las hijas están `draft` -> evento `draft`
+- si al menos una hija está `scheduled` y ninguna `live` -> evento `scheduled`
+- si al menos una hija está `live` -> evento `live`
+- si todas las hijas están `closed` -> evento `closed`
+- si todas las hijas están `cancelled` -> evento `cancelled`
+
+### Action sugerida
+
+- `SyncAuctionEventStatus`
+
+Esta acción deberá ejecutarse cuando:
+
+- se cree una `auction` hija
+- se publique una hija
+- se cierre una hija
+- se cancele una hija
+- el scheduler cambie estado de una hija
+
+---
+
+## 19.3 Estrategia de migración desde el estado actual
+
+La migración debe preservar el flujo actual, donde hoy cada `auction` ya existe como registro funcional.
+
+### Paso 1 — Crear la tabla padre
+
+Crear migración para `auction_events` con:
+
+- datos generales del grupo
+- `format`
+- `status`
+- `starts_at`
+- `ends_at`
+- `hero_image_url`
+- metadata de auditoría
+
+### Paso 2 — Conectar `auctions`
+
+Agregar a `auctions`:
+
+- `auction_event_id` nullable
+- `sequence` nullable
+
+### Paso 3 — Backfill de datos
+
+Por cada `auction` existente:
+
+- crear un `auction_event`
+- copiar:
+    - `title`
+    - `slug`
+    - `starts_at`
+    - `ends_at`
+    - `hero_image_url`
+    - `created_by`
+    - `closed_by`
+    - `closed_at`
+- definir `format = lot`
+- definir `status` alineado al estado actual de la `auction`
+- setear `auction.auction_event_id`
+
+### Paso 4 — Endurecer la relación
+
+Cuando el backfill esté estable:
+
+- hacer `auction_event_id` required
+- agregar FK e índices definitivos
+
+### Paso 5 — Adaptar resources y consultas
+
+Actualizar:
+
+- modelos
+- relations
+- resources
+- eager loading
+- filtros admin
+- payload del portal
+
+---
+
+## 19.4 Fases recomendadas de implementación
+
+## Fase A — Infraestructura de datos
+
+- crear migración `auction_events`
+- agregar `auction_event_id` y `sequence` en `auctions`
+- crear backfill de eventos 1:1 desde auctions existentes
+- ajustar factories
+- ajustar seeders
+
+**Resultado esperado:** todas las `auctions` actuales quedan agrupadas bajo un `auction_event`.
+
+## Fase B — Dominio backend
+
+- crear modelo `AuctionEvent`
+- agregar relaciones:
+    - `AuctionEvent hasMany Auctions`
+    - `Auction belongsTo AuctionEvent`
+- crear enum `AuctionEventFormat`
+- crear lógica `SyncAuctionEventStatus`
+- adaptar `CreateAuction`, `UpdateAuction`, `CloseAuction`
+- adaptar scheduler para considerar el evento padre
+
+**Resultado esperado:** el backend entiende `auction_event` como agrupador sin romper el flujo actual.
+
+## Fase C — Admin base para eventos
+
+- crear listado `auction-events/index`
+- crear `auction-events/show`
+- crear `auction-events/create`
+- crear `auction-events/edit`
+
+### Flujo admin inicial recomendado
+
+- el admin crea un `auction_event`
+- elige `format`
+- según formato:
+    - `lot`: crea una sola `auction` con varios `auction_items`
+    - `grouped_items`: crea varias `auctions`, cada una con su item y sus reglas de puja
+
+**Resultado esperado:** el admin ya opera sobre eventos, no directamente sobre auctions aisladas.
+
+## Fase D — Compatibilidad y transición de UI
+
+- mantener `auctions/index` como vista operativa secundaria temporal
+- añadir accesos desde `auction_events/show` a las hijas
+- revisar acciones publish, close y cancel:
+    - por hija
+    - o por evento, según convenga
+
+**Resultado esperado:** transición segura sin reescribir toda la operación en un solo paso.
+
+## Fase E — Portal cliente
+
+- reemplazar la idea actual de “una auction visible” por “un event visible”
+- si el evento es `lot`
+    - mostrar una sola subasta con múltiples items
+- si el evento es `grouped_items`
+    - mostrar varios productos/subastas dentro del mismo grupo
+    - cada uno con su propia acción de bid
+
+**Resultado esperado:** el usuario entiende si está pujando por todo el lote o por un producto específico.
+
+---
+
+## 19.5 Tareas concretas de implementación
+
+1. Crear migración `create_auction_events_table`.
+2. Crear migración `add_auction_event_id_to_auctions_table`.
+3. Crear script de backfill en migración o acción de datos controlada.
+4. Crear modelo `AuctionEvent`.
+5. Crear enum `AuctionEventFormat`.
+6. Agregar relaciones Eloquent entre `AuctionEvent`, `Auction` y `AuctionItem`.
+7. Crear action `SyncAuctionEventStatus`.
+8. Adaptar `AuctionResource` para incluir información del evento padre.
+9. Crear `AuctionEventResource`.
+10. Crear factories y actualizar `AuctionSeeder`.
+11. Crear rutas admin para `auction-events`.
+12. Implementar pantallas admin para crear y ver eventos.
+13. Adaptar portal para mostrar eventos agrupados.
+14. Mantener temporalmente compatibilidad con el flujo actual de `auctions/index`.
+15. Agregar pruebas feature de migración funcional:
+    - evento tipo `lot`
+    - evento tipo `grouped_items`
+    - sincronización de estado padre
+    - cierre de hijas y resolución visible
+
+---
+
+## 19.6 Qué no se hará en esta iteración
+
+- afectación operativa de inventario
+- reserva real de seriales o stock
+- reportería avanzada
+- integración contable
+- emails al ganador o perdedor
+- sockets o tiempo real
+
+---
+
+## 19.7 Resultado esperado de esta planeación
+
+Al terminar esta iteración, el módulo debe quedar listo para soportar dos tipos de experiencia sobre una misma arquitectura:
+
+- subasta de lote completo con múltiples productos
+- grupo de productos donde cada uno tiene su propia subasta
+
+Sin cambiar el principio central:
+
+- `auction_event` agrupa
+- `auction` recibe bids
+- `auction_item` describe productos
+- `auction_bid` registra pujas
+
+Con esto, el módulo queda preparado para crecer sin volver ambiguo el dominio ni duplicar reglas de cierre, ganador y visualización.
+
+---
+
+## 19.8 Checklist exacta para iniciar implementación
+
+Esta checklist está pensada para ejecutarse en orden, minimizando riesgo sobre el módulo actual.
+
+### Entrega 1 — Infraestructura y compatibilidad
+
+#### Objetivo
+
+Introducir `auction_events` sin romper el flujo actual de `auctions`.
+
+#### Archivos / piezas a tocar
+
+- nueva migración `create_auction_events_table`
+- nueva migración `add_auction_event_id_to_auctions_table`
+- `app/Models/Auction.php`
+- nuevo `app/Models/AuctionEvent.php`
+- `database/factories/AuctionFactory.php`
+- nuevo `database/factories/AuctionEventFactory.php`
+- `database/seeders/AuctionSeeder.php`
+- `app/Http/Resources/AuctionResource.php`
+
+#### Tareas
+
+1. Crear la tabla `auction_events`.
+2. Agregar `auction_event_id` nullable a `auctions`.
+3. Agregar `sequence` nullable a `auctions`.
+4. Crear el modelo `AuctionEvent`.
+5. Agregar relaciones Eloquent:
+   - `AuctionEvent::auctions()`
+   - `Auction::event()`
+6. Crear backfill 1:1 desde `auctions` actuales hacia `auction_events`.
+7. Actualizar factories y seeder.
+8. Ajustar `AuctionResource` para incluir información básica del evento padre.
+
+#### Criterio de cierre
+
+- toda `auction` existente queda vinculada a un `auction_event`
+- `auctions/index`, `show`, `publish`, `close`, `cancel` siguen funcionando
+- no cambia todavía la UX principal del admin
+
+---
+
+### Entrega 2 — Dominio backend de eventos
+
+#### Objetivo
+
+Hacer que el backend entienda `auction_event` como agrupador oficial.
+
+#### Archivos / piezas a tocar
+
+- nuevo `app/Enums/AuctionEventFormat.php`
+- `app/Models/AuctionEvent.php`
+- `app/Models/Auction.php`
+- nueva action `app/Actions/Auctions/SyncAuctionEventStatus.php`
+- `app/Actions/Auctions/CreateAuction.php`
+- `app/Actions/Auctions/UpdateAuction.php`
+- `app/Actions/Auctions/CloseAuction.php`
+- scheduler / commands de auctions
+
+#### Tareas
+
+1. Crear enum `AuctionEventFormat`.
+2. Definir formatos:
+   - `lot`
+   - `grouped_items`
+3. Crear action `SyncAuctionEventStatus`.
+4. Invocar esa action en:
+   - create
+   - update
+   - publish
+   - close
+   - cancel
+   - scheduler
+5. Asegurar que el estado del evento padre derive correctamente de las hijas.
+
+#### Criterio de cierre
+
+- el evento padre refleja el estado operativo de sus subastas hijas
+- no hay inconsistencia entre `auction.status` y `auction_event.status`
+
+---
+
+### Entrega 3 — Admin de `auction_events` para formato `lot`
+
+#### Objetivo
+
+Mover la operación principal del admin hacia eventos, empezando por el caso `lot`.
+
+#### Archivos / piezas a tocar
+
+- nuevas rutas en `routes/admin.php`
+- nuevo `app/Http/Controllers/Admin/AuctionEventController.php`
+- nuevo request `StoreAuctionEventRequest`
+- nuevo request `UpdateAuctionEventRequest`
+- nuevas páginas:
+  - `resources/js/pages/commercial/auction-events/index.tsx`
+  - `resources/js/pages/commercial/auction-events/create.tsx`
+  - `resources/js/pages/commercial/auction-events/show.tsx`
+  - `resources/js/pages/commercial/auction-events/edit.tsx`
+- nuevos helpers en `resources/js/routes/admin/auction-events`
+
+#### Tareas
+
+1. Crear CRUD base de `auction_events`.
+2. En `create`, permitir seleccionar `format`.
+3. Implementar primero solo `format = lot`.
+4. Reutilizar el flujo actual de:
+   - una `auction`
+   - múltiples `auction_items`
+5. Crear una `auction` hija automáticamente dentro del evento.
+6. Mostrar desde `show`:
+   - info del evento
+   - subastas hijas
+   - items del lote
+
+#### Criterio de cierre
+
+- el admin puede crear un `auction_event` de tipo `lot`
+- ese evento genera una `auction` hija funcional
+- el flujo actual de pujas no se rompe
+
+---
+
+### Entrega 4 — Compatibilidad operativa y transición
+
+#### Objetivo
+
+Mantener el módulo usable mientras se migra la operación hacia `auction_events`.
+
+#### Archivos / piezas a tocar
+
+- `resources/js/pages/commercial/auctions/index.tsx`
+- `resources/js/pages/commercial/auctions/show.tsx`
+- sidebar o navegación admin
+- resources y breadcrumbs relacionados
+
+#### Tareas
+
+1. Mantener `auctions/index` como vista operativa secundaria.
+2. Añadir navegación hacia `auction-events`.
+3. Desde `auction-events/show`, enlazar a las `auctions` hijas cuando haga falta.
+4. Definir si `publish`, `close` y `cancel` siguen siendo por `auction` o si luego habrá acciones por evento.
+
+#### Criterio de cierre
+
+- no se pierde trazabilidad ni operatividad durante la transición
+- el equipo puede seguir usando el módulo mientras se completa la evolución
+
+---
+
+### Entrega 5 — Soporte a `grouped_items`
+
+#### Objetivo
+
+Abrir el segundo comportamiento: varias subastas hijas dentro del mismo evento.
+
+#### Archivos / piezas a tocar
+
+- `AuctionEventController`
+- actions de creación del dominio
+- nuevas UI admin para cargar múltiples hijas
+- portal de auctions
+- resources del evento y de las subastas
+
+#### Tareas
+
+1. Permitir `format = grouped_items`.
+2. Crear múltiples `auctions` hijas bajo un mismo evento.
+3. Asociar normalmente un `auction_item` a cada hija.
+4. Permitir definir por hija:
+   - `starting_price`
+   - `reserve_price`
+   - `minimum_increment`
+   - fechas si no se heredan
+5. Ajustar cliente para mostrar el grupo y sus subastas individuales.
+
+#### Criterio de cierre
+
+- un mismo `auction_event` puede renderizarse como grupo de subastas individuales
+- cada hija recibe bids y ganador independientes
+
+---
+
+### Entrega 6 — Portal adaptado a eventos
+
+#### Objetivo
+
+Hacer visible al usuario final la nueva arquitectura sin confusión.
+
+#### Archivos / piezas a tocar
+
+- `app/Http/Controllers/Portal/AuctionController.php`
+- `app/Http/Resources/AuctionResource.php`
+- nuevo `AuctionEventResource` si aplica
+- `resources/js/components/portal/auction-room.tsx`
+- `resources/js/pages/portal/auctions/*`
+- `resources/js/types/auctions.ts`
+
+#### Tareas
+
+1. Mostrar `auction_event` como agrupación principal.
+2. Si es `lot`:
+   - renderizar una sola subasta con múltiples items
+3. Si es `grouped_items`:
+   - renderizar varias subastas dentro del evento
+   - dejar claro por cuál producto se está pujando
+4. Mantener `My Auctions` compatible con ambas modalidades.
+
+#### Criterio de cierre
+
+- el usuario entiende si está pujando por el lote completo o por un item/subasta específica
+
+---
+
+### Entrega 7 — Pruebas de regresión y cobertura nueva
+
+#### Objetivo
+
+Cerrar la evolución con seguridad sobre los dos modos del dominio.
+
+#### Archivos / piezas a tocar
+
+- `tests/Feature/Admin/AuctionAdminTest.php`
+- nuevos tests para `AuctionEvent`
+- `tests/Feature/Portal/AuctionPortalTest.php`
+- tests de seeders/factories si aplica
+
+#### Tareas
+
+1. Probar backfill de `auction_events`.
+2. Probar evento `lot`.
+3. Probar evento `grouped_items`.
+4. Probar sincronización de estado padre.
+5. Probar cierre de hijas sin romper resultado del evento.
+6. Probar render portal para ambas modalidades.
+
+#### Criterio de cierre
+
+- la nueva arquitectura está cubierta con tests del flujo crítico
+
+---
+
+## 19.9 Recomendación de arranque inmediato
+
+Si el desarrollo inicia ahora mismo, el primer bloque concreto a ejecutar debería ser este:
+
+1. crear migración `auction_events`
+2. agregar `auction_event_id` a `auctions`
+3. crear modelo `AuctionEvent`
+4. hacer backfill 1:1
+5. adaptar relaciones y resources
+6. correr tests del módulo actual
+
+### Razón
+
+Ese bloque no cambia todavía la experiencia del usuario ni obliga a rehacer pantallas. Solo instala la nueva columna vertebral del dominio y deja al sistema listo para crecer hacia `lot` y `grouped_items`.
 - index `starts_at`
 - index `ends_at`
 - index `winner_user_id`

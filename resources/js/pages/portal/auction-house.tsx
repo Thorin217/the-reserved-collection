@@ -1,18 +1,20 @@
 import { Head } from '@inertiajs/react';
 import AuctionRoom from '@/components/portal/auction-room';
 import PortalLayout from '@/layouts/portal-layout';
-import type { Auction, ProductNegotiation } from '@/types';
+import type { AuctionEvent, ProductNegotiation } from '@/types';
 
 type Props = {
-    auctions: {
-        data: Auction[];
+    events: {
+        data: AuctionEvent[];
     };
-    selected_auction: {
-        data: Auction;
+    selected_event: {
+        data: AuctionEvent;
     } | null;
+    selected_auction_slug: string | null;
     filters: {
         view?: string;
         auction?: string;
+        event?: string;
     };
     negotiations?: {
         data: ProductNegotiation[];
@@ -22,13 +24,21 @@ type Props = {
     } | null;
 };
 
-export default function AuctionHousePage({ auctions, selected_auction, filters, negotiations, selected_negotiation }: Props) {
+export default function AuctionHousePage({
+    events,
+    selected_event,
+    selected_auction_slug,
+    filters,
+    negotiations,
+    selected_negotiation,
+}: Props) {
     return (
         <>
             <Head title="Auction House" />
             <AuctionRoom
-                auctions={auctions.data}
-                selectedAuction={selected_auction?.data ?? null}
+                events={events.data}
+                selectedEvent={selected_event?.data ?? null}
+                selectedAuctionSlug={selected_auction_slug}
                 mode={filters.view}
                 negotiations={negotiations?.data ?? null}
                 selectedNegotiation={selected_negotiation?.data ?? null}

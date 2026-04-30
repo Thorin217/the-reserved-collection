@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\AuctionStatus;
+use App\Models\Auction;
+use App\Models\AuctionEvent;
 use App\Models\AuctionItem;
 use App\Models\ProductSerial;
 use App\Models\ProductVariant;
@@ -48,6 +50,12 @@ class StoreAuctionRequest extends FormRequest
         return [
             function (Validator $validator): void {
                 $currentAuction = $this->route('auction');
+                $currentAuctionEvent = $this->route('auctionEvent');
+
+                if ($currentAuction === null && $currentAuctionEvent instanceof AuctionEvent) {
+                    $currentAuction = $currentAuctionEvent->auctions()->orderBy('sequence')->first();
+                }
+
                 $currentAuctionId = $currentAuction instanceof Auction
                     ? $currentAuction->id
                     : (is_numeric($currentAuction) ? (int) $currentAuction : null);

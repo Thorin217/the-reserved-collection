@@ -24,6 +24,7 @@ Route::name('portal.')->group(function () {
     Route::get('catalog', [CatalogController::class, 'index'])->name('catalog');
     Route::get('products/{product:slug}', [CatalogController::class, 'show'])->name('products.show');
     Route::get('auction-house', [AuctionHouseController::class, 'index'])->name('auction-house');
+    Route::get('auction-events/{auctionEvent:slug}', [AuctionController::class, 'showEvent'])->name('auction-events.show');
     Route::get('auctions/{auction:slug}', [AuctionController::class, 'show'])->name('auctions.show');
     Route::get('search', SearchController::class)->name('search');
 

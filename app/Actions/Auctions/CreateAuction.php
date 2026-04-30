@@ -2,8 +2,10 @@
 
 namespace App\Actions\Auctions;
 
+use App\Enums\AuctionEventFormat;
 use App\Enums\AuctionStatus;
 use App\Models\Auction;
+use App\Models\AuctionEvent;
 use App\Models\ProductSerial;
 use App\Models\ProductVariant;
 use App\Models\User;
@@ -12,6 +14,10 @@ use Illuminate\Support\Str;
 
 class CreateAuction
 {
+    public function __construct(
+        private readonly SyncAuctionEventStatus $syncAuctionEventStatus,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $validated
      */
@@ -42,10 +48,26 @@ class CreateAuction
                 });
 
             $primaryItem = $items->firstOrFail();
+            $slug = Str::slug($validated['title']).'-'.Str::lower(Str::random(6));
+
+            $event = AuctionEvent::query()->create([
+                'title' => $validated['title'],
+                'slug' => $slug,
+                'description' => $validated['description'] ?? null,
+                'format' => AuctionEventFormat::Lot,
+                'status' => AuctionStatus::Draft,
+                'starts_at' => $validated['starts_at'],
+                'ends_at' => $validated['ends_at'],
+                'hero_image_url' => data_get($primaryItem, 'snapshot.image_url'),
+                'notes' => $validated['notes'] ?? null,
+                'created_by' => $user->id,
+            ]);
 
             $auction = Auction::query()->create([
+                'auction_event_id' => $event->id,
+                'sequence' => 1,
                 'title' => $validated['title'],
-                'slug' => Str::slug($validated['title']).'-'.Str::lower(Str::random(6)),
+                'slug' => $slug,
                 'description' => $validated['description'] ?? null,
                 'status' => AuctionStatus::Draft,
                 'inventory_source_type' => $this->resolveInventorySourceType($items->pluck('inventory_source_type')->all()),
@@ -67,11 +89,14 @@ class CreateAuction
                 'lot_number' => 'LOT-'.str_pad((string) $auction->id, 6, '0', STR_PAD_LEFT),
             ]);
 
+            $this->syncAuctionEventStatus->handle($event);
+
             return $auction->fresh([
                 'items.product.brand',
                 'items.product.category',
                 'items.productVariant',
                 'items.productSerial',
+                'event',
                 'creator',
             ]);
         });

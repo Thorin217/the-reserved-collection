@@ -13,7 +13,7 @@ type Props = {
     selected_auction_slug: string | null;
 };
 
-export default function AuctionShowPage({
+export default function AuctionEventShowPage({
     events,
     selected_event,
     selected_auction_slug,
@@ -31,4 +31,4 @@ export default function AuctionShowPage({
     );
 }
 
-AuctionShowPage.layout = (page: React.ReactNode) => <PortalLayout>{page}</PortalLayout>;
+AuctionEventShowPage.layout = (page: React.ReactNode) => <PortalLayout>{page}</PortalLayout>;

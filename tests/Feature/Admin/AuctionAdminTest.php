@@ -1,14 +1,19 @@
 <?php
 
 use App\Enums\AuctionClosureResult;
+use App\Enums\AuctionEventFormat;
 use App\Enums\AuctionStatus;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Auction;
+use App\Models\AuctionEvent;
 use App\Models\Product;
 use App\Models\ProductSerial;
 use App\Models\ProductVariant;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->withoutMiddleware([
@@ -21,6 +26,7 @@ function auctionAdminPayload(ProductVariant $variant, ?ProductSerial $serial = n
     return array_replace_recursive([
         'title' => 'Rolex Daytona Auction',
         'description' => 'Single lot auction',
+        'format' => 'lot',
         'items' => [[
             'product_variant_id' => $variant->id,
             'product_serial_id' => $serial?->id,
@@ -32,6 +38,38 @@ function auctionAdminPayload(ProductVariant $variant, ?ProductSerial $serial = n
         'starts_at' => now()->addHour()->format('Y-m-d H:i:s'),
         'ends_at' => now()->addDay()->format('Y-m-d H:i:s'),
         'notes' => 'VIP event',
+    ], $overrides);
+}
+
+function groupedAuctionEventPayload(ProductVariant $firstVariant, ProductVariant $secondVariant, array $overrides = []): array
+{
+    return array_replace_recursive([
+        'title' => 'Spring Collector Drop',
+        'description' => 'Grouped item auction event',
+        'format' => 'grouped_items',
+        'starts_at' => now()->addHour()->format('Y-m-d H:i:s'),
+        'ends_at' => now()->addDay()->format('Y-m-d H:i:s'),
+        'notes' => 'Grouped lots',
+        'grouped_auctions' => [
+            [
+                'title' => 'Lot A',
+                'product_variant_id' => $firstVariant->id,
+                'product_serial_id' => null,
+                'notes' => '',
+                'starting_price' => 10000,
+                'reserve_price' => 10500,
+                'minimum_increment' => 100,
+            ],
+            [
+                'title' => 'Lot B',
+                'product_variant_id' => $secondVariant->id,
+                'product_serial_id' => null,
+                'notes' => '',
+                'starting_price' => 12000,
+                'reserve_price' => 12500,
+                'minimum_increment' => 100,
+            ],
+        ],
     ], $overrides);
 }
 
@@ -80,6 +118,11 @@ it('renders auction admin index and create pages', function () {
             ->component('commercial/auctions/create')
             ->has('variant_units')
             ->has('serial_units'));
+
+    $this->actingAs($admin)
+        ->get(route('admin.auction-events.index'))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page->component('commercial/auction-events/index'));
 });
 
 it('renders the edit page for a draft auction', function () {
@@ -95,6 +138,82 @@ it('renders the edit page for a draft auction', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('commercial/auctions/edit')
             ->where('auction.data.id', $auction->id)
+            ->has('variant_units')
+            ->has('serial_units'));
+});
+
+it('renders the auction event show page', function () {
+    $admin = User::factory()->admin()->create();
+    $auction = createAuctionLot([
+        'created_by' => $admin->id,
+        'status' => AuctionStatus::Draft,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.auction-events.show', ['auctionEvent' => $auction->event->id]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('commercial/auction-events/show')
+            ->where('event.data.id', $auction->event->id));
+});
+
+it('renders the auction event edit page for a draft lot event', function () {
+    $admin = User::factory()->admin()->create();
+    $auction = createAuctionLot([
+        'created_by' => $admin->id,
+        'status' => AuctionStatus::Draft,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.auction-events.edit', ['auctionEvent' => $auction->event->id]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('commercial/auction-events/edit')
+            ->where('event.data.id', $auction->event->id)
+            ->where('auction.data.id', $auction->id));
+});
+
+it('renders the auction event edit page for a draft grouped-items event', function () {
+    $admin = User::factory()->admin()->create();
+    $firstProduct = Product::factory()->simple()->create(['name' => 'First']);
+    $secondProduct = Product::factory()->simple()->create(['name' => 'Second']);
+    $firstVariant = ProductVariant::factory()->create(['product_id' => $firstProduct->id]);
+    $secondVariant = ProductVariant::factory()->create(['product_id' => $secondProduct->id]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.auction-events.store'), groupedAuctionEventPayload($firstVariant, $secondVariant))
+        ->assertSessionHas('success');
+
+    $event = AuctionEvent::query()->latest('id')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->get(route('admin.auction-events.edit', ['auctionEvent' => $event->id]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('commercial/auction-events/edit')
+            ->where('event.data.id', $event->id));
+});
+
+it('renders the auction event create page', function () {
+    $admin = User::factory()->admin()->create();
+    $simpleProduct = Product::factory()->simple()->create();
+    ProductVariant::factory()->create([
+        'product_id' => $simpleProduct->id,
+    ]);
+
+    $serialProduct = Product::factory()->create();
+    $serialVariant = ProductVariant::factory()->create([
+        'product_id' => $serialProduct->id,
+    ]);
+    ProductSerial::factory()->create([
+        'product_variant_id' => $serialVariant->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.auction-events.create'))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('commercial/auction-events/create')
             ->has('variant_units')
             ->has('serial_units'));
 });
@@ -154,11 +273,189 @@ it('creates an auction lot for a serial unit and snapshots inventory data', func
     $response->assertRedirect(route('admin.auctions.index'));
 
     expect($auction->status)->toBe(AuctionStatus::Draft)
+        ->and($auction->auction_event_id)->not->toBeNull()
         ->and($auction->items)->toHaveCount(1)
         ->and($item->product_variant_id)->toBe($variant->id)
         ->and($item->product_serial_id)->toBe($serial->id)
         ->and($item->snapshot['product_name'])->toBe('Submariner Date')
         ->and($item->snapshot['serial_number'])->toBe('RLX-0001');
+});
+
+it('creates an auction event through the event admin flow', function () {
+    $admin = User::factory()->admin()->create();
+    $product = Product::factory()->simple()->create([
+        'name' => 'Royal Oak',
+    ]);
+    $variant = ProductVariant::factory()->create([
+        'product_id' => $product->id,
+        'price' => 22000,
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('admin.auction-events.store'), auctionAdminPayload($variant));
+
+    $auction = Auction::query()->with('event')->firstOrFail();
+
+    $response->assertRedirect(route('admin.auction-events.show', ['auctionEvent' => $auction->event->id]));
+
+    expect($auction->event)->not->toBeNull()
+        ->and($auction->event->format->value)->toBe('lot')
+        ->and($auction->event->title)->toBe('Rolex Daytona Auction');
+});
+
+it('creates a grouped-items auction event through the event admin flow', function () {
+    $admin = User::factory()->admin()->create();
+    $firstProduct = Product::factory()->simple()->create(['name' => 'Nautilus']);
+    $secondProduct = Product::factory()->simple()->create(['name' => 'Royal Oak']);
+    $firstVariant = ProductVariant::factory()->create(['product_id' => $firstProduct->id, 'price' => 10000]);
+    $secondVariant = ProductVariant::factory()->create(['product_id' => $secondProduct->id, 'price' => 12000]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('admin.auction-events.store'), groupedAuctionEventPayload($firstVariant, $secondVariant));
+
+    $event = AuctionEvent::query()->latest('id')->firstOrFail();
+
+    $response->assertRedirect(route('admin.auction-events.show', ['auctionEvent' => $event->id]));
+
+    expect($event->format->value)->toBe('grouped_items')
+        ->and($event->auctions()->count())->toBe(2)
+        ->and($event->auctions()->pluck('sequence')->all())->toBe([1, 2]);
+});
+
+it('creates a grouped-items auction event with multiple serials from the same variant', function () {
+    $admin = User::factory()->admin()->create();
+    $product = Product::factory()->create(['name' => 'Louis Vuitton Capucines MM Noir']);
+    $variant = ProductVariant::factory()->create([
+        'product_id' => $product->id,
+        'price' => 8450,
+    ]);
+    $firstSerial = ProductSerial::factory()->available()->create([
+        'product_variant_id' => $variant->id,
+    ]);
+    $secondSerial = ProductSerial::factory()->available()->create([
+        'product_variant_id' => $variant->id,
+    ]);
+    $thirdSerial = ProductSerial::factory()->available()->create([
+        'product_variant_id' => $variant->id,
+    ]);
+
+    $payload = [
+        'title' => 'Lote #2',
+        'description' => 'Description',
+        'format' => 'grouped_items',
+        'starts_at' => now()->addHour()->format('Y-m-d H:i:s'),
+        'ends_at' => now()->addHours(2)->format('Y-m-d H:i:s'),
+        'notes' => 'Notes',
+        'grouped_auctions' => [
+            [
+                'title' => 'Louis Vuitton Capucines MM Noir',
+                'product_variant_id' => (string) $variant->id,
+                'product_serial_id' => (string) $firstSerial->id,
+                'notes' => '',
+                'starting_price' => '8450',
+                'reserve_price' => '8450',
+                'minimum_increment' => '100',
+            ],
+            [
+                'title' => 'Louis Vuitton Capucines MM Noir',
+                'product_variant_id' => (string) $variant->id,
+                'product_serial_id' => (string) $secondSerial->id,
+                'notes' => '',
+                'starting_price' => '8450',
+                'reserve_price' => '8450',
+                'minimum_increment' => '100',
+            ],
+            [
+                'title' => 'Louis Vuitton Capucines MM Noir',
+                'product_variant_id' => (string) $variant->id,
+                'product_serial_id' => (string) $thirdSerial->id,
+                'notes' => '',
+                'starting_price' => '8450',
+                'reserve_price' => '8450',
+                'minimum_increment' => '100',
+            ],
+        ],
+    ];
+
+    $response = $this->actingAs($admin)
+        ->post(route('admin.auction-events.store'), $payload);
+
+    $event = AuctionEvent::query()->latest('id')->first();
+
+    expect($response->isRedirect())->toBeTrue();
+
+    if ($event === null) {
+        $response->assertSessionHasErrors();
+
+        return;
+    }
+
+    $response->assertRedirect(route('admin.auction-events.show', ['auctionEvent' => $event->id]));
+
+    expect($event->format->value)->toBe('grouped_items')
+        ->and($event->auctions()->count())->toBe(3);
+});
+
+it('creates an auction event automatically through the factory', function () {
+    $auction = Auction::factory()->create();
+
+    expect($auction->auction_event_id)->not->toBeNull()
+        ->and($auction->event)->toBeInstanceOf(AuctionEvent::class)
+        ->and($auction->event->slug)->toBe($auction->slug);
+});
+
+it('does not overwrite grouped auction event metadata when creating child auctions through the factory', function () {
+    $admin = User::factory()->admin()->create();
+    $event = AuctionEvent::factory()->create([
+        'title' => 'Collector Event',
+        'slug' => 'collector-event',
+        'format' => AuctionEventFormat::GroupedItems,
+        'created_by' => $admin->id,
+    ]);
+
+    Auction::factory()->create([
+        'auction_event_id' => $event->id,
+        'sequence' => 1,
+        'title' => 'Child Auction A',
+        'slug' => 'child-auction-a',
+        'created_by' => $admin->id,
+    ]);
+
+    Auction::factory()->create([
+        'auction_event_id' => $event->id,
+        'sequence' => 2,
+        'title' => 'Child Auction B',
+        'slug' => 'child-auction-b',
+        'created_by' => $admin->id,
+    ]);
+
+    $event->refresh();
+
+    expect($event->title)->toBe('Collector Event')
+        ->and($event->slug)->toBe('collector-event')
+        ->and($event->auctions()->count())->toBe(2);
+});
+
+it('syncs the parent auction event status when the auction is published and cancelled', function () {
+    $admin = User::factory()->admin()->create();
+    $auction = createAuctionLot([
+        'created_by' => $admin->id,
+        'status' => AuctionStatus::Draft,
+        'starts_at' => now()->addHour(),
+        'ends_at' => now()->addDay(),
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.auctions.publish', $auction))
+        ->assertSessionHas('success');
+
+    expect($auction->fresh()->event->status)->toBe(AuctionStatus::Scheduled);
+
+    $this->actingAs($admin)
+        ->post(route('admin.auctions.cancel', $auction))
+        ->assertSessionHas('success');
+
+    expect($auction->fresh()->event->status)->toBe(AuctionStatus::Cancelled);
 });
 
 it('creates an auction lot with multiple items', function () {
@@ -228,6 +525,106 @@ it('updates a draft auction lot', function () {
         ->and((float) $auction->starting_price)->toBe(12000.0)
         ->and($auction->items)->toHaveCount(1)
         ->and($auction->items->first()->product_variant_id)->toBe($secondVariant->id);
+});
+
+it('updates a draft auction event through the event admin flow', function () {
+    $admin = User::factory()->admin()->create();
+    $firstProduct = Product::factory()->simple()->create(['name' => 'Nautilus']);
+    $secondProduct = Product::factory()->simple()->create(['name' => 'Royal Oak']);
+    $firstVariant = ProductVariant::factory()->create(['product_id' => $firstProduct->id, 'price' => 10000]);
+    $secondVariant = ProductVariant::factory()->create(['product_id' => $secondProduct->id, 'price' => 12000]);
+
+    $auction = createAuctionLot([
+        'created_by' => $admin->id,
+        'status' => AuctionStatus::Draft,
+        'title' => 'Original lot',
+    ], [
+        'product_id' => $firstProduct->id,
+        'product_variant_id' => $firstVariant->id,
+        'reference_price' => 10000,
+        'snapshot' => [
+            'product_name' => $firstProduct->name,
+            'brand_name' => null,
+            'attribute_summary' => null,
+            'image_url' => null,
+            'variant_sku' => $firstVariant->sku,
+            'serial_number' => null,
+            'price_reference' => 10000,
+        ],
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('admin.auction-events.update', ['auctionEvent' => $auction->event->id]), auctionAdminPayload($secondVariant, null, [
+            'title' => 'Updated event lot',
+            'starting_price' => 12000,
+            'reserve_price' => 12500,
+            'items' => [
+                ['product_variant_id' => $secondVariant->id, 'product_serial_id' => null, 'notes' => ''],
+            ],
+        ]))
+        ->assertRedirect(route('admin.auction-events.show', ['auctionEvent' => $auction->event->id]))
+        ->assertSessionHas('success', 'Auction event updated successfully.');
+
+    $auction->refresh()->load(['items', 'event']);
+
+    expect($auction->title)->toBe('Updated event lot')
+        ->and($auction->event->title)->toBe('Updated event lot')
+        ->and($auction->items)->toHaveCount(1)
+        ->and($auction->items->first()->product_variant_id)->toBe($secondVariant->id);
+});
+
+it('updates a draft grouped-items event through the event admin flow', function () {
+    $admin = User::factory()->admin()->create();
+    $firstProduct = Product::factory()->simple()->create(['name' => 'First']);
+    $secondProduct = Product::factory()->simple()->create(['name' => 'Second']);
+    $thirdProduct = Product::factory()->simple()->create(['name' => 'Third']);
+    $firstVariant = ProductVariant::factory()->create(['product_id' => $firstProduct->id, 'price' => 10000]);
+    $secondVariant = ProductVariant::factory()->create(['product_id' => $secondProduct->id, 'price' => 12000]);
+    $thirdVariant = ProductVariant::factory()->create(['product_id' => $thirdProduct->id, 'price' => 15000]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.auction-events.store'), groupedAuctionEventPayload($firstVariant, $secondVariant))
+        ->assertSessionHas('success');
+
+    $event = AuctionEvent::query()->latest('id')->firstOrFail();
+
+    $response = $this->actingAs($admin)
+        ->put(route('admin.auction-events.update', ['auctionEvent' => $event->id]), groupedAuctionEventPayload($secondVariant, $thirdVariant, [
+            'title' => 'Updated Collector Drop',
+            'grouped_auctions' => [
+                [
+                    'title' => 'Updated B',
+                    'product_variant_id' => $secondVariant->id,
+                    'product_serial_id' => null,
+                    'notes' => '',
+                    'starting_price' => 12000,
+                    'reserve_price' => 12500,
+                    'minimum_increment' => 150,
+                ],
+                [
+                    'title' => 'Updated C',
+                    'product_variant_id' => $thirdVariant->id,
+                    'product_serial_id' => null,
+                    'notes' => '',
+                    'starting_price' => 15000,
+                    'reserve_price' => 15800,
+                    'minimum_increment' => 200,
+                ],
+            ],
+        ]));
+
+    $response
+        ->assertStatus(302)
+        ->assertSessionHas('success', 'Auction event updated successfully.');
+
+    expect($response->headers->get('Location'))
+        ->toBe(route('admin.auction-events.show', ['auctionEvent' => $event->id]));
+
+    $event->refresh()->load('auctions.items');
+
+    expect($event->title)->toBe('Updated Collector Drop')
+        ->and($event->auctions)->toHaveCount(2)
+        ->and($event->auctions->pluck('title')->all())->toBe(['Updated B', 'Updated C']);
 });
 
 it('rejects auctions with a start date in the past', function () {

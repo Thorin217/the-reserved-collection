@@ -2,8 +2,10 @@
 
 namespace Database\Factories;
 
+use App\Enums\AuctionEventFormat;
 use App\Enums\AuctionStatus;
 use App\Models\Auction;
+use App\Models\AuctionEvent;
 use App\Models\AuctionItem;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,6 +27,8 @@ class AuctionFactory extends Factory
         $title = fake()->words(3, true).' Lot';
 
         return [
+            'auction_event_id' => AuctionEvent::factory(),
+            'sequence' => 1,
             'title' => $title,
             'slug' => Str::slug($title).'-'.Str::lower(Str::random(6)),
             'description' => fake()->sentence(),
@@ -70,6 +74,28 @@ class AuctionFactory extends Factory
                 'hero_image_url' => $auction->hero_image_url ?: data_get($item->snapshot, 'image_url'),
                 'inventory_snapshot' => $auction->inventory_snapshot ?: $item->snapshot,
             ]);
+
+            $event = $auction->event()->first();
+
+            if (
+                $event !== null
+                && $event->format === AuctionEventFormat::Lot
+                && $event->auctions()->count() === 1
+            ) {
+                $auction->event()->update([
+                    'title' => $auction->title,
+                    'slug' => $auction->slug,
+                    'description' => $auction->description,
+                    'status' => $auction->status,
+                    'starts_at' => $auction->starts_at,
+                    'ends_at' => $auction->ends_at,
+                    'hero_image_url' => $auction->hero_image_url,
+                    'notes' => $auction->notes,
+                    'created_by' => $auction->created_by,
+                    'closed_by' => $auction->closed_by,
+                    'closed_at' => $auction->closed_at,
+                ]);
+            }
         });
     }
 }

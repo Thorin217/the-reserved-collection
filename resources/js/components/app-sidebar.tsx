@@ -33,6 +33,7 @@ import { dashboard } from '@/routes';
 import { index as brandsIndex } from '@/routes/admin/brands';
 import { index as categoriesIndex } from '@/routes/admin/categories';
 import { index as clientsIndex } from '@/routes/admin/clients';
+import { index as auctionEventsIndex } from '@/routes/admin/auction-events';
 import { index as auctionsIndex } from '@/routes/admin/auctions';
 import { index as payablesIndex } from '@/routes/admin/finance/payables';
 import { index as quotesIndex } from '@/routes/admin/finance/quotes';
@@ -142,6 +143,11 @@ const crmNavItems: NavItem[] = [
 ];
 
 const commercialNavItems: NavItem[] = [
+    {
+        title: 'Auction Events',
+        href: auctionEventsIndex(),
+        icon: TrendingUp,
+    },
     {
         title: 'Auctions',
         href: auctionsIndex(),
