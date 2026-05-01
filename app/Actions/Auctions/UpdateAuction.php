@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\DB;
 
 class UpdateAuction
 {
+    public function __construct(
+        private readonly SyncAuctionEventStatus $syncAuctionEventStatus,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $validated
      */
@@ -54,14 +58,32 @@ class UpdateAuction
                 'notes' => $validated['notes'] ?? null,
             ]);
 
+            $auction->event()->update([
+                'title' => $validated['title'],
+                'description' => $validated['description'] ?? null,
+                'status' => $auction->status,
+                'starts_at' => $validated['starts_at'],
+                'ends_at' => $validated['ends_at'],
+                'hero_image_url' => data_get($primaryItem, 'snapshot.image_url'),
+                'notes' => $validated['notes'] ?? null,
+                'created_by' => $auction->created_by,
+                'closed_by' => $auction->closed_by,
+                'closed_at' => $auction->closed_at,
+            ]);
+
             $auction->items()->delete();
             $auction->items()->createMany($items->all());
+
+            if ($auction->event !== null) {
+                $this->syncAuctionEventStatus->handle($auction->event);
+            }
 
             return $auction->fresh([
                 'items.product.brand',
                 'items.product.category',
                 'items.productVariant',
                 'items.productSerial',
+                'event',
                 'creator',
             ]);
         });

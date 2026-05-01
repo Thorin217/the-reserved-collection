@@ -5,16 +5,17 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/currency';
+import { show as showAuctionEvent } from '@/routes/portal/auction-events';
 import { auctionHouse } from '@/routes/portal';
 import { store as storeAuctionBid } from '@/routes/portal/auctions/bids';
-import { show as showAuction } from '@/routes/portal/auctions';
 import { store as storeNegotiationMessage } from '@/routes/portal/negotiations/messages';
 import { auctions as profileAuctions } from '@/routes/portal/profile';
-import type { Auction, Auth, ProductNegotiation, ProductNegotiationMessage } from '@/types';
+import type { Auction, AuctionEvent, Auth, ProductNegotiation, ProductNegotiationMessage } from '@/types';
 
 type Props = {
-    auctions: Auction[];
-    selectedAuction: Auction | null;
+    events: AuctionEvent[];
+    selectedEvent: AuctionEvent | null;
+    selectedAuctionSlug?: string | null;
     mode?: string;
     useAuctionShowLinks?: boolean;
     negotiations?: ProductNegotiation[] | null;
@@ -89,6 +90,10 @@ function statusBadgeClasses(status: Auction['status']): string {
 }
 
 function statusLabel(status: Auction['status']): string {
+    return status.replaceAll('_', ' ');
+}
+
+function eventStatusLabel(status: AuctionEvent['status']): string {
     return status.replaceAll('_', ' ');
 }
 
@@ -323,34 +328,84 @@ function NegotiationDetailPanel({ negotiation }: { negotiation: ProductNegotiati
     );
 }
 
-export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction', useAuctionShowLinks = false, negotiations, selectedNegotiation }: Props) {
+function buildEventLeadAuction(
+    event: AuctionEvent,
+    selectedAuctionSlug?: string | null,
+): Auction | null {
+    const auctions = event.auctions ?? [];
+
+    if (selectedAuctionSlug) {
+        const matchingAuction = auctions.find((auction) => auction.slug === selectedAuctionSlug);
+
+        if (matchingAuction) {
+            return matchingAuction;
+        }
+    }
+
+    return auctions[0] ?? null;
+}
+
+export default function AuctionRoom({
+    events,
+    selectedEvent,
+    selectedAuctionSlug = null,
+    mode = 'auction',
+    useAuctionShowLinks = false,
+    negotiations,
+    selectedNegotiation,
+}: Props) {
     const [activeTab, setActiveTab] = useState<RoomTab>('details');
     const [now, setNow] = useState<number | null>(null);
     const [auctionStageView, setAuctionStageView] = useState<AuctionStageView>('live');
     const { auth } = usePage<{ auth: Auth }>().props;
     const isAuthenticated = Boolean(auth?.user);
-    const suggestions = useMemo(() => (selectedAuction ? bidSuggestions(selectedAuction) : []), [selectedAuction]);
-    const liveAuctions = useMemo(() => auctions.filter((auction) => auction.status === 'live'), [auctions]);
-    const scheduledAuctions = useMemo(() => auctions.filter((auction) => auction.status === 'scheduled'), [auctions]);
-    const visibleAuctions = auctionStageView === 'scheduled' ? scheduledAuctions : liveAuctions;
-    const displayedAuction = useMemo(() => {
+    const liveEvents = useMemo(() => events.filter((event) => event.status === 'live'), [events]);
+    const scheduledEvents = useMemo(() => events.filter((event) => event.status === 'scheduled'), [events]);
+    const visibleEvents = auctionStageView === 'scheduled' ? scheduledEvents : liveEvents;
+    const displayedEvent = useMemo(() => {
         if (useAuctionShowLinks) {
-            return selectedAuction;
+            return selectedEvent;
         }
 
-        if (auctionStageView === 'scheduled' && selectedAuction?.status === 'scheduled') {
-            return selectedAuction;
+        if (auctionStageView === 'scheduled' && selectedEvent?.status === 'scheduled') {
+            return selectedEvent;
         }
 
-        if (auctionStageView === 'live' && selectedAuction?.status === 'live') {
-            return selectedAuction;
+        if (auctionStageView === 'live' && selectedEvent?.status === 'live') {
+            return selectedEvent;
         }
 
-        return visibleAuctions[0] ?? selectedAuction ?? null;
-    }, [auctionStageView, selectedAuction, useAuctionShowLinks, visibleAuctions]);
+        return visibleEvents[0] ?? selectedEvent ?? null;
+    }, [auctionStageView, selectedEvent, useAuctionShowLinks, visibleEvents]);
+    const eventAuctions = displayedEvent?.auctions ?? [];
+    const displayedAuction = useMemo(() => {
+        if (!displayedEvent) {
+            return null;
+        }
+
+        if (selectedAuctionSlug) {
+            const selectedAuction = eventAuctions.find((auction) => auction.slug === selectedAuctionSlug);
+
+            if (selectedAuction) {
+                return selectedAuction;
+            }
+        }
+
+        if (displayedEvent.format === 'grouped_items' && !useAuctionShowLinks) {
+            const stageAuctions = eventAuctions.filter((auction) => auction.status === auctionStageView);
+
+            return stageAuctions[0] ?? eventAuctions[0] ?? null;
+        }
+
+        return eventAuctions[0] ?? null;
+    }, [auctionStageView, displayedEvent, eventAuctions, selectedAuctionSlug, useAuctionShowLinks]);
+    const suggestions = useMemo(
+        () => (displayedAuction ? bidSuggestions(displayedAuction) : []),
+        [displayedAuction],
+    );
     const resultMessage = displayedAuction ? participationMessage(displayedAuction) : null;
     const { data, setData, post, processing, errors, reset } = useForm({
-        amount: selectedAuction ? selectedAuction.minimum_allowed_bid.toString() : '',
+        amount: displayedAuction ? displayedAuction.minimum_allowed_bid.toString() : '',
     });
 
     useEffect(() => {
@@ -373,30 +428,34 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
     }, [displayedAuction, reset, setData]);
 
     useEffect(() => {
-        if (useAuctionShowLinks || selectedAuction === null) {
+        if (useAuctionShowLinks || selectedEvent === null) {
             return;
         }
 
-        if (selectedAuction.status === 'scheduled') {
+        if (selectedEvent.status === 'scheduled') {
             setAuctionStageView('scheduled');
 
             return;
         }
 
         setAuctionStageView('live');
-    }, [selectedAuction, useAuctionShowLinks]);
+    }, [selectedEvent, useAuctionShowLinks]);
 
-    function buildAuctionHref(auction: Auction): string {
+    function buildEventHref(
+        event: AuctionEvent,
+        preferredAuction: Auction | null = buildEventLeadAuction(event),
+    ): string {
         if (useAuctionShowLinks) {
-            return showAuction({ auction }).url;
+            return showAuctionEvent(
+                { auctionEvent: event },
+                preferredAuction ? { query: { auction: preferredAuction.slug } } : undefined,
+            ).url;
         }
 
-        return auctionHouse({
-            query: {
-                auction: auction.slug,
-                view: 'auction',
-            },
-        }).url;
+        return showAuctionEvent(
+            { auctionEvent: event },
+            preferredAuction ? { query: { auction: preferredAuction.slug } } : undefined,
+        ).url;
     }
 
     function placeBid(): void {
@@ -416,8 +475,14 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
             <div className="container mx-auto px-4 sm:px-6">
                 <div className="mb-6 flex flex-wrap gap-3 border-b border-border/60 pb-5">
                     <div className="flex flex-wrap gap-3">
-                        <Link
-                            href={auctionHouse({ query: { view: 'auction', auction: displayedAuction?.slug } }).url}
+                            <Link
+                            href={auctionHouse({
+                                query: {
+                                    view: 'auction',
+                                    event: displayedEvent?.slug,
+                                    auction: displayedAuction?.slug,
+                                },
+                            }).url}
                             className={`inline-flex items-center gap-2 border px-5 py-3 text-[11px] tracking-[0.24em] uppercase transition-colors ${
                                 !isNegotiationView
                                     ? 'border-gold bg-gold text-black'
@@ -525,13 +590,13 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
                                         <p className="text-[10px] tracking-[0.22em] text-gold uppercase">
-                                            {auctionStageView === 'scheduled' ? 'Upcoming auctions' : 'Active lots'}
+                                            {auctionStageView === 'scheduled' ? 'Upcoming events' : 'Active events'}
                                         </p>
                                         <h2 className="mt-1 text-sm text-foreground/80">
-                                            {auctionStageView === 'scheduled' ? `${scheduledAuctions.length} scheduled auctions` : `${liveAuctions.length} live auctions`}
+                                            {auctionStageView === 'scheduled' ? `${scheduledEvents.length} scheduled events` : `${liveEvents.length} live events`}
                                         </h2>
                                     </div>
-                                    {scheduledAuctions.length > 0 && (
+                                    {scheduledEvents.length > 0 && (
                                         <button
                                             type="button"
                                             onClick={() => setAuctionStageView((current) => (current === 'live' ? 'scheduled' : 'live'))}
@@ -553,24 +618,25 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                                 </div>
                             </div>
                             <div className="max-h-[calc(100vh-16rem)] overflow-y-auto">
-                                {visibleAuctions.length > 0 ? (
-                                    visibleAuctions.map((auction) => {
-                                        const isActive = displayedAuction?.id === auction.id;
+                                {visibleEvents.length > 0 ? (
+                                    visibleEvents.map((event) => {
+                                        const eventLeadAuction = buildEventLeadAuction(event, selectedAuctionSlug);
+                                        const isActive = displayedEvent?.id === event.id;
 
                                         return (
                                             <button
-                                                key={auction.id}
+                                                key={event.id}
                                                 type="button"
-                                                onClick={() => router.visit(buildAuctionHref(auction), { preserveScroll: true })}
+                                                onClick={() => router.visit(buildEventHref(event, eventLeadAuction), { preserveScroll: true })}
                                                 className={`grid w-full grid-cols-[72px_minmax(0,1fr)] gap-4 border-b border-border/70 px-4 py-4 text-left transition-colors ${
                                                     isActive ? 'bg-gold/10' : 'hover:bg-white/3'
                                                 }`}
                                             >
                                                 <div className="aspect-square overflow-hidden bg-secondary">
-                                                    {auction.inventory_snapshot?.image_url ? (
+                                                    {event.hero_image_url || eventLeadAuction?.inventory_snapshot?.image_url ? (
                                                         <img
-                                                            src={auction.inventory_snapshot.image_url}
-                                                            alt={auction.title}
+                                                            src={event.hero_image_url ?? eventLeadAuction?.inventory_snapshot?.image_url ?? ''}
+                                                            alt={event.title}
                                                             className="h-full w-full object-cover"
                                                         />
                                                     ) : (
@@ -579,19 +645,29 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                                                 </div>
                                                 <div className="min-w-0">
                                                     <div className="flex items-center justify-between gap-3">
-                                                        <p className="text-[10px] tracking-[0.18em] text-gold uppercase">{auction.lot_number}</p>
+                                                        <p className="text-[10px] tracking-[0.18em] text-gold uppercase">
+                                                            {event.format === 'grouped_items' ? 'Auction Event' : (eventLeadAuction?.lot_number ?? 'Auction Event')}
+                                                        </p>
                                                         <span className="text-[10px] text-muted-foreground">
-                                                            {auctionStageView === 'scheduled' ? formatPlacedAt(auction.starts_at) : formatCountdown(auction, now)}
+                                                            {auctionStageView === 'scheduled'
+                                                                ? formatPlacedAt(event.starts_at)
+                                                                : (eventLeadAuction ? formatCountdown(eventLeadAuction, now) : '--:--:--')}
                                                         </span>
                                                     </div>
                                                     <p className="mt-1 text-[11px] tracking-[0.18em] text-foreground/55 uppercase">
-                                                        {auction.inventory_snapshot?.brand_name ?? 'Auction'}
+                                                        {eventLeadAuction?.inventory_snapshot?.brand_name ?? 'Auction'}
                                                     </p>
-                                                    <h3 className="truncate font-display text-lg text-foreground">{auction.title}</h3>
+                                                    <h3 className="truncate font-display text-lg text-foreground">{event.title}</h3>
                                                     <p className="mt-1 text-[10px] tracking-[0.16em] text-foreground/45 uppercase">
-                                                        {auction.items_count ?? auction.items?.length ?? 0} item{(auction.items_count ?? auction.items?.length ?? 0) === 1 ? '' : 's'}
+                                                        {event.format === 'grouped_items'
+                                                            ? `${event.auctions_count ?? event.auctions?.length ?? 0} child auctions`
+                                                            : `${eventLeadAuction?.items_count ?? eventLeadAuction?.items?.length ?? 0} item${(eventLeadAuction?.items_count ?? eventLeadAuction?.items?.length ?? 0) === 1 ? '' : 's'}`}
                                                     </p>
-                                                    <p className="mt-2 text-sm font-medium text-gold">{formatCurrency(auction.current_bid_amount ?? auction.starting_price)}</p>
+                                                    <p className="mt-2 text-sm font-medium text-gold">
+                                                        {eventLeadAuction
+                                                            ? formatCurrency(eventLeadAuction.current_bid_amount ?? eventLeadAuction.starting_price)
+                                                            : '—'}
+                                                    </p>
                                                 </div>
                                             </button>
                                         );
@@ -613,7 +689,13 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                                         <div className="flex flex-wrap items-start justify-between gap-4">
                                             <div>
                                                 <div className="flex flex-wrap items-center gap-3">
-                                                    <p className="text-[10px] tracking-[0.22em] text-gold uppercase">{displayedAuction.lot_number}</p>
+                                                    <p className="text-[10px] tracking-[0.22em] text-gold uppercase">
+                                                        {displayedAuction.lot_number}
+                                                    </p>
+                                                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] tracking-[0.18em] uppercase ${statusBadgeClasses(displayedEvent?.status ?? displayedAuction.status)}`}>
+                                                        {displayedEvent?.status === 'live' && <Radio className="h-3 w-3" />}
+                                                        {eventStatusLabel(displayedEvent?.status ?? displayedAuction.status)}
+                                                    </span>
                                                     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] tracking-[0.18em] uppercase ${statusBadgeClasses(displayedAuction.status)}`}>
                                                         {displayedAuction.status === 'live' && <Radio className="h-3 w-3" />}
                                                         {statusLabel(displayedAuction.status)}
@@ -622,9 +704,18 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                                                 <p className="mt-2 text-[11px] tracking-[0.2em] text-foreground/55 uppercase">
                                                     {displayedAuction.inventory_snapshot?.brand_name ?? 'Auction'}
                                                 </p>
-                                                <h1 className="mt-1 font-display text-3xl text-foreground xl:text-4xl">{displayedAuction.title}</h1>
+                                                <h1 className="mt-1 font-display text-3xl text-foreground xl:text-4xl">
+                                                    {displayedEvent?.title ?? displayedAuction.title}
+                                                </h1>
+                                                {displayedEvent?.format === 'grouped_items' && displayedEvent.title !== displayedAuction.title && (
+                                                    <p className="mt-2 text-sm text-gold">
+                                                        Selected auction: {displayedAuction.title}
+                                                    </p>
+                                                )}
                                                 <p className="mt-2 text-[10px] tracking-[0.18em] text-foreground/45 uppercase">
-                                                    {displayedAuction.items_count ?? displayedAuction.items?.length ?? 0} lot item{(displayedAuction.items_count ?? displayedAuction.items?.length ?? 0) === 1 ? '' : 's'}
+                                                    {displayedEvent?.format === 'grouped_items'
+                                                        ? `${displayedEvent.auctions_count ?? displayedEvent.auctions?.length ?? 0} child auctions in this event`
+                                                        : `${displayedAuction.items_count ?? displayedAuction.items?.length ?? 0} lot item${(displayedAuction.items_count ?? displayedAuction.items?.length ?? 0) === 1 ? '' : 's'}`}
                                                 </p>
                                             </div>
                                             <div className="text-right">
@@ -635,6 +726,71 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                                     </div>
 
                                     <div className="space-y-5 px-5 pb-5">
+                                        {displayedEvent?.format === 'grouped_items' && (displayedEvent.auctions?.length ?? 0) > 1 && (
+                                            <div className="space-y-3 border border-border bg-black/15 p-4">
+                                                <div>
+                                                    <p className="text-[10px] tracking-[0.22em] text-foreground/45 uppercase">Child auctions</p>
+                                                    <p className="mt-2 text-sm text-muted-foreground">
+                                                        Select a product auction inside this event. Bids apply only to the selected child auction.
+                                                    </p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {displayedEvent.auctions?.map((childAuction) => {
+                                                        const isSelectedChild = childAuction.id === displayedAuction.id;
+
+                                                        return (
+                                                            <button
+                                                                key={childAuction.id}
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    router.visit(buildEventHref(displayedEvent, childAuction), {
+                                                                        preserveScroll: true,
+                                                                    })
+                                                                }
+                                                                className={`grid w-full grid-cols-[64px_minmax(0,1fr)_auto] gap-3 border p-3 text-left transition-colors ${
+                                                                    isSelectedChild
+                                                                        ? 'border-gold/50 bg-gold/10'
+                                                                        : 'border-border hover:bg-white/3'
+                                                                }`}
+                                                            >
+                                                                <div className="aspect-square overflow-hidden bg-secondary">
+                                                                    {childAuction.inventory_snapshot?.image_url ? (
+                                                                        <img
+                                                                            src={childAuction.inventory_snapshot.image_url}
+                                                                            alt={childAuction.title}
+                                                                            className="h-full w-full object-cover"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">
+                                                                            No image
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="truncate font-display text-base text-foreground">
+                                                                        {childAuction.title}
+                                                                    </p>
+                                                                    <p className="mt-1 text-[10px] tracking-[0.16em] text-foreground/45 uppercase">
+                                                                        {childAuction.items_count ?? childAuction.items?.length ?? 0} item(s)
+                                                                    </p>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <p className="text-sm font-medium text-gold">
+                                                                        {formatCurrency(
+                                                                            childAuction.current_bid_amount ?? childAuction.starting_price,
+                                                                        )}
+                                                                    </p>
+                                                                    <p className="mt-1 text-[10px] tracking-[0.16em] text-foreground/45 uppercase">
+                                                                        {statusLabel(childAuction.status)}
+                                                                    </p>
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {resultMessage && (
                                             <div className={`border px-4 py-3 ${resultMessage.tone}`}>
                                                 <p className="text-[10px] tracking-[0.2em] uppercase">Participation result</p>
@@ -801,10 +957,18 @@ export default function AuctionRoom({ auctions, selectedAuction, mode = 'auction
                                             {activeTab === 'details' && (
                                                 <div className="space-y-4">
                                                     <div>
-                                                        <p className="text-[10px] tracking-[0.22em] text-gold uppercase">Lot Details</p>
-                                                        <h2 className="mt-2 font-display text-2xl text-foreground">Items in this auction</h2>
+                                                        <p className="text-[10px] tracking-[0.22em] text-gold uppercase">
+                                                            {displayedEvent?.format === 'grouped_items' ? 'Auction Details' : 'Lot Details'}
+                                                        </p>
+                                                        <h2 className="mt-2 font-display text-2xl text-foreground">
+                                                            {displayedEvent?.format === 'grouped_items'
+                                                                ? 'Selected product auction'
+                                                                : 'Items in this auction'}
+                                                        </h2>
                                                         <p className="mt-3 max-w-sm text-sm text-muted-foreground">
-                                                            This lot is composed of the following items. Bids still apply to the full lot amount.
+                                                            {displayedEvent?.format === 'grouped_items'
+                                                                ? 'This event contains multiple child auctions. The details below belong to the selected child auction.'
+                                                                : 'This lot is composed of the following items. Bids still apply to the full lot amount.'}
                                                         </p>
                                                     </div>
                                                     <div className="space-y-3">

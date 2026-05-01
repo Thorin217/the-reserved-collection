@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\Auctions\CloseAuction;
 use App\Actions\Auctions\CreateAuction;
+use App\Actions\Auctions\SyncAuctionEventStatus;
 use App\Actions\Auctions\UpdateAuction;
 use App\Enums\AuctionClosureResult;
 use App\Enums\AuctionStatus;
@@ -25,7 +26,7 @@ class AuctionController extends Controller
     public function index(Request $request): Response
     {
         $auctions = Auction::query()
-            ->with(['creator', 'winner'])
+            ->with(['creator', 'winner', 'event'])
             ->withCount('bids')
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
             ->when($request->filled('closure_result'), fn ($query) => $query->where('closure_result', $request->string('closure_result')))
@@ -76,6 +77,7 @@ class AuctionController extends Controller
         }
 
         $auction->load([
+            'event',
             'items.productVariant.product.brand',
             'items.productSerial',
         ]);
@@ -160,6 +162,7 @@ class AuctionController extends Controller
     public function show(Auction $auction): Response
     {
         $auction->load([
+            'event',
             'creator',
             'closer',
             'winner',
@@ -176,7 +179,7 @@ class AuctionController extends Controller
         ]);
     }
 
-    public function publish(Auction $auction): RedirectResponse
+    public function publish(Auction $auction, SyncAuctionEventStatus $syncAuctionEventStatus): RedirectResponse
     {
         if ($auction->status !== AuctionStatus::Draft) {
             return back()->with('error', 'Only draft auctions can be published.');
@@ -192,6 +195,10 @@ class AuctionController extends Controller
                 : AuctionStatus::Scheduled,
         ]);
 
+        if ($auction->event !== null) {
+            $syncAuctionEventStatus->handle($auction->event);
+        }
+
         return back()->with('success', 'Auction published successfully.');
     }
 
@@ -206,7 +213,7 @@ class AuctionController extends Controller
         return back()->with('success', 'Auction closed successfully.');
     }
 
-    public function cancel(Auction $auction): RedirectResponse
+    public function cancel(Auction $auction, SyncAuctionEventStatus $syncAuctionEventStatus): RedirectResponse
     {
         if (in_array($auction->status, [AuctionStatus::Closed, AuctionStatus::Cancelled], true)) {
             return back()->with('error', 'This auction can not be cancelled anymore.');
@@ -216,6 +223,10 @@ class AuctionController extends Controller
             'status' => AuctionStatus::Cancelled,
             'closed_at' => now(),
         ]);
+
+        if ($auction->event !== null) {
+            $syncAuctionEventStatus->handle($auction->event);
+        }
 
         return back()->with('success', 'Auction cancelled successfully.');
     }

@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\DB;
 
 class CloseAuction
 {
+    public function __construct(
+        private readonly SyncAuctionEventStatus $syncAuctionEventStatus,
+    ) {}
+
     public function handle(Auction $auction, ?User $closedBy = null): Auction
     {
         return DB::transaction(function () use ($auction, $closedBy): Auction {
@@ -67,7 +71,16 @@ class CloseAuction
                 'closed_by' => $closedBy?->id,
             ]);
 
+            if ($lockedAuction->event !== null) {
+                $lockedAuction->event->update([
+                    'closed_by' => $closedBy?->id,
+                ]);
+
+                $this->syncAuctionEventStatus->handle($lockedAuction->event);
+            }
+
             return $lockedAuction->fresh([
+                'event',
                 'winner',
                 'winningBid',
                 'currentBidUser',

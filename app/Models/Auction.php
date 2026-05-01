@@ -17,6 +17,8 @@ class Auction extends Model
     use HasFactory;
 
     protected $fillable = [
+        'auction_event_id',
+        'sequence',
         'title',
         'slug',
         'description',
@@ -52,6 +54,8 @@ class Auction extends Model
         return [
             'status' => AuctionStatus::class,
             'closure_result' => AuctionClosureResult::class,
+            'auction_event_id' => 'integer',
+            'sequence' => 'integer',
             'current_bid_user_id' => 'integer',
             'winning_bid_id' => 'integer',
             'winner_user_id' => 'integer',
@@ -74,6 +78,11 @@ class Auction extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(AuctionEvent::class, 'auction_event_id');
     }
 
     public function closer(): BelongsTo

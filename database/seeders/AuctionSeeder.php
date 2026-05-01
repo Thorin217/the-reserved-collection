@@ -2,8 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Enums\AuctionEventFormat;
 use App\Enums\AuctionStatus;
 use App\Models\Auction;
+use App\Models\AuctionEvent;
 use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -149,10 +151,30 @@ class AuctionSeeder extends Seeder
             $product = $variant->product;
             $startingPrice = round((float) $variant->price * $definition['starting_ratio'], 2);
             $reservePrice = round((float) $variant->price * $definition['reserve_ratio'], 2);
+            $inventorySnapshot = $this->buildInventorySnapshot($variant);
+
+            $event = AuctionEvent::query()->updateOrCreate(
+                ['slug' => $definition['slug']],
+                [
+                    'title' => $product->name,
+                    'description' => $product->description,
+                    'format' => AuctionEventFormat::Lot,
+                    'status' => $definition['status'],
+                    'starts_at' => $definition['starts_at'],
+                    'ends_at' => $definition['ends_at'],
+                    'hero_image_url' => $product->getFirstMediaUrl('product'),
+                    'notes' => 'Demo auction event seeded for portal and admin review.',
+                    'created_by' => $creator->id,
+                    'closed_by' => null,
+                    'closed_at' => null,
+                ],
+            );
 
             $auction = Auction::query()->updateOrCreate(
                 ['slug' => $definition['slug']],
                 [
+                    'auction_event_id' => $event->id,
+                    'sequence' => 1,
                     'title' => $product->name,
                     'description' => $product->description,
                     'status' => $definition['status'],
@@ -175,7 +197,7 @@ class AuctionSeeder extends Seeder
                     'is_manually_closed' => false,
                     'created_by' => $creator->id,
                     'closed_by' => null,
-                    'inventory_snapshot' => $this->buildInventorySnapshot($variant),
+                    'inventory_snapshot' => $inventorySnapshot,
                     'notes' => 'Demo auction seeded for portal and admin review.',
                 ],
             );
@@ -188,7 +210,7 @@ class AuctionSeeder extends Seeder
                 'product_serial_id' => null,
                 'inventory_source_type' => $product->product_type->value,
                 'reference_price' => $variant->price,
-                'snapshot' => $this->buildInventorySnapshot($variant),
+                'snapshot' => $inventorySnapshot,
                 'notes' => null,
             ]);
 

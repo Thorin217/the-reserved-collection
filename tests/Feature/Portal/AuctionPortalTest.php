@@ -1,9 +1,11 @@
 <?php
 
 use App\Enums\AuctionClosureResult;
+use App\Enums\AuctionEventFormat;
 use App\Enums\AuctionStatus;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Auction;
+use App\Models\AuctionEvent;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -18,6 +20,40 @@ function createPortalAuctionLot(array $auctionOverrides = []): Auction
     return Auction::factory()->create($auctionOverrides)->fresh(['items']);
 }
 
+function createPortalGroupedAuctionEvent(): AuctionEvent
+{
+    $event = AuctionEvent::factory()->create([
+        'title' => 'Collector Set',
+        'slug' => 'collector-set',
+        'format' => AuctionEventFormat::GroupedItems,
+        'status' => AuctionStatus::Live,
+        'starts_at' => now()->subHour(),
+        'ends_at' => now()->addHour(),
+    ]);
+
+    Auction::factory()->create([
+        'auction_event_id' => $event->id,
+        'sequence' => 1,
+        'title' => 'Patek Child',
+        'slug' => 'patek-child',
+        'status' => AuctionStatus::Live,
+        'starts_at' => now()->subHour(),
+        'ends_at' => now()->addHour(),
+    ]);
+
+    Auction::factory()->create([
+        'auction_event_id' => $event->id,
+        'sequence' => 2,
+        'title' => 'Rolex Child',
+        'slug' => 'rolex-child',
+        'status' => AuctionStatus::Live,
+        'starts_at' => now()->subHour(),
+        'ends_at' => now()->addHour(),
+    ]);
+
+    return AuctionEvent::query()->with(['auctions.items'])->findOrFail($event->id);
+}
+
 it('renders the portal auction house and detail pages', function () {
     $auction = createPortalAuctionLot([
         'title' => 'Royal Oak Lot',
@@ -29,14 +65,43 @@ it('renders the portal auction house and detail pages', function () {
 
     $this->get('/auction-house')
         ->assertSuccessful()
-        ->assertInertia(fn (Assert $page) => $page->component('portal/auction-house'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('portal/auction-house')
+            ->where('events.data.0.slug', 'royal-oak-lot')
+            ->where('selected_event.data.slug', 'royal-oak-lot'));
 
     $this->get('/auctions/'.$auction->slug)
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
             ->component('portal/auctions/show')
-            ->where('auction.data.slug', 'royal-oak-lot')
-            ->where('auction.data.items.0.position', 1));
+            ->where('selected_event.data.slug', 'royal-oak-lot')
+            ->where('selected_event.data.auctions.0.slug', 'royal-oak-lot')
+            ->where('selected_auction_slug', 'royal-oak-lot'));
+});
+
+it('renders grouped item auction events in the portal auction house', function () {
+    $event = createPortalGroupedAuctionEvent();
+
+    $this->get(route('portal.auction-events.show', [
+        'auctionEvent' => $event->slug,
+    ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('portal/auction-events/show')
+            ->where('selected_event.data.slug', 'collector-set')
+            ->where('selected_event.data.format', 'grouped_items'));
+
+    $this->get(route('portal.auction-events.show', [
+        'auctionEvent' => $event->slug,
+        'auction' => 'rolex-child',
+    ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('portal/auction-events/show')
+            ->where('selected_event.data.slug', 'collector-set')
+            ->where('selected_event.data.format', 'grouped_items')
+            ->where('selected_event.data.auctions.1.slug', 'rolex-child')
+            ->where('selected_auction_slug', 'rolex-child'));
 });
 
 it('shows participated auctions inside my auctions', function () {
@@ -131,8 +196,9 @@ it('exposes a winning result for the participant in a closed auction', function 
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
             ->component('portal/auctions/show')
-            ->where('auction.data.user_has_bid', true)
-            ->where('auction.data.participation_result', 'won'));
+            ->where('selected_event.data.auctions.0.user_has_bid', true)
+            ->where('selected_event.data.auctions.0.participation_result', 'won')
+            ->where('selected_auction_slug', $auction->slug));
 });
 
 it('allows a registered customer to place a valid bid', function () {

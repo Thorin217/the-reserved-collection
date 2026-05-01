@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AccountPayableController;
 use App\Http\Controllers\Admin\AccountReceivableController;
 use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\AuctionController;
+use App\Http\Controllers\Admin\AuctionEventController;
 use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\CategoryController;
@@ -154,6 +155,15 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         Route::post('{auction}/publish', [AuctionController::class, 'publish'])->name('publish');
         Route::post('{auction}/close', [AuctionController::class, 'close'])->name('close');
         Route::post('{auction}/cancel', [AuctionController::class, 'cancel'])->name('cancel');
+    });
+
+    Route::prefix('auction-events')->name('auction-events.')->group(function () {
+        Route::get('/', [AuctionEventController::class, 'index'])->name('index');
+        Route::get('create', [AuctionEventController::class, 'create'])->name('create');
+        Route::post('/', [AuctionEventController::class, 'store'])->name('store');
+        Route::get('{auctionEvent}', [AuctionEventController::class, 'show'])->name('show');
+        Route::get('{auctionEvent}/edit', [AuctionEventController::class, 'edit'])->name('edit');
+        Route::put('{auctionEvent}', [AuctionEventController::class, 'update'])->name('update');
     });
 
     // CRM — standalone index pages

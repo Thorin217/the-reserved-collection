@@ -19,7 +19,11 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { formatCurrency } from '@/lib/currency';
 import AppLayout from '@/layouts/app-layout';
 import {
@@ -312,9 +316,11 @@ export default function AuctionsIndex({
                                                             >
                                                                 <Link
                                                                     href={
-                                                                        auctionsShow({
-                                                                            auction,
-                                                                        }).url
+                                                                        auctionsShow(
+                                                                            {
+                                                                                auction,
+                                                                            },
+                                                                        ).url
                                                                     }
                                                                 >
                                                                     <Eye className="h-4 w-4" />
@@ -344,7 +350,8 @@ export default function AuctionsIndex({
                                                                                     {
                                                                                         auction,
                                                                                     },
-                                                                                ).url
+                                                                                )
+                                                                                    .url
                                                                             }
                                                                         >
                                                                             <Pencil className="h-4 w-4" />
@@ -376,7 +383,8 @@ export default function AuctionsIndex({
                                                                     </Button>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>
-                                                                    Publish auction
+                                                                    Publish
+                                                                    auction
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         </>
@@ -436,7 +444,8 @@ export default function AuctionsIndex({
                                                                     </Button>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>
-                                                                    Cancel auction
+                                                                    Cancel
+                                                                    auction
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         )}

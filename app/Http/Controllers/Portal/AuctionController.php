@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Portal;
 
 use App\Enums\AuctionStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AuctionEventResource;
 use App\Http\Resources\AuctionResource;
 use App\Http\Resources\ProductNegotiationResource;
 use App\Models\Auction;
+use App\Models\AuctionEvent;
 use App\Models\ProductNegotiation;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,34 +22,27 @@ class AuctionController extends Controller
     {
         $userId = $request->user()?->id;
 
-        $auctions = $this->visibleAuctionsQuery($userId)
-            ->visible()
+        $events = $this->visibleEventsQuery($userId)
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
             ->orderByRaw("case when status = 'live' then 0 when status = 'scheduled' then 1 else 2 end")
             ->orderBy('ends_at')
             ->get();
 
+        $selectedEventSlug = $request->string('event')->toString();
         $selectedAuctionSlug = $request->string('auction')->toString();
 
-        /** @var Auction|null $selectedAuctionSummary */
-        $selectedAuctionSummary = $selectedAuctionSlug !== ''
-            ? $auctions->firstWhere('slug', $selectedAuctionSlug)
-            : $auctions->first();
-
-        $selectedAuction = $selectedAuctionSummary
-            ? $this->visibleAuctionsQuery($userId)
-                ->visible()
-                ->with([
-                    'items.product.brand',
-                    'items.product.category',
-                    'items.productVariant',
-                    'items.productSerial',
-                    'winner',
-                    'currentBidUser',
-                    'bids' => fn ($query) => $query->with('user')->latest('placed_at')->limit(25),
-                ])
-                ->find($selectedAuctionSummary->id)
+        /** @var AuctionEvent|null $selectedEvent */
+        $selectedEvent = $selectedEventSlug !== ''
+            ? $events->firstWhere('slug', $selectedEventSlug)
             : null;
+
+        if ($selectedEvent === null && $selectedAuctionSlug !== '') {
+            $selectedEvent = $events->first(
+                fn (AuctionEvent $event) => $event->auctions->contains('slug', $selectedAuctionSlug),
+            );
+        }
+
+        $selectedEvent ??= $events->first();
 
         $isNegotiationView = $request->input('view') === 'negotiation' && $request->user();
 
@@ -72,8 +68,9 @@ class AuctionController extends Controller
             : null;
 
         return Inertia::render('portal/auction-house', [
-            'auctions' => AuctionResource::collection($auctions),
-            'selected_auction' => $selectedAuction ? AuctionResource::make($selectedAuction) : null,
+            'events' => AuctionEventResource::collection($events),
+            'selected_event' => $selectedEvent ? AuctionEventResource::make($selectedEvent) : null,
+            'selected_auction_slug' => $selectedAuctionSlug !== '' ? $selectedAuctionSlug : null,
             'filters' => $request->only(['status', 'auction', 'view', 'negotiation']),
             'negotiations' => $negotiations,
             'selected_negotiation' => $selectedNegotiation,
@@ -86,27 +83,58 @@ class AuctionController extends Controller
 
         $userId = request()->user()?->id;
 
-        $auctions = $this->visibleAuctionsQuery($userId)
-            ->visible()
+        $events = $this->visibleEventsQuery($userId)
             ->orderByRaw("case when status = 'live' then 0 when status = 'scheduled' then 1 else 2 end")
             ->orderBy('ends_at')
             ->get();
 
-        $auction = $this->visibleAuctionsQuery($userId)
-            ->with([
-                'items.product.brand',
-                'items.product.category',
-                'items.productVariant',
-                'items.productSerial',
-                'winner',
-                'currentBidUser',
-                'bids' => fn ($query) => $query->with('user')->latest('placed_at')->limit(25),
-            ])
-            ->findOrFail($auction->id);
+        $selectedEvent = $events->firstWhere('id', $auction->auction_event_id);
+
+        if ($selectedEvent === null) {
+            $selectedEvent = $this->visibleEventsQuery($userId)
+                ->whereKey($auction->auction_event_id)
+                ->firstOrFail();
+        }
 
         return Inertia::render('portal/auctions/show', [
-            'auctions' => AuctionResource::collection($auctions),
-            'auction' => AuctionResource::make($auction),
+            'events' => AuctionEventResource::collection($events),
+            'selected_event' => AuctionEventResource::make($selectedEvent),
+            'selected_auction_slug' => $auction->slug,
+        ]);
+    }
+
+    public function showEvent(Request $request, AuctionEvent $auctionEvent): Response
+    {
+        abort_unless(! in_array($auctionEvent->status, [AuctionStatus::Draft, AuctionStatus::Cancelled], true), 404);
+
+        $userId = $request->user()?->id;
+
+        $events = $this->visibleEventsQuery($userId)
+            ->orderByRaw("case when status = 'live' then 0 when status = 'scheduled' then 1 else 2 end")
+            ->orderBy('ends_at')
+            ->get();
+
+        $selectedEvent = $events->firstWhere('id', $auctionEvent->id);
+
+        if ($selectedEvent === null) {
+            $selectedEvent = $this->visibleEventsQuery($userId)
+                ->whereKey($auctionEvent->id)
+                ->firstOrFail();
+        }
+
+        $selectedAuctionSlug = $request->string('auction')->toString();
+
+        if (
+            $selectedAuctionSlug !== ''
+            && ! collect($selectedEvent->auctions)->contains('slug', $selectedAuctionSlug)
+        ) {
+            abort(404);
+        }
+
+        return Inertia::render('portal/auction-events/show', [
+            'events' => AuctionEventResource::collection($events),
+            'selected_event' => AuctionEventResource::make($selectedEvent),
+            'selected_auction_slug' => $selectedAuctionSlug !== '' ? $selectedAuctionSlug : null,
         ]);
     }
 
@@ -177,20 +205,59 @@ class AuctionController extends Controller
 
     private function visibleAuctionsQuery(?int $userId): Builder
     {
-        return Auction::query()
+        return $this->applyVisibleAuctionLoads(Auction::query(), $userId);
+    }
+
+    private function visibleEventsQuery(?int $userId): Builder
+    {
+        return AuctionEvent::query()
+            ->whereHas('auctions', fn (Builder $query) => $query->visible())
+            ->with([
+                'auctions' => fn ($query) => $this
+                    ->applyVisibleAuctionLoads($query, $userId, withBidHistory: true)
+                    ->visible()
+                    ->orderBy('sequence'),
+            ])
+            ->withCount([
+                'auctions' => fn ($query) => $query->visible(),
+            ]);
+    }
+
+    private function applyVisibleAuctionLoads(
+        Builder|Relation $query,
+        ?int $userId,
+        bool $withBidHistory = false,
+    ): Builder|Relation {
+        $query
             ->withCount('bids')
-            ->with('items')
-            ->when($userId !== null, function ($query) use ($userId): void {
-                $query
-                    ->withCount([
-                        'bids as user_bid_count' => fn ($bidQuery) => $bidQuery->where('user_id', $userId),
-                    ])
-                    ->withExists([
-                        'bids as user_has_bid' => fn ($bidQuery) => $bidQuery->where('user_id', $userId),
-                    ])
-                    ->withMax([
-                        'bids as user_max_bid_amount' => fn ($bidQuery) => $bidQuery->where('user_id', $userId),
-                    ], 'amount');
-            });
+            ->with([
+                'items.product.brand',
+                'items.product.category',
+                'items.productVariant',
+                'items.productSerial',
+                'winner',
+                'currentBidUser',
+            ]);
+
+        if ($withBidHistory) {
+            $query->with([
+                'bids' => fn ($bidQuery) => $bidQuery->with('user')->latest('placed_at')->limit(25),
+            ]);
+        }
+
+        if ($userId !== null) {
+            $query
+                ->withCount([
+                    'bids as user_bid_count' => fn ($bidQuery) => $bidQuery->where('user_id', $userId),
+                ])
+                ->withExists([
+                    'bids as user_has_bid' => fn ($bidQuery) => $bidQuery->where('user_id', $userId),
+                ])
+                ->withMax([
+                    'bids as user_max_bid_amount' => fn ($bidQuery) => $bidQuery->where('user_id', $userId),
+                ], 'amount');
+        }
+
+        return $query;
     }
 }

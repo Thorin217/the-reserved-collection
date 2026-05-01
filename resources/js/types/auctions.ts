@@ -88,4 +88,33 @@ export type Auction = {
     winner?: { id: number; name: string } | null;
     bids?: AuctionBid[];
     items?: AuctionItem[];
+    event?: {
+        id: number;
+        title: string;
+        slug: string;
+        format: string;
+        status: string;
+        starts_at: string;
+        ends_at: string;
+    } | null;
+};
+
+export type AuctionEvent = {
+    id: number;
+    title: string;
+    slug: string;
+    description: string | null;
+    format: 'lot' | 'grouped_items';
+    status: 'draft' | 'scheduled' | 'live' | 'closed' | 'cancelled';
+    starts_at: string;
+    ends_at: string;
+    hero_image_url: string | null;
+    notes: string | null;
+    created_by: number | null;
+    closed_by: number | null;
+    closed_at: string | null;
+    auctions_count?: number;
+    creator?: { id: number; name: string } | null;
+    closer?: { id: number; name: string } | null;
+    auctions?: Auction[];
 };
