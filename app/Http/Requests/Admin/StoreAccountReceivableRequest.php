@@ -20,6 +20,7 @@ class StoreAccountReceivableRequest extends FormRequest
             'client_id' => ['required', 'integer', 'exists:clients,id'],
             'reference' => ['nullable', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'gt:0'],
+            'paid_amount' => ['nullable', 'numeric', 'min:0', 'lte:amount'],
             'due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
         ];

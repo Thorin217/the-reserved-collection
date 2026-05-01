@@ -21,6 +21,7 @@ class Warehouse extends Model implements HasMedia
         'allows_sales',
         'description',
         'is_active',
+        'is_default',
     ];
 
     protected $casts = [
@@ -28,6 +29,7 @@ class Warehouse extends Model implements HasMedia
         'type' => WarehouseType::class,
         'allows_sales' => 'boolean',
         'is_active' => 'boolean',
+        'is_default' => 'boolean',
     ];
 
     // Relacion "Branch"

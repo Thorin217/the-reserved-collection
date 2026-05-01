@@ -6,6 +6,7 @@ use Database\Factories\SaleItemFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SaleItem extends Model
 {
@@ -44,5 +45,10 @@ class SaleItem extends Model
     public function productSerial(): BelongsTo
     {
         return $this->belongsTo(ProductSerial::class);
+    }
+
+    public function serviceRequests(): HasMany
+    {
+        return $this->hasMany(ServiceRequest::class);
     }
 }

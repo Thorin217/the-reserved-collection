@@ -53,6 +53,14 @@ class AccountPayableController extends Controller
         }
 
         $amount = (float) $data['amount'];
+        $paidAmount = (float) ($data['paid_amount'] ?? 0);
+        $balanceDue = $amount - $paidAmount;
+
+        $status = match (true) {
+            $balanceDue <= 0 => PaymentStatus::Paid,
+            $paidAmount > 0 => PaymentStatus::Partial,
+            default => PaymentStatus::Pending,
+        };
 
         AccountPayable::create([
             'vendor_id' => $data['vendor_id'] ?? null,
@@ -60,9 +68,10 @@ class AccountPayableController extends Controller
             'user_id' => $request->user()?->id,
             'reference' => $data['reference'] ?? null,
             'amount' => $amount,
-            'balance_due' => $amount,
-            'paid_amount' => 0,
-            'status' => PaymentStatus::Pending,
+            'paid_amount' => $paidAmount,
+            'balance_due' => $balanceDue,
+            'status' => $status,
+            'paid_at' => $balanceDue <= 0 ? now() : null,
             'due_date' => $data['due_date'] ?? null,
             'notes' => $data['notes'] ?? null,
         ]);

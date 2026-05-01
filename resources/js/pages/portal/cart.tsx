@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
 import PortalLayout from '@/layouts/portal-layout';
 import { catalog } from '@/routes/portal';
+import { store as checkoutStore } from '@/routes/portal/checkout';
 import { index as ordersIndex } from '@/routes/portal/orders';
 
 type CartItemData = {
@@ -283,10 +284,12 @@ export default function PortalCart({ cartItems: initialItems }: Props) {
                                 </div>
 
                                 <Button
+                                    asChild
                                     className="h-11 w-full rounded-none bg-gold text-[10px] tracking-[0.2em] text-primary-foreground uppercase hover:bg-gold-dark"
-                                    onClick={() => router.post(CartController.checkout.url())}
                                 >
-                                    Proceed to Checkout
+                                    <Link href={checkoutStore.url()}>
+                                        Proceed to Checkout
+                                    </Link>
                                 </Button>
 
                                 <div className="mt-4 space-y-2">

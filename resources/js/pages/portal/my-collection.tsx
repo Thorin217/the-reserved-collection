@@ -1,24 +1,45 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-    Bookmark,
-    Calendar,
-    CheckCircle,
-    Clock,
-    Eye,
-    TrendingDown,
-    TrendingUp,
-    Wrench,
-    X,
-} from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Eye, Package, TrendingDown, TrendingUp, Wrench, X } from 'lucide-react';
+import { useMemo } from 'react';
 import { useState } from 'react';
-import { formatCurrency as formatMoney } from '@/lib/currency';
+import { Area, AreaChart, ResponsiveContainer } from 'recharts';
+import { FlashMessage } from '@/components/flash-message';
+import { formatCurrency } from '@/lib/currency';
 import PortalLayout from '@/layouts/portal-layout';
+import { store as storeServiceRequest } from '@/routes/portal/service-requests';
 
-function generateHistory(
-    base: number,
-    points = 30,
-): { d: number; p: number }[] {
+type ServiceRequestData = {
+    id: number;
+    service_type: string;
+    service_type_label: string;
+    status: string;
+    status_label: string;
+    scheduled_at: string;
+    notes: string | null;
+};
+
+type CollectionItem = {
+    sale_item_id: number;
+    sale_id: number;
+    sale_number: string;
+    sold_at: string | null;
+    name: string;
+    brand: string | null;
+    unit_price: number;
+    image_url: string | null;
+    product_slug: string | null;
+    service_requests: ServiceRequestData[];
+};
+
+type ServiceTypeOption = { value: string; label: string };
+
+type Props = {
+    collection_items: CollectionItem[];
+    service_types: ServiceTypeOption[];
+};
+
+function generateHistory(base: number, points = 30): { d: number; p: number }[] {
     const pts: { d: number; p: number }[] = [];
     let p = base * 0.9;
     for (let i = 0; i < points; i++) {
@@ -30,239 +51,64 @@ function generateHistory(
     return pts;
 }
 
-function Sparkline({
-    data,
-    isUp,
-}: {
-    data: { d: number; p: number }[];
-    isUp: boolean;
-}) {
-    const width = 200;
-    const height = 40;
-    const pad = 2;
-    const minP = Math.min(...data.map((d) => d.p));
-    const maxP = Math.max(...data.map((d) => d.p));
-    const range = maxP - minP || 1;
-
-    const points = data.map((pt, i) => {
-        const x = pad + (i / (data.length - 1)) * (width - pad * 2);
-        const y = pad + ((maxP - pt.p) / range) * (height - pad * 2);
-        return `${x},${y}`;
-    });
-
-    const polyline = points.join(' ');
-    const lastPt = points[points.length - 1].split(',');
-    const fill = `${points.join(' ')} ${lastPt[0]},${height} ${pad},${height}`;
-
-    const stroke = isUp ? '#22c55e' : '#ef4444';
-    const fillColor = isUp ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)';
-
-    return (
-        <svg
-            width="100%"
-            height={height}
-            viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio="none"
-        >
-            <polygon points={fill} fill={fillColor} />
-            <polyline
-                points={polyline}
-                fill="none"
-                stroke={stroke}
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-            />
-        </svg>
-    );
-}
-
-function PortfolioChart({ data }: { data: { d: number; p: number }[] }) {
-    const width = 600;
-    const height = 140;
-    const pad = 4;
-    const minP = Math.min(...data.map((d) => d.p));
-    const maxP = Math.max(...data.map((d) => d.p));
-    const range = maxP - minP || 1;
-
-    const points = data.map((pt, i) => {
-        const x = pad + (i / (data.length - 1)) * (width - pad * 2);
-        const y = pad + ((maxP - pt.p) / range) * (height - pad * 2);
-        return `${x},${y}`;
-    });
-
-    const polyline = points.join(' ');
-    const lastPt = points[points.length - 1].split(',');
-    const fill = `${points.join(' ')} ${lastPt[0]},${height} ${pad},${height}`;
-
-    return (
-        <svg
-            width="100%"
-            height={height}
-            viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio="none"
-        >
-            <defs>
-                <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
-                </linearGradient>
-            </defs>
-            <polygon points={fill} fill="url(#portfolioGrad)" />
-            <polyline
-                points={polyline}
-                fill="none"
-                stroke="#22c55e"
-                strokeWidth="2"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-            />
-        </svg>
-    );
-}
-
-type ServiceStatus = 'scheduled' | 'in-progress' | 'completed';
-type ServiceRequest = {
-    id: string;
-    type: string;
-    status: ServiceStatus;
-    date: string;
+const statusConfig: Record<string, { icon: typeof Calendar; color: string; bg: string }> = {
+    scheduled: { icon: Calendar, color: 'text-gold', bg: 'bg-gold/10' },
+    in_progress: { icon: Clock, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+    completed: { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10' },
+    cancelled: { icon: X, color: 'text-muted-foreground', bg: 'bg-muted/10' },
 };
 
-const serviceTypes = [
-    'Full Restoration',
-    'Authentication & Appraisal',
-    'Preventive Care',
-    'Crystal Polishing',
-    'Pressure Testing',
-];
+export default function MyCollectionPage({ collection_items, service_types }: Props) {
+    const [scheduleItemId, setScheduleItemId] = useState<number | null>(null);
 
-const statusConfig: Record<
-    ServiceStatus,
-    { icon: typeof Calendar; color: string; bg: string; label: string }
-> = {
-    scheduled: {
-        icon: Calendar,
-        color: 'text-gold',
-        bg: 'bg-gold/10',
-        label: 'Scheduled',
-    },
-    'in-progress': {
-        icon: Clock,
-        color: 'text-blue-400',
-        bg: 'bg-blue-400/10',
-        label: 'In Progress',
-    },
-    completed: {
-        icon: CheckCircle,
-        color: 'text-green-500',
-        bg: 'bg-green-500/10',
-        label: 'Completed',
-    },
-};
+    const { data, setData, post, processing, reset, errors } = useForm({
+        sale_item_id: '' as string | number,
+        service_type: service_types[0]?.value ?? '',
+        scheduled_at: '',
+        notes: '',
+    });
 
-const initialItems = [
-    {
-        id: 1,
-        name: 'Submariner Date',
-        brand: 'Rolex',
-        acquired: 'Mar 2025',
-        purchasePrice: 12800,
-        currentValue: 14500,
-        gradient: 'from-green-900 to-emerald-950',
-        history: generateHistory(14500),
-        services: [
-            {
-                id: 's1',
-                type: 'Preventive Care',
-                status: 'completed' as ServiceStatus,
-                date: '2025-01-15',
-            },
-        ],
-    },
-    {
-        id: 2,
-        name: 'Royal Oak 15202ST',
-        brand: 'Audemars Piguet',
-        acquired: 'Jan 2025',
-        purchasePrice: 38000,
-        currentValue: 42000,
-        gradient: 'from-amber-900 to-stone-900',
-        history: generateHistory(42000),
-        services: [] as ServiceRequest[],
-    },
-    {
-        id: 3,
-        name: 'Diamond Solitaire Pendant',
-        brand: 'Tiffany & Co.',
-        acquired: 'Dec 2024',
-        purchasePrice: 9200,
-        currentValue: 8750,
-        gradient: 'from-zinc-800 to-neutral-900',
-        history: generateHistory(8750),
-        services: [
-            {
-                id: 's2',
-                type: 'Authentication & Appraisal',
-                status: 'in-progress' as ServiceStatus,
-                date: '2025-02-28',
-            },
-        ],
-    },
-    {
-        id: 4,
-        name: 'Diamond Tennis Bracelet',
-        brand: 'Bulgari',
-        acquired: 'Nov 2024',
-        purchasePrice: 14500,
-        currentValue: 15800,
-        gradient: 'from-slate-800 to-slate-900',
-        history: generateHistory(15800),
-        services: [] as ServiceRequest[],
-    },
-];
+    const itemHistories = useMemo(
+        () => Object.fromEntries(collection_items.map((item) => [item.sale_item_id, generateHistory(item.unit_price)])),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
+    );
 
-const totalValue = initialItems.reduce((s, i) => s + i.currentValue, 0);
-const totalCost = initialItems.reduce((s, i) => s + i.purchasePrice, 0);
-const totalChange = totalValue - totalCost;
-const totalChangePercent = ((totalChange / totalCost) * 100).toFixed(1);
-const portfolioHistory = generateHistory(totalValue, 30);
+    const totalValue = collection_items.reduce((s, i) => s + i.unit_price, 0);
+    const totalCost = collection_items.reduce((s, i) => s + i.unit_price * 0.92, 0);
+    const totalChange = totalValue - totalCost;
+    const totalChangePct = totalCost > 0 ? ((totalChange / totalCost) * 100).toFixed(1) : '0.0';
+    const isPortfolioUp = totalChange >= 0;
 
-function formatCurrency(value: number): string {
-    return formatMoney(value);
-}
-
-export default function MyCollectionPage() {
-    const [items, setItems] = useState(initialItems);
-    const [scheduleItem, setScheduleItem] = useState<number | null>(null);
-    const [selectedService, setSelectedService] = useState(serviceTypes[0]);
-    const [selectedDate, setSelectedDate] = useState('');
-
-    function handleSchedule() {
-        if (!selectedDate || scheduleItem === null) {
-            return;
+    const portfolioHistory = useMemo(() => {
+        const pts: { d: number; p: number }[] = [];
+        let p = totalCost * 0.92;
+        for (let i = 0; i < 30; i++) {
+            p += (Math.random() - 0.42) * totalCost * 0.015;
+            p = Math.max(totalCost * 0.85, Math.min(totalValue * 1.05, p));
+            pts.push({ d: i, p: Math.round(p) });
         }
-        setItems((prev) =>
-            prev.map((item) =>
-                item.id === scheduleItem
-                    ? {
-                          ...item,
-                          services: [
-                              ...item.services,
-                              {
-                                  id: `s-${Date.now()}`,
-                                  type: selectedService,
-                                  status: 'scheduled' as ServiceStatus,
-                                  date: selectedDate,
-                              },
-                          ],
-                      }
-                    : item,
-            ),
-        );
-        setScheduleItem(null);
-        setSelectedDate('');
+        if (pts.length > 0) pts[pts.length - 1].p = totalValue;
+        return pts;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    function openModal(saleItemId: number) {
+        setData('sale_item_id', saleItemId);
+        setScheduleItemId(saleItemId);
     }
+
+    function closeModal() {
+        setScheduleItemId(null);
+        reset();
+    }
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        post(storeServiceRequest(), { onSuccess: () => closeModal() });
+    }
+
+    const isEmpty = collection_items.length === 0;
 
     return (
         <>
@@ -270,231 +116,200 @@ export default function MyCollectionPage() {
 
             <section className="bg-background py-10">
                 <div className="container mx-auto px-6">
+                    <FlashMessage />
+
                     <div className="mb-6 flex items-center justify-between">
                         <div>
-                            <p className="mb-2 font-body text-[10px] font-light tracking-[0.25em] text-gold uppercase">
-                                Personal Vault
-                            </p>
-                            <h1 className="font-display text-2xl font-light text-foreground md:text-3xl">
-                                My Collection
-                            </h1>
+                            <p className="mb-2 font-body text-[10px] font-light tracking-[0.25em] text-gold uppercase">Personal Vault</p>
+                            <h1 className="font-display text-2xl font-light text-foreground md:text-3xl">My Collection</h1>
                         </div>
-                        <a
-                            href="#"
-                            className="font-body text-[10px] font-medium tracking-[0.15em] text-gold uppercase transition-colors hover:text-gold-dark"
-                        >
-                            Manage →
-                        </a>
                     </div>
 
-                    {/* Portfolio Overview */}
-                    <div className="mb-8 border border-border bg-card p-5">
-                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                            <div className="lg:col-span-1">
-                                <p className="mb-1 font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">
-                                    Portfolio Value
-                                </p>
-                                <p className="mb-1 font-display text-3xl text-foreground">
-                                    {formatCurrency(totalValue)}
-                                </p>
-                                <span
-                                    className={`flex items-center gap-1 font-body text-xs ${totalChange >= 0 ? 'text-green-500' : 'text-red-500'}`}
-                                >
-                                    {totalChange >= 0 ? (
-                                        <TrendingUp className="h-3 w-3" />
-                                    ) : (
-                                        <TrendingDown className="h-3 w-3" />
-                                    )}
-                                    {totalChange >= 0 ? '+' : ''}
-                                    {formatCurrency(Math.abs(totalChange))} (
-                                    {totalChange >= 0 ? '+' : ''}
-                                    {totalChangePercent}%)
-                                </span>
-                                <div className="mt-4 grid grid-cols-2 gap-4">
-                                    <div>
-                                        <p className="mb-0.5 font-body text-[9px] tracking-wider text-muted-foreground uppercase">
-                                            Total Cost
-                                        </p>
-                                        <p className="font-display text-lg text-foreground">
-                                            {formatCurrency(totalCost)}
-                                        </p>
+                    {isEmpty ? (
+                        <div className="border border-border bg-card p-12 text-center">
+                            <p className="font-display text-lg text-muted-foreground">Your collection is empty.</p>
+                            <p className="mt-2 font-body text-sm text-muted-foreground">Items you purchase will appear here.</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Portfolio overview */}
+                            <div className="mb-8 border border-border bg-secondary p-5">
+                                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                                    <div className="lg:col-span-1">
+                                        <p className="mb-1 font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">Portfolio Value</p>
+                                        <p className="font-display text-3xl text-foreground">{formatCurrency(totalValue)}</p>
+                                        <span className={`mt-1 flex items-center gap-1 font-body text-xs ${isPortfolioUp ? 'text-green-500' : 'text-red-500'}`}>
+                                            {isPortfolioUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                            {isPortfolioUp ? '+' : ''}{formatCurrency(Math.abs(totalChange))} ({isPortfolioUp ? '+' : ''}{totalChangePct}%)
+                                        </span>
+                                        <div className="mt-4 grid grid-cols-2 gap-4">
+                                            <div>
+                                                <p className="mb-0.5 font-body text-[9px] tracking-wider text-muted-foreground uppercase">Total Cost</p>
+                                                <p className="font-display text-lg text-foreground">{formatCurrency(totalCost)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="mb-0.5 font-body text-[9px] tracking-wider text-muted-foreground uppercase">Pieces</p>
+                                                <p className="font-display text-lg text-foreground">{collection_items.length}</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="mb-0.5 font-body text-[9px] tracking-wider text-muted-foreground uppercase">
-                                            Pieces
-                                        </p>
-                                        <p className="font-display text-lg text-foreground">
-                                            {items.length}
-                                        </p>
+                                    <div className="lg:col-span-2">
+                                        <ResponsiveContainer width="100%" height={140}>
+                                            <AreaChart data={portfolioHistory}>
+                                                <defs>
+                                                    <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor={isPortfolioUp ? '#22c55e' : '#ef4444'} stopOpacity={0.3} />
+                                                        <stop offset="100%" stopColor={isPortfolioUp ? '#22c55e' : '#ef4444'} stopOpacity={0} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <Area
+                                                    type="monotone"
+                                                    dataKey="p"
+                                                    stroke={isPortfolioUp ? '#22c55e' : '#ef4444'}
+                                                    strokeWidth={2}
+                                                    fill="url(#portfolioGrad)"
+                                                    dot={false}
+                                                />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-end lg:col-span-2">
-                                <PortfolioChart data={portfolioHistory} />
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Collection Items */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        {items.map((item, i) => {
-                            const change =
-                                item.currentValue - item.purchasePrice;
-                            const pct = (
-                                (change / item.purchasePrice) *
-                                100
-                            ).toFixed(1);
-                            const isUp = change >= 0;
+                            {/* Items grid */}
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                {collection_items.map((item, i) => {
+                                    const history = itemHistories[item.sale_item_id] ?? [];
+                                    const lastVal = history.length > 0 ? history[history.length - 1].p : item.unit_price;
+                                    const isUp = lastVal >= item.unit_price;
+                                    const pct = item.unit_price > 0 ? (((lastVal - item.unit_price) / item.unit_price) * 100).toFixed(1) : '0.0';
 
-                            return (
-                                <motion.div
-                                    key={item.id}
-                                    initial={{ opacity: 0, y: 16 }}
-                                    whileInView={{ opacity: 1, y: 0 }}
-                                    viewport={{ once: true }}
-                                    transition={{
-                                        delay: i * 0.06,
-                                        duration: 0.4,
-                                    }}
-                                    className="group relative border border-border bg-card transition-all duration-300 hover:border-gold/25"
-                                >
-                                    <div
-                                        className={`relative aspect-[4/3] overflow-hidden bg-gradient-to-b ${item.gradient}`}
-                                    >
-                                        <div className="absolute inset-0 flex items-center justify-center p-4">
-                                            <div className="text-center">
-                                                <p className="mb-1 font-body text-[8px] tracking-[0.25em] text-gold/60 uppercase">
-                                                    {item.brand}
-                                                </p>
-                                                <p className="font-display text-xs font-light text-white/80">
-                                                    {item.name}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="absolute inset-0 bg-gradient-to-t from-background/60 to-transparent" />
-                                        <div className="absolute right-2 bottom-2 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-                                            <button className="flex h-7 w-7 items-center justify-center bg-card/80 text-foreground/60 backdrop-blur-sm transition-colors hover:text-gold">
-                                                <Eye
-                                                    className="h-3 w-3"
-                                                    strokeWidth={1.5}
-                                                />
-                                            </button>
-                                            <button className="flex h-7 w-7 items-center justify-center bg-card/80 text-foreground/60 backdrop-blur-sm transition-colors hover:text-gold">
-                                                <Bookmark
-                                                    className="h-3 w-3"
-                                                    strokeWidth={1.5}
-                                                />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-3">
-                                        <p className="mb-0.5 font-body text-[8px] tracking-[0.2em] text-muted-foreground uppercase">
-                                            {item.brand}
-                                        </p>
-                                        <h3 className="mb-2 font-display text-sm leading-tight text-foreground">
-                                            {item.name}
-                                        </h3>
-                                        <div className="mb-2 flex items-center justify-between">
-                                            <span className="font-body text-sm font-semibold text-foreground">
-                                                {formatCurrency(
-                                                    item.currentValue,
-                                                )}
-                                            </span>
-                                            <span
-                                                className={`flex items-center gap-0.5 font-body text-[10px] ${isUp ? 'text-green-500' : 'text-red-500'}`}
-                                            >
-                                                {isUp ? (
-                                                    <TrendingUp className="h-2.5 w-2.5" />
-                                                ) : (
-                                                    <TrendingDown className="h-2.5 w-2.5" />
-                                                )}
-                                                {isUp ? '+' : ''}
-                                                {pct}%
-                                            </span>
-                                        </div>
-
-                                        <Sparkline
-                                            data={item.history}
-                                            isUp={isUp}
-                                        />
-
-                                        <p className="mt-1 font-body text-[8px] text-muted-foreground">
-                                            Acquired {item.acquired}
-                                        </p>
-
-                                        {/* Service tracking */}
-                                        {item.services.length > 0 && (
-                                            <div className="mt-2 space-y-1 border-t border-border pt-2">
-                                                {item.services.map((svc) => {
-                                                    const cfg =
-                                                        statusConfig[
-                                                            svc.status
-                                                        ];
-                                                    const Icon = cfg.icon;
-                                                    return (
-                                                        <div
-                                                            key={svc.id}
-                                                            className={`flex items-center gap-1.5 px-2 py-1 ${cfg.bg} rounded-sm`}
-                                                        >
-                                                            <Icon
-                                                                className={`h-2.5 w-2.5 ${cfg.color}`}
-                                                                strokeWidth={
-                                                                    1.5
-                                                                }
-                                                            />
-                                                            <span
-                                                                className={`font-body text-[8px] ${cfg.color} truncate`}
-                                                            >
-                                                                {svc.type}
-                                                            </span>
-                                                            <span className="ml-auto font-body text-[7px] text-muted-foreground">
-                                                                {svc.date}
-                                                            </span>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-
-                                        <button
-                                            onClick={() =>
-                                                setScheduleItem(item.id)
-                                            }
-                                            className="mt-2 flex w-full items-center justify-center gap-1.5 border border-border py-1.5 font-body text-[9px] tracking-[0.1em] text-muted-foreground uppercase transition-all duration-300 hover:border-gold/40 hover:text-gold"
+                                    return (
+                                        <motion.div
+                                            key={item.sale_item_id}
+                                            initial={{ opacity: 0, y: 16 }}
+                                            whileInView={{ opacity: 1, y: 0 }}
+                                            viewport={{ once: true }}
+                                            transition={{ delay: i * 0.06, duration: 0.4 }}
+                                            className="group relative border border-border bg-card transition-all duration-300 hover:border-gold/25"
                                         >
-                                            <Wrench
-                                                className="h-2.5 w-2.5"
-                                                strokeWidth={1.5}
-                                            />
-                                            Schedule Service
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </div>
+                                            {/* Image */}
+                                            <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
+                                                {item.image_url ? (
+                                                    <img
+                                                        src={item.image_url}
+                                                        alt={item.name}
+                                                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-zinc-800 to-neutral-900">
+                                                        {item.brand && (
+                                                            <p className="font-body text-[8px] tracking-[0.25em] text-gold/60 uppercase">{item.brand}</p>
+                                                        )}
+                                                        <Package className="h-8 w-8 text-white/20" strokeWidth={1} />
+                                                    </div>
+                                                )}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-background/50 to-transparent" />
 
-                    <div className="mt-6 text-center">
-                        <a
-                            href="#"
-                            className="inline-block border border-gold/40 px-6 py-2.5 font-body text-[10px] font-medium tracking-[0.15em] text-gold uppercase transition-all duration-300 hover:bg-gold hover:text-accent-foreground"
-                        >
-                            Add Piece
-                        </a>
-                    </div>
+                                                {/* Hover overlay actions */}
+                                                <div className="absolute bottom-2 right-2 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                                    {item.product_slug && (
+                                                        <Link
+                                                            href={`/products/${item.product_slug}`}
+                                                            className="flex h-7 w-7 items-center justify-center bg-card/80 text-foreground/60 backdrop-blur-sm transition-colors hover:text-gold"
+                                                        >
+                                                            <Eye className="h-3 w-3" strokeWidth={1.5} />
+                                                        </Link>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Info */}
+                                            <div className="p-3">
+                                                <p className="mb-0.5 font-body text-[8px] tracking-[0.2em] text-muted-foreground uppercase">{item.brand}</p>
+                                                {item.product_slug ? (
+                                                    <Link href={`/products/${item.product_slug}`} className="block">
+                                                        <h3 className="mb-2 font-display text-sm leading-tight text-foreground transition-colors hover:text-gold">
+                                                            {item.name}
+                                                        </h3>
+                                                    </Link>
+                                                ) : (
+                                                    <h3 className="mb-2 font-display text-sm leading-tight text-foreground">{item.name}</h3>
+                                                )}
+
+                                                <div className="mb-2 flex items-center justify-between">
+                                                    <span className="font-body text-sm font-semibold text-foreground">{formatCurrency(item.unit_price)}</span>
+                                                    <span className={`flex items-center gap-0.5 font-body text-[10px] ${isUp ? 'text-green-500' : 'text-red-500'}`}>
+                                                        {isUp ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                                                        {isUp ? '+' : ''}{pct}%
+                                                    </span>
+                                                </div>
+
+                                                <ResponsiveContainer width="100%" height={40}>
+                                                    <AreaChart data={history}>
+                                                        <defs>
+                                                            <linearGradient id={`miniGrad-${item.sale_item_id}`} x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="0%" stopColor={isUp ? '#22c55e' : '#ef4444'} stopOpacity={0.2} />
+                                                                <stop offset="100%" stopColor={isUp ? '#22c55e' : '#ef4444'} stopOpacity={0} />
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <Area
+                                                            type="monotone"
+                                                            dataKey="p"
+                                                            stroke={isUp ? '#22c55e' : '#ef4444'}
+                                                            strokeWidth={1.5}
+                                                            fill={`url(#miniGrad-${item.sale_item_id})`}
+                                                            dot={false}
+                                                        />
+                                                    </AreaChart>
+                                                </ResponsiveContainer>
+
+                                                {item.sold_at && (
+                                                    <p className="mt-1 font-body text-[8px] text-muted-foreground">Acquired {item.sold_at}</p>
+                                                )}
+
+                                                {item.service_requests.length > 0 && (
+                                                    <div className="mt-2 space-y-1 border-t border-border pt-2">
+                                                        {item.service_requests.map((svc) => {
+                                                            const cfg = statusConfig[svc.status] ?? statusConfig.scheduled;
+                                                            const Icon = cfg.icon;
+                                                            return (
+                                                                <div key={svc.id} className={`flex items-center gap-1.5 rounded-sm px-2 py-1 ${cfg.bg}`}>
+                                                                    <Icon className={`h-2.5 w-2.5 ${cfg.color}`} strokeWidth={1.5} />
+                                                                    <span className={`truncate font-body text-[8px] ${cfg.color}`}>{svc.service_type_label}</span>
+                                                                    <span className="ml-auto font-body text-[7px] text-muted-foreground">{svc.scheduled_at}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                <button
+                                                    onClick={() => openModal(item.sale_item_id)}
+                                                    className="mt-2 flex w-full items-center justify-center gap-1.5 border border-border py-1.5 font-body text-[9px] tracking-[0.1em] text-muted-foreground uppercase transition-all duration-300 hover:border-gold/40 hover:text-gold"
+                                                >
+                                                    <Wrench className="h-2.5 w-2.5" strokeWidth={1.5} />
+                                                    Schedule Service
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
                 </div>
             </section>
 
             {/* Schedule Service Modal */}
             <AnimatePresence>
-                {scheduleItem !== null && (
+                {scheduleItemId !== null && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
-                        onClick={() => setScheduleItem(null)}
+                        onClick={closeModal}
                     >
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
@@ -504,57 +319,58 @@ export default function MyCollectionPage() {
                             className="w-full max-w-sm border border-border bg-card p-6"
                         >
                             <div className="mb-5 flex items-center justify-between">
-                                <h3 className="font-display text-lg text-foreground">
-                                    Schedule Service
-                                </h3>
-                                <button
-                                    onClick={() => setScheduleItem(null)}
-                                    className="text-muted-foreground transition-colors hover:text-foreground"
-                                >
+                                <h3 className="font-display text-lg text-foreground">Schedule Service</h3>
+                                <button onClick={closeModal} className="text-muted-foreground transition-colors hover:text-foreground">
                                     <X className="h-4 w-4" strokeWidth={1.5} />
                                 </button>
                             </div>
 
-                            <div className="space-y-4">
+                            <form onSubmit={handleSubmit} className="space-y-4">
                                 <div>
-                                    <label className="mb-1.5 block font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">
-                                        Service Type
-                                    </label>
+                                    <label className="mb-1.5 block font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">Service Type</label>
                                     <select
-                                        value={selectedService}
-                                        onChange={(e) =>
-                                            setSelectedService(e.target.value)
-                                        }
+                                        value={data.service_type}
+                                        onChange={(e) => setData('service_type', e.target.value)}
                                         className="w-full border border-border bg-secondary px-3 py-2 font-body text-xs text-foreground focus:border-gold/40 focus:outline-none"
                                     >
-                                        {serviceTypes.map((s) => (
-                                            <option key={s} value={s}>
-                                                {s}
-                                            </option>
+                                        {service_types.map((s) => (
+                                            <option key={s.value} value={s.value}>{s.label}</option>
                                         ))}
                                     </select>
+                                    {errors.service_type && <p className="mt-1 text-xs text-destructive">{errors.service_type}</p>}
                                 </div>
+
                                 <div>
-                                    <label className="mb-1.5 block font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">
-                                        Preferred Date
-                                    </label>
+                                    <label className="mb-1.5 block font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">Preferred Date</label>
                                     <input
                                         type="date"
-                                        value={selectedDate}
-                                        onChange={(e) =>
-                                            setSelectedDate(e.target.value)
-                                        }
+                                        value={data.scheduled_at}
+                                        onChange={(e) => setData('scheduled_at', e.target.value)}
                                         className="w-full border border-border bg-secondary px-3 py-2 font-body text-xs text-foreground focus:border-gold/40 focus:outline-none"
                                     />
+                                    {errors.scheduled_at && <p className="mt-1 text-xs text-destructive">{errors.scheduled_at}</p>}
                                 </div>
+
+                                <div>
+                                    <label className="mb-1.5 block font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">Notes (optional)</label>
+                                    <textarea
+                                        value={data.notes}
+                                        onChange={(e) => setData('notes', e.target.value)}
+                                        rows={2}
+                                        placeholder="Any specific requests or concerns..."
+                                        className="w-full border border-border bg-secondary px-3 py-2 font-body text-xs text-foreground focus:border-gold/40 focus:outline-none"
+                                    />
+                                    {errors.notes && <p className="mt-1 text-xs text-destructive">{errors.notes}</p>}
+                                </div>
+
                                 <button
-                                    onClick={handleSchedule}
-                                    disabled={!selectedDate}
+                                    type="submit"
+                                    disabled={processing || !data.scheduled_at}
                                     className="w-full bg-gold py-2.5 font-body text-[10px] font-medium tracking-[0.15em] text-accent-foreground uppercase transition-all duration-300 hover:bg-gold-dark disabled:opacity-40"
                                 >
-                                    Confirm Booking
+                                    {processing ? 'Submitting...' : 'Confirm Booking'}
                                 </button>
-                            </div>
+                            </form>
                         </motion.div>
                     </motion.div>
                 )}
@@ -563,6 +379,4 @@ export default function MyCollectionPage() {
     );
 }
 
-MyCollectionPage.layout = (page: React.ReactNode) => (
-    <PortalLayout>{page}</PortalLayout>
-);
+MyCollectionPage.layout = (page: React.ReactNode) => <PortalLayout>{page}</PortalLayout>;

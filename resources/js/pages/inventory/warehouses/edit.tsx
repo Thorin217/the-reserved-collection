@@ -20,6 +20,7 @@ type Warehouse = {
     allows_sales: boolean;
     description: string | null;
     is_active: boolean;
+    is_default: boolean;
 };
 
 type FormData = {
@@ -29,6 +30,7 @@ type FormData = {
     allows_sales: string;
     description: string;
     is_active: string;
+    is_default: string;
 };
 
 type Props = {
@@ -45,6 +47,7 @@ export default function WarehousesEdit({ warehouse: { data: warehouse }, branche
         allows_sales: warehouse.allows_sales ? '1' : '0',
         description: warehouse.description ?? '',
         is_active: warehouse.is_active ? '1' : '0',
+        is_default: warehouse.is_default ? '1' : '0',
     });
 
     function submit(e: React.FormEvent) {
@@ -53,6 +56,7 @@ export default function WarehousesEdit({ warehouse: { data: warehouse }, branche
             ...formData,
             allows_sales: formData.allows_sales === '1',
             is_active: formData.is_active === '1',
+            is_default: formData.is_default === '1',
         }));
 
         put(`/admin/warehouses/${warehouse.id}`);
@@ -137,6 +141,17 @@ export default function WarehousesEdit({ warehouse: { data: warehouse }, branche
                                         <SelectContent>
                                             <SelectItem value="1">Active</SelectItem>
                                             <SelectItem value="0">Inactive</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Default for sales</Label>
+                                    <Select value={data.is_default} onValueChange={(value) => setData('is_default', value)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="1">Yes — use for portal orders</SelectItem>
+                                            <SelectItem value="0">No</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

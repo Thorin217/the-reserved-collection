@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { formatCurrency } from '@/lib/currency';
 import { auctionHouse, cart, catalog, home, myCollection, profile as portalProfile, wishlist } from '@/routes/portal';
 import { index as ordersIndex } from '@/routes/portal/orders';
+import { index as serviceRequestsIndex } from '@/routes/portal/service-requests';
 import type { Auth } from '@/types';
 
 type PortalCategory = { id: number; name: string; slug: string };
@@ -136,7 +137,7 @@ export default function PortalLayout({ children }: Props) {
         { label: 'Auctions', href: auctionHouse() },
         { label: 'My Collection', href: isAuth ? myCollection() : '/login' },
         { label: 'My Orders', href: isAuth ? ordersIndex() : '/login' },
-        { label: 'Services', href: catalog() },
+        { label: 'Services', href: isAuth ? serviceRequestsIndex() : '/login' },
     ];
 
     return (

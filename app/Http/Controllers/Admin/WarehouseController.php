@@ -42,8 +42,13 @@ class WarehouseController extends Controller
         $data = $request->validated();
         $data['allows_sales'] = $data['allows_sales'] ?? true;
         $data['is_active'] = $data['is_active'] ?? true;
+        $data['is_default'] = $data['is_default'] ?? false;
 
-        Warehouse::create($data);
+        $warehouse = Warehouse::create($data);
+
+        if ($warehouse->is_default) {
+            Warehouse::where('id', '!=', $warehouse->id)->update(['is_default' => false]);
+        }
 
         return redirect()->route('admin.warehouses.index')->with('success', 'Bodega creada exitosamente.');
     }
@@ -62,8 +67,13 @@ class WarehouseController extends Controller
         $data = $request->validated();
         $data['allows_sales'] = $data['allows_sales'] ?? $warehouse->allows_sales;
         $data['is_active'] = $data['is_active'] ?? $warehouse->is_active;
+        $data['is_default'] = $data['is_default'] ?? false;
 
         $warehouse->update($data);
+
+        if ($warehouse->is_default) {
+            Warehouse::where('id', '!=', $warehouse->id)->update(['is_default' => false]);
+        }
 
         return redirect()->route('admin.warehouses.index')->with('success', 'Bodega actualizada.');
     }

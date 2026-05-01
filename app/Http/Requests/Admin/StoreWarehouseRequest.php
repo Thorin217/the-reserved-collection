@@ -29,6 +29,7 @@ class StoreWarehouseRequest extends FormRequest
             'allows_sales' => ['boolean'],
             'description' => ['nullable', 'string', 'max:1000'],
             'is_active' => ['boolean'],
+            'is_default' => ['boolean'],
         ];
     }
 }

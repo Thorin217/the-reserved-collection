@@ -34,9 +34,14 @@ export default function FinanceReceivablesCreate({ clients: { data: clients }, d
         client_id: default_client_id ?? '',
         reference: '',
         amount: '',
+        paid_amount: '',
         due_date: '',
         notes: '',
     });
+
+    const amount = parseFloat(data.amount) || 0;
+    const paidAmount = parseFloat(data.paid_amount) || 0;
+    const balanceDue = Math.max(0, amount - paidAmount);
 
     function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -107,6 +112,27 @@ export default function FinanceReceivablesCreate({ clients: { data: clients }, d
                                 />
                                 {errors.amount && (
                                     <p className="text-xs text-destructive">{errors.amount}</p>
+                                )}
+                            </div>
+
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="paid_amount">Amount already paid</Label>
+                                <Input
+                                    id="paid_amount"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={data.paid_amount}
+                                    onChange={(e) => setData('paid_amount', e.target.value)}
+                                    placeholder="0.00"
+                                />
+                                {errors.paid_amount && (
+                                    <p className="text-xs text-destructive">{errors.paid_amount}</p>
+                                )}
+                                {amount > 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                        Balance due: <span className="font-medium">${balanceDue.toFixed(2)}</span>
+                                    </p>
                                 )}
                             </div>
 

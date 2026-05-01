@@ -82,6 +82,40 @@ it('creates a payable with a free-text vendor name', function () {
     expect(AccountPayable::where('vendor_name', 'Local Supplier')->exists())->toBeTrue();
 });
 
+it('creates a payable with initial paid_amount as partial', function () {
+    $vendor = Vendor::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/finance/payables', [
+            'vendor_id' => $vendor->id,
+            'amount' => 1000.00,
+            'paid_amount' => 400.00,
+        ])
+        ->assertRedirect(route('admin.finance.payables.index'));
+
+    $payable = AccountPayable::where('vendor_id', $vendor->id)->first();
+    expect($payable->paid_amount)->toEqual('400.00')
+        ->and($payable->balance_due)->toEqual('600.00')
+        ->and($payable->status)->toBe(PaymentStatus::Partial);
+});
+
+it('creates a payable with full paid_amount as paid', function () {
+    $vendor = Vendor::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/finance/payables', [
+            'vendor_id' => $vendor->id,
+            'amount' => 500.00,
+            'paid_amount' => 500.00,
+        ])
+        ->assertRedirect(route('admin.finance.payables.index'));
+
+    $payable = AccountPayable::where('vendor_id', $vendor->id)->first();
+    expect($payable->balance_due)->toEqual('0.00')
+        ->and($payable->status)->toBe(PaymentStatus::Paid)
+        ->and($payable->paid_at)->not->toBeNull();
+});
+
 it('records a payment and reduces payable balance', function () {
     $payable = AccountPayable::factory()->create([
         'amount' => 1000.00,

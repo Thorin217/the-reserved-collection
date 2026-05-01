@@ -58,6 +58,11 @@ class User extends Authenticatable implements HasMedia
         return $this->hasMany(ProductNegotiation::class);
     }
 
+    public function serviceRequests(): HasMany
+    {
+        return $this->hasMany(ServiceRequest::class);
+    }
+
     public function pendingCollectorVerification(): HasOne
     {
         return $this->hasOne(CollectorVerificationRequest::class)->where('status', 'pending')->latestOfMany();

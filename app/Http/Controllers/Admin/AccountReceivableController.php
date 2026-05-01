@@ -35,15 +35,26 @@ class AccountReceivableController extends Controller
     {
         $validated = $request->validated();
 
+        $amount = (float) $validated['amount'];
+        $paidAmount = (float) ($validated['paid_amount'] ?? 0);
+        $balanceDue = $amount - $paidAmount;
+
+        $status = match (true) {
+            $balanceDue <= 0 => PaymentStatus::Paid,
+            $paidAmount > 0 => PaymentStatus::Partial,
+            default => PaymentStatus::Pending,
+        };
+
         AccountReceivable::create([
             'client_id' => $validated['client_id'],
             'reference' => $validated['reference'] ?? null,
-            'amount' => $validated['amount'],
-            'paid_amount' => 0,
-            'balance_due' => $validated['amount'],
+            'amount' => $amount,
+            'paid_amount' => $paidAmount,
+            'balance_due' => $balanceDue,
             'due_date' => $validated['due_date'] ?? null,
             'notes' => $validated['notes'] ?? null,
-            'status' => PaymentStatus::Pending,
+            'status' => $status,
+            'paid_at' => $balanceDue <= 0 ? now() : null,
         ]);
 
         return redirect()

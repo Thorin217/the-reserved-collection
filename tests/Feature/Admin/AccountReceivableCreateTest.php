@@ -60,6 +60,52 @@ it('rejects a receivable with a non-positive amount', function () {
         ->assertSessionHasErrors('amount');
 });
 
+it('creates a receivable with initial paid_amount as partial', function () {
+    $client = Client::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/finance/receivables', [
+            'client_id' => $client->id,
+            'amount' => 1000.00,
+            'paid_amount' => 300.00,
+        ])
+        ->assertRedirect();
+
+    $receivable = AccountReceivable::where('client_id', $client->id)->first();
+    expect($receivable->paid_amount)->toEqual('300.00')
+        ->and($receivable->balance_due)->toEqual('700.00')
+        ->and($receivable->status)->toBe(PaymentStatus::Partial);
+});
+
+it('creates a receivable with full paid_amount as paid', function () {
+    $client = Client::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/finance/receivables', [
+            'client_id' => $client->id,
+            'amount' => 500.00,
+            'paid_amount' => 500.00,
+        ])
+        ->assertRedirect();
+
+    $receivable = AccountReceivable::where('client_id', $client->id)->first();
+    expect($receivable->balance_due)->toEqual('0.00')
+        ->and($receivable->status)->toBe(PaymentStatus::Paid)
+        ->and($receivable->paid_at)->not->toBeNull();
+});
+
+it('rejects paid_amount exceeding total amount', function () {
+    $client = Client::factory()->create();
+
+    $this->actingAs($this->user)
+        ->post('/admin/finance/receivables', [
+            'client_id' => $client->id,
+            'amount' => 500.00,
+            'paid_amount' => 600.00,
+        ])
+        ->assertSessionHasErrors('paid_amount');
+});
+
 it('shows receivables on the client profile page', function () {
     $client = Client::factory()->create();
     AccountReceivable::factory()->create([

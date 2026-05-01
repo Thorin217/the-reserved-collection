@@ -8,11 +8,14 @@ import {
     LayoutGrid,
     Package,
     ShieldCheck,
+    ShoppingCart,
     SlidersHorizontal,
+    Truck,
     Tag,
     TrendingUp,
     Users,
     Warehouse,
+    Wrench,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavCollapsible } from '@/components/nav-collapsible';
@@ -35,7 +38,9 @@ import { index as categoriesIndex } from '@/routes/admin/categories';
 import { index as clientsIndex } from '@/routes/admin/clients';
 import { index as auctionsIndex } from '@/routes/admin/auctions';
 import { index as payablesIndex } from '@/routes/admin/finance/payables';
+import { index as purchasesIndex } from '@/routes/admin/finance/purchases';
 import { index as quotesIndex } from '@/routes/admin/finance/quotes';
+import { index as vendorsIndex } from '@/routes/admin/finance/vendors';
 import { index as receivablesIndex } from '@/routes/admin/finance/receivables';
 import { index as salesIndex } from '@/routes/admin/finance/sales';
 import { index as leadsIndex } from '@/routes/admin/leads';
@@ -45,6 +50,7 @@ import { index as proposalsIndex } from '@/routes/admin/proposals';
 import { index as usersIndex } from '@/routes/admin/users';
 import { index as collectorVerificationsIndex } from '@/routes/admin/collector-verifications';
 import { index as productNegotiationsIndex } from '@/routes/admin/product-negotiations';
+import { index as serviceRequestsIndex } from '@/routes/admin/service-requests';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -139,6 +145,11 @@ const crmNavItems: NavItem[] = [
         href: collectorVerificationsIndex(),
         icon: Handshake,
     },
+    {
+        title: 'Service Requests',
+        href: serviceRequestsIndex(),
+        icon: Wrench,
+    },
 ];
 
 const commercialNavItems: NavItem[] = [
@@ -160,6 +171,16 @@ const commercialNavItems: NavItem[] = [
 ];
 
 const financeNavItems: NavItem[] = [
+    {
+        title: 'Vendors',
+        href: vendorsIndex(),
+        icon: Truck,
+    },
+    {
+        title: 'Purchases',
+        href: purchasesIndex(),
+        icon: ShoppingCart,
+    },
     {
         title: 'Receivables',
         href: receivablesIndex(),

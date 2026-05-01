@@ -22,6 +22,7 @@ class StoreAccountPayableRequest extends FormRequest
             'vendor_name' => ['nullable', 'string', 'max:255', 'required_without:vendor_id'],
             'reference' => ['nullable', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'gt:0'],
+            'paid_amount' => ['nullable', 'numeric', 'min:0', 'lte:amount'],
             'due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
         ];

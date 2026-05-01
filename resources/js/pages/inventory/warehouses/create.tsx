@@ -19,6 +19,7 @@ type FormData = {
     allows_sales: string;
     description: string;
     is_active: string;
+    is_default: string;
 };
 
 type Props = {
@@ -34,6 +35,7 @@ export default function WarehousesCreate({ branches, warehouseTypes }: Props) {
         allows_sales: '1',
         description: '',
         is_active: '1',
+        is_default: '0',
     });
 
     function submit(e: React.FormEvent) {
@@ -42,6 +44,7 @@ export default function WarehousesCreate({ branches, warehouseTypes }: Props) {
             ...formData,
             allows_sales: formData.allows_sales === '1',
             is_active: formData.is_active === '1',
+            is_default: formData.is_default === '1',
         }));
 
         post('/admin/warehouses');
@@ -126,6 +129,17 @@ export default function WarehousesCreate({ branches, warehouseTypes }: Props) {
                                         <SelectContent>
                                             <SelectItem value="1">Active</SelectItem>
                                             <SelectItem value="0">Inactive</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Default for sales</Label>
+                                    <Select value={data.is_default} onValueChange={(value) => setData('is_default', value)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="1">Yes — use for portal orders</SelectItem>
+                                            <SelectItem value="0">No</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

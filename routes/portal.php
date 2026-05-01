@@ -5,6 +5,7 @@ use App\Http\Controllers\Portal\AuctionController;
 use App\Http\Controllers\Portal\AuctionHouseController;
 use App\Http\Controllers\Portal\CartController;
 use App\Http\Controllers\Portal\CatalogController;
+use App\Http\Controllers\Portal\CheckoutController;
 use App\Http\Controllers\Portal\CollectorVerificationController;
 use App\Http\Controllers\Portal\MyCollectionController;
 use App\Http\Controllers\Portal\OrderController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Portal\PortalProfileController;
 use App\Http\Controllers\Portal\ProductNegotiationController;
 use App\Http\Controllers\Portal\ProposalPreviewController;
 use App\Http\Controllers\Portal\SearchController;
+use App\Http\Controllers\Portal\ServiceRequestController;
 use App\Http\Controllers\Portal\WishlistController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,6 +45,9 @@ Route::name('portal.')->group(function () {
         Route::delete('cart/{cartItem}', [CartController::class, 'destroy'])->name('cart.destroy');
         Route::post('cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
 
+        Route::get('checkout', [CheckoutController::class, 'index'])->name('checkout');
+        Route::post('checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+
         Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
         Route::get('orders/{sale}', [OrderController::class, 'show'])->name('orders.show');
 
@@ -53,5 +58,12 @@ Route::name('portal.')->group(function () {
         Route::post('products/{product}/negotiations', [ProductNegotiationController::class, 'store'])->name('product-negotiations.store');
         Route::get('negotiations/{productNegotiation}', [ProductNegotiationController::class, 'show'])->name('negotiations.show');
         Route::post('negotiations/{productNegotiation}/messages', [ProductNegotiationController::class, 'storeMessage'])->name('negotiations.messages.store');
+
+        // Service Requests
+        Route::get('service-requests', [ServiceRequestController::class, 'index'])->name('service-requests.index');
+        Route::post('service-requests', [ServiceRequestController::class, 'store'])->name('service-requests.store');
+        Route::post('service-requests/{serviceRequest}/messages', [ServiceRequestController::class, 'storeMessage'])->name('service-requests.messages.store');
+        Route::post('service-requests/{serviceRequest}/pay', [ServiceRequestController::class, 'pay'])->name('service-requests.pay');
+        Route::post('service-requests/{serviceRequest}/cancel', [ServiceRequestController::class, 'cancel'])->name('service-requests.cancel');
     });
 });

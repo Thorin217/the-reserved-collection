@@ -35,7 +35,7 @@ class StoreSaleRequest extends FormRequest
             'balance_due' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_variant_id' => ['required', 'integer', 'exists:product_variants,id'],
+            'items.*.product_variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'items.*.product_serial_id' => ['nullable', 'integer', 'exists:product_serials,id'],
             'items.*.description' => ['required', 'string', 'max:255'],
             'items.*.quantity' => ['required', 'numeric', 'gt:0'],

@@ -28,7 +28,7 @@ export function NavMain({ items = [], label }: { items: NavItem[]; label?: strin
                             tooltip={{ children: item.title }}
                             className="data-[active=true]:text-sidebar-primary data-[active=true]:bg-sidebar-primary/15 data-[active=true]:rounded-md"
                         >
-                            <Link href={item.href} prefetch>
+                            <Link href={item.href}>
                                 {item.icon && <item.icon />}
                                 <span>{item.title}</span>
                             </Link>

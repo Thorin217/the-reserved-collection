@@ -17,6 +17,7 @@ type Warehouse = {
     type: string;
     allows_sales: boolean;
     is_active: boolean;
+    is_default: boolean;
     branch?: { id: number; name: string };
     inventory_stocks_count?: number;
 };
@@ -72,6 +73,7 @@ export default function WarehousesIndex({ warehouses }: Props) {
                                     <TableHead>Name</TableHead>
                                     <TableHead>Branch</TableHead>
                                     <TableHead>Type</TableHead>
+                                    <TableHead className="text-center">Default</TableHead>
                                     <TableHead className="text-center">Sales</TableHead>
                                     <TableHead className="text-center">Status</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
@@ -83,6 +85,13 @@ export default function WarehousesIndex({ warehouses }: Props) {
                                         <TableCell className="font-medium">{warehouse.name}</TableCell>
                                         <TableCell>{warehouse.branch?.name ?? '—'}</TableCell>
                                         <TableCell className="capitalize">{warehouse.type.replace('_', ' ')}</TableCell>
+                                        <TableCell className="text-center">
+                                            {warehouse.is_default ? (
+                                                <Badge variant="default">Default</Badge>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground">—</span>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="text-center">
                                             <Badge variant={warehouse.allows_sales ? 'default' : 'secondary'}>
                                                 {warehouse.allows_sales ? 'Allowed' : 'Blocked'}
@@ -124,7 +133,7 @@ export default function WarehousesIndex({ warehouses }: Props) {
                                 ))}
                                 {warehouses.data.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                                        <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                                             No warehouses registered.
                                         </TableCell>
                                     </TableRow>

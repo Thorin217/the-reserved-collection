@@ -23,6 +23,7 @@ import type { Client, Product, Warehouse } from '@/types';
 
 type SaleFormItem = {
     id?: number;
+    item_type: 'product' | 'service';
     product_variant_id: string;
     description: string;
     quantity: string;
@@ -156,6 +157,7 @@ export default function SaleForm({
 
             return {
                 id: item.id,
+                item_type: (item.product_variant_id ? 'product' : 'service') as 'product' | 'service',
                 product_variant_id: item.product_variant_id
                     ? String(item.product_variant_id)
                     : '',
@@ -198,6 +200,7 @@ export default function SaleForm({
         form.setData('items', [
             ...form.data.items,
             {
+                item_type: 'product',
                 product_variant_id: '',
                 description: '',
                 quantity: '1',
@@ -205,6 +208,23 @@ export default function SaleForm({
                 _variant_label: '',
             },
         ]);
+    }
+
+    function toggleItemType(index: number, newType: 'product' | 'service') {
+        form.setData(
+            'items',
+            form.data.items.map((item, itemIndex) => {
+                if (itemIndex !== index) {
+                    return item;
+                }
+
+                if (newType === 'service') {
+                    return { ...item, item_type: 'service', product_variant_id: '', _variant_label: '' };
+                }
+
+                return { ...item, item_type: 'product' };
+            }),
+        );
     }
 
     function updateItem<K extends keyof SaleFormItem>(
@@ -446,9 +466,25 @@ export default function SaleForm({
                             {form.data.items.map((item, index) => (
                                 <div key={index} className="space-y-3 rounded-lg border p-4">
                                     <div className="flex items-center justify-between">
-                                        <p className="text-sm font-medium">
-                                            {item._variant_label || `Line ${index + 1}`}
-                                        </p>
+                                        <div className="flex items-center gap-3">
+                                            <Select
+                                                value={item.item_type}
+                                                onValueChange={(v) => toggleItemType(index, v as 'product' | 'service')}
+                                            >
+                                                <SelectTrigger className="h-7 w-28 text-xs">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="product">Product</SelectItem>
+                                                    <SelectItem value="service">Service</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-sm font-medium">
+                                                {item.item_type === 'service'
+                                                    ? (item.description || `Service — Line ${index + 1}`)
+                                                    : (item._variant_label || `Line ${index + 1}`)}
+                                            </p>
+                                        </div>
                                         <Button
                                             type="button"
                                             variant="ghost"
@@ -461,18 +497,20 @@ export default function SaleForm({
                                     </div>
 
                                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                        <div className="space-y-2 md:col-span-2 xl:col-span-4">
-                                            <Label>Variant *</Label>
-                                            <SearchableSelect
-                                                value={item.product_variant_id}
-                                                onValueChange={(value) => setVariant(index, value)}
-                                                options={variantSearchOptions}
-                                                placeholder="Select product variant"
-                                                searchPlaceholder="Search by product, SKU, brand or attributes..."
-                                                emptyMessage="No variants found."
-                                            />
-                                            <InputError message={getItemError(index, 'product_variant_id')} />
-                                        </div>
+                                        {item.item_type === 'product' && (
+                                            <div className="space-y-2 md:col-span-2 xl:col-span-4">
+                                                <Label>Variant *</Label>
+                                                <SearchableSelect
+                                                    value={item.product_variant_id}
+                                                    onValueChange={(value) => setVariant(index, value)}
+                                                    options={variantSearchOptions}
+                                                    placeholder="Select product variant"
+                                                    searchPlaceholder="Search by product, SKU, brand or attributes..."
+                                                    emptyMessage="No variants found."
+                                                />
+                                                <InputError message={getItemError(index, 'product_variant_id')} />
+                                            </div>
+                                        )}
 
                                         <div className="space-y-2 md:col-span-2 xl:col-span-4">
                                             <Label>Description *</Label>

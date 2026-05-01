@@ -23,6 +23,7 @@ class SaleItemResource extends JsonResource
             'line_total' => $this->line_total,
             'product_variant' => ProductVariantResource::make($this->whenLoaded('productVariant')),
             'product_serial' => ProductSerialResource::make($this->whenLoaded('productSerial')),
+            'sale' => SaleResource::make($this->whenLoaded('sale')),
         ];
     }
 }

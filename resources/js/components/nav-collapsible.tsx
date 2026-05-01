@@ -57,7 +57,7 @@ export function NavCollapsible({ label, title, icon: Icon, items }: NavCollapsib
                                 {items.map((item) => (
                                     <SidebarMenuSubItem key={item.title}>
                                         <SidebarMenuSubButton asChild isActive={isCurrentUrl(item.href)}>
-                                            <Link href={item.href} prefetch>
+                                            <Link href={item.href}>
                                                 {item.icon && <item.icon />}
                                                 <span>{item.title}</span>
                                             </Link>

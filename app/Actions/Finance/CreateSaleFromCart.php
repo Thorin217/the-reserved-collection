@@ -8,6 +8,7 @@ use App\Models\CartItem;
 use App\Models\Client;
 use App\Models\Sale;
 use App\Models\User;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -41,12 +42,17 @@ class CreateSaleFromCart
                 return $price * $item->quantity;
             });
 
+            $defaultWarehouse = Warehouse::query()
+                ->orderByDesc('is_default')
+                ->where('allows_sales', true)
+                ->first();
+
             $sale = Sale::query()->create([
                 'client_id' => $client->id,
                 'lead_id' => null,
                 'quote_id' => null,
                 'negotiation_id' => null,
-                'warehouse_id' => null,
+                'warehouse_id' => $defaultWarehouse?->id,
                 'user_id' => $user->id,
                 'sale_number' => $this->temporarySaleNumber(),
                 'status' => SaleStatus::Draft,

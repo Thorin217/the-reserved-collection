@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\ProductSerialController;
 use App\Http\Controllers\Admin\PurchaseController;
 use App\Http\Controllers\Admin\QuoteController;
 use App\Http\Controllers\Admin\SaleController;
+use App\Http\Controllers\Admin\ServiceRequestController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\VendorController;
 use App\Http\Controllers\Admin\WarehouseController;
@@ -233,6 +234,16 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
         Route::get('{productNegotiation}', [ProductNegotiationController::class, 'show'])->name('show');
         Route::put('{productNegotiation}', [ProductNegotiationController::class, 'update'])->name('update');
         Route::post('{productNegotiation}/messages', [ProductNegotiationController::class, 'storeMessage'])->name('messages.store');
+    });
+
+    // Service Requests
+    Route::prefix('service-requests')->name('service-requests.')->group(function () {
+        Route::get('/', [ServiceRequestController::class, 'index'])->name('index');
+        Route::get('{serviceRequest}', [ServiceRequestController::class, 'show'])->name('show');
+        Route::put('{serviceRequest}', [ServiceRequestController::class, 'update'])->name('update');
+        Route::post('{serviceRequest}/messages', [ServiceRequestController::class, 'storeMessage'])->name('messages.store');
+        Route::post('{serviceRequest}/send-invoice', [ServiceRequestController::class, 'sendInvoice'])->name('send-invoice');
+        Route::post('{serviceRequest}/mark-paid', [ServiceRequestController::class, 'markPaid'])->name('mark-paid');
     });
 
     Route::prefix('leads')->name('leads.')->group(function () {
