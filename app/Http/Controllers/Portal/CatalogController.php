@@ -89,7 +89,13 @@ class CatalogController extends Controller
     {
         abort_if($product->status !== ProductStatus::Active, 404);
 
-        $product->load(['brand', 'category', 'attributeValues.attribute', 'variants' => fn ($q) => $q->where('is_active', true)->orderBy('price')]);
+        $product->load([
+            'brand',
+            'category',
+            'attributeValues.attribute',
+            'variants' => fn ($q) => $q->where('is_active', true)->orderBy('price'),
+            'priceHistories' => fn ($q) => $q->orderBy('recorded_at')->limit(12),
+        ]);
 
         $user = request()->user();
         $userId = $user?->id;

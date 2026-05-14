@@ -63,6 +63,10 @@ class PortalProductResource extends JsonResource
                 ->sortBy('sort_order')
                 ->values(),
             ),
+            'price_history' => $this->whenLoaded('priceHistories', fn () => $this->priceHistories->map(fn ($history) => [
+                'price' => $history->price,
+                'recorded_at' => $history->recorded_at?->toDateString(),
+            ])),
             'in_wishlist' => $this->whenAppended('in_wishlist'),
         ];
     }

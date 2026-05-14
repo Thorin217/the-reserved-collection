@@ -61,6 +61,11 @@ class Product extends Model implements HasMedia
         return $this->hasMany(ProductAttributeValue::class);
     }
 
+    public function priceHistories(): HasMany
+    {
+        return $this->hasMany(ProductPriceHistory::class);
+    }
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('product');

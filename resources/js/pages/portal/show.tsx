@@ -1,5 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { AlertCircle, ArrowLeft, BadgeCheck, CheckCircle2, Clock, HandshakeIcon, Heart, Package, Share2, Shield, ShieldCheck, X, ZoomIn } from 'lucide-react';
+import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import * as CartController from '@/actions/App/Http/Controllers/Portal/CartController';
@@ -35,6 +36,7 @@ type PortalProduct = {
     image_url: string;
     variants?: Variant[];
     attribute_values?: Array<{ label: string; value: string | null; sort_order: number }>;
+    price_history?: Array<{ price: string; recorded_at: string }>;
 };
 
 type ActiveNegotiation = {
@@ -55,6 +57,11 @@ type Props = {
 function formatPrice(price: string | null): string {
     if (!price) return 'Price on request';
     return formatCurrency(price);
+}
+
+function formatHistoryLabel(dateString: string): string {
+    const date = new Date(`${dateString}T00:00:00`);
+    return new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit' }).format(date);
 }
 
 
@@ -378,6 +385,13 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
         { label: 'Authentication', value: product.has_serial_numbers ? 'Serial number verified' : 'Authenticated' },
     ].filter((s) => s.value);
 
+    const priceHistory = product.price_history ?? [];
+    const chartPoints = priceHistory.map((point) => ({
+        label: formatHistoryLabel(point.recorded_at),
+        price: Number(point.price),
+    }));
+    const recentHistory = [...priceHistory].slice(-6).reverse();
+
     return (
         <>
             <Head title={`${product.name} — The Reserved Collection`} />
@@ -593,15 +607,57 @@ export default function ProductShow({ product, inWishlist: initialWishlist, rela
                         </div>
                     </div>
 
-                    {/* Market Analytics placeholder */}
+                    {/* Market Analytics */}
                     <div className="mt-12 border border-border bg-card p-6">
                         <p className="mb-2 font-body text-[10px] font-light tracking-[0.25em] text-gold uppercase">
                             Market Analytics
                         </p>
                         <h2 className="mb-4 font-display text-2xl font-light text-foreground">Price History</h2>
-                        <div className="flex h-32 items-center justify-center border border-dashed border-border text-muted-foreground/40">
-                            <p className="font-body text-[10px] tracking-wider uppercase">Price chart — coming soon</p>
-                        </div>
+                        {priceHistory.length ? (
+                            <div className="space-y-4">
+                                <div className="h-36 border border-border bg-background/40 px-3 py-3">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={chartPoints}>
+                                            <defs>
+                                                <linearGradient id="priceHistoryGrad" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.28} />
+                                                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <Area
+                                                type="monotone"
+                                                dataKey="price"
+                                                stroke="#22c55e"
+                                                strokeWidth={2}
+                                                fill="url(#priceHistoryGrad)"
+                                                dot={false}
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <details className="border border-border bg-background/40 px-3 py-2">
+                                    <summary className="cursor-pointer font-body text-[9px] tracking-[0.2em] text-muted-foreground uppercase">
+                                        Recent snapshots
+                                    </summary>
+                                    <div className="mt-3 space-y-2">
+                                        {recentHistory.map((point) => (
+                                            <div key={point.recorded_at} className="flex items-center justify-between border-b border-border/40 pb-1">
+                                                <span className="font-body text-[10px] text-muted-foreground">
+                                                    {formatHistoryLabel(point.recorded_at)}
+                                                </span>
+                                                <span className="font-body text-[10px] font-medium text-foreground">
+                                                    {formatPrice(point.price)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </details>
+                            </div>
+                        ) : (
+                            <div className="flex h-32 items-center justify-center border border-dashed border-border text-muted-foreground/40">
+                                <p className="font-body text-[10px] tracking-wider uppercase">No price history available</p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Related Products */}

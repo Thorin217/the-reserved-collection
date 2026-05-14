@@ -38,6 +38,7 @@ class DatabaseSeeder extends Seeder
         DB::table('product_serials')->truncate();
         DB::table('product_attribute_values')->truncate();
         DB::table('product_variants')->truncate();
+        DB::table('product_price_histories')->truncate();
         DB::table('products')->truncate();
         DB::table('attribute_options')->truncate();
         DB::table('attributes')->truncate();
@@ -81,6 +82,7 @@ class DatabaseSeeder extends Seeder
             PhaseOneInventorySeeder::class,
             PhaseOneInventoryWorkflowSeeder::class,
             PortalSeeder::class,
+            ProductPriceHistorySeeder::class,
             AuctionSeeder::class,
             CrmSeeder::class,
         ]);
