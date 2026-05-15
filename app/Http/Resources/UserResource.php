@@ -24,6 +24,7 @@ class UserResource extends JsonResource
                 'name' => $this->client->name,
             ] : null),
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->pluck('name')),
+            'tokens_count' => $this->whenCounted('tokens'),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
