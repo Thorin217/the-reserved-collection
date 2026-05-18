@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
@@ -27,6 +28,13 @@ class UserController extends Controller
             'users' => UserResource::collection($users),
             'filters' => $request->only(['search', 'type']),
         ]);
+    }
+
+    public function store(StoreUserRequest $request): RedirectResponse
+    {
+        User::query()->create($request->validated());
+
+        return redirect()->route('admin.users.index')->with('success', 'Usuario creado exitosamente.');
     }
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse

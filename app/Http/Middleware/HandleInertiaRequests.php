@@ -51,6 +51,9 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
                 'import_run_id' => $request->session()->get('import_run_id'),
+                'plain_text_token' => $request->session()->get('plain_text_token'),
+                'created_token_name' => $request->session()->get('created_token_name'),
+                'created_token_user' => $request->session()->get('created_token_user'),
             ],
             'portalCategories' => Cache::remember('portal_categories', 300, fn () => Category::where('is_active', true)
                 ->whereIn('slug', ['timepieces', 'jewelry', 'the-vault'])

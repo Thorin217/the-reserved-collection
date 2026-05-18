@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Edit, ExternalLink, Search, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { Edit, ExternalLink, Plus, Search, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import * as UserController from '@/actions/App/Http/Controllers/Admin/UserController';
 import * as ClientController from '@/actions/App/Http/Controllers/Admin/ClientController';
@@ -36,6 +36,97 @@ type UserFormData = {
     name: string;
     email: string;
 };
+
+type CreateUserFormData = {
+    name: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+};
+
+function CreateUserDialog() {
+    const [open, setOpen] = useState(false);
+    const { data, setData, post, processing, errors, reset } = useForm<CreateUserFormData>({
+        name: '',
+        email: '',
+        password: '',
+        password_confirmation: '',
+    });
+
+    function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        post(UserController.store.url(), {
+            onSuccess: () => {
+                setOpen(false);
+                reset();
+            },
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <Plus className="h-4 w-4" />
+                    Create user
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Create user</DialogTitle>
+                    <DialogDescription>Create a new platform user with login access.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-1">
+                        <Label htmlFor="create-name">Name *</Label>
+                        <Input id="create-name" value={data.name} onChange={(e) => setData('name', e.target.value)} required />
+                        {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor="create-email">Email *</Label>
+                        <Input
+                            id="create-email"
+                            type="email"
+                            value={data.email}
+                            onChange={(e) => setData('email', e.target.value)}
+                            required
+                        />
+                        {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor="create-password">Password *</Label>
+                        <Input
+                            id="create-password"
+                            type="password"
+                            value={data.password}
+                            onChange={(e) => setData('password', e.target.value)}
+                            required
+                        />
+                        {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor="create-password-confirmation">Confirm password *</Label>
+                        <Input
+                            id="create-password-confirmation"
+                            type="password"
+                            value={data.password_confirmation}
+                            onChange={(e) => setData('password_confirmation', e.target.value)}
+                            required
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={processing}>
+                            Create user
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 function EditUserDialog({ user }: { user: User }) {
     const [open, setOpen] = useState(false);
@@ -113,6 +204,7 @@ export default function UsersIndex({ users, filters }: Props) {
                         <h1 className="text-2xl font-bold">Users</h1>
                         <p className="text-sm text-muted-foreground">{users.meta.total} users registered</p>
                     </div>
+                    <CreateUserDialog />
                 </div>
 
                 <div className="flex flex-wrap gap-3">
@@ -209,7 +301,7 @@ export default function UsersIndex({ users, filters }: Props) {
                                 ))}
                                 {users.data.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                                        <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                                             No users found.
                                         </TableCell>
                                     </TableRow>

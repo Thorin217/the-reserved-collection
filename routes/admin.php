@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AccessController;
 use App\Http\Controllers\Admin\AccountPayableController;
 use App\Http\Controllers\Admin\AccountReceivableController;
 use App\Http\Controllers\Admin\AttributeController;
@@ -228,7 +229,14 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
     // Admin Users
     Route::prefix('users')->name('users.')->group(function () {
         Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::post('/', [UserController::class, 'store'])->name('store');
         Route::put('{user}', [UserController::class, 'update'])->name('update');
+    });
+
+    Route::prefix('access')->name('access.')->group(function () {
+        Route::get('/', [AccessController::class, 'index'])->name('index');
+        Route::post('/', [AccessController::class, 'store'])->name('store');
+        Route::delete('{token}', [AccessController::class, 'destroy'])->name('destroy');
     });
 
     // Collector Verifications

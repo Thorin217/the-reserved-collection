@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Client;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -7,6 +8,9 @@ use Inertia\Testing\AssertableInertia as Assert;
 beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
     $this->actingAs($this->admin);
+    $this->withoutMiddleware([
+        HandleInertiaRequests::class,
+    ]);
 });
 
 it('lists users on the admin users index', function () {
@@ -81,6 +85,24 @@ it('searches users by name', function () {
             ->where('users.meta.total', 1)
             ->where('users.data.0.name', 'Alice Smith')
         );
+});
+
+it('creates a user from the admin users page', function () {
+    $response = $this->post('/admin/users', [
+        'name' => 'API Consumer',
+        'email' => 'api-consumer@example.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+    ]);
+
+    $response
+        ->assertRedirect('/admin/users')
+        ->assertSessionHas('success', 'Usuario creado exitosamente.');
+
+    $user = User::query()->where('email', 'api-consumer@example.com')->first();
+
+    expect($user)->not->toBeNull()
+        ->and($user->name)->toBe('API Consumer');
 });
 
 it('requires authentication to access admin users', function () {
