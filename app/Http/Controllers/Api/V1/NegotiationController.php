@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreNegotiationOfferRequest;
 use App\Http\Requests\Admin\StoreNegotiationRequest;
+use App\Http\Requests\Api\V1\UpdateNegotiationOfferRequest;
 use App\Http\Requests\Api\V1\UpdateNegotiationRequest;
 use App\Http\Resources\NegotiationOfferResource;
 use App\Http\Resources\NegotiationResource;
@@ -145,6 +146,17 @@ class NegotiationController extends Controller
             'Negotiation offer created successfully.',
             NegotiationOfferResource::make($offer)->resolve(),
             201
+        );
+    }
+
+    public function updateOffer(UpdateNegotiationOfferRequest $request, Lead $lead, Negotiation $negotiation, NegotiationOffer $offer): JsonResponse
+    {
+        $offer->update($request->validated());
+        $offer->load('user');
+
+        return ApiResponse::success(
+            'Negotiation offer updated successfully.',
+            NegotiationOfferResource::make($offer)->resolve()
         );
     }
 

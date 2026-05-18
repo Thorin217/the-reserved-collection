@@ -9,9 +9,31 @@ use App\Models\Lead;
 use App\Models\LeadInteraction;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class LeadInteractionController extends Controller
 {
+    public function index(Request $request, Lead $lead): JsonResponse
+    {
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $perPage = (int) ($validated['per_page'] ?? 15);
+
+        $interactions = $lead->interactions()
+            ->with('user')
+            ->latest('interacted_at')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return ApiResponse::success(
+            'Lead interactions retrieved successfully.',
+            LeadInteractionResource::collection($interactions)->response()->getData(true)
+        );
+    }
+
     public function store(StoreLeadInteractionRequest $request, Lead $lead): JsonResponse
     {
         $interaction = $lead->interactions()->create([

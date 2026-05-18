@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreLeadProposalRequest;
 use App\Http\Requests\Api\V1\LeadProposalSendRequest;
+use App\Http\Requests\Api\V1\UpdateLeadProposalRequest;
 use App\Http\Resources\LeadProposalResource;
 use App\Mail\ProposalMailable;
 use App\Models\Lead;
@@ -150,6 +151,20 @@ class LeadProposalController extends Controller
             $validated['sent_via'] === 'email'
                 ? 'Proposal sent by email.'
                 : 'Proposal marked as sent via WhatsApp.',
+            LeadProposalResource::make($proposal)->resolve()
+        );
+    }
+
+    public function update(UpdateLeadProposalRequest $request, Lead $lead, LeadProposal $proposal): JsonResponse
+    {
+        $data = $request->validated();
+
+        $proposal->update($data);
+        $proposal->load(['user', 'items.product.brand', 'items.variant', 'items.serial']);
+        $proposal->loadCount('items');
+
+        return ApiResponse::success(
+            'Lead proposal updated successfully.',
             LeadProposalResource::make($proposal)->resolve()
         );
     }
